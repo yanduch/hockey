@@ -1285,7 +1285,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <input type="password" id="pwdSuperInput" autocomplete="off" style="width:100%;padding:.5rem;border:1px solid var(--line);border-radius:6px;background:#FFF;">
     </div>
 
-    <div class="preset-box" style="margin-top:1rem;">
+    <div class="preset-box org-admin-only" style="margin-top:1rem;">
       <div class="super-only" style="margin-bottom:.7rem;">
         <label for="pwdOrgSelect" style="font-weight:700;">Organisation :</label>
         <select id="pwdOrgSelect" style="background:#FFF;color:#0F2236;"></select>
@@ -1299,11 +1299,6 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <small class="super-only" style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;">Administrateurs et marqueurs se connectent avec leur identifiant et leur mot de passe, de n'importe quelle page : ils arrivent directement sur la leur.</small>
       </div>
 
-      <label for="pwdMarkerSelect" style="margin-top:.9rem;font-weight:700;">Marqueurs de la catégorie :</label>
-      <select id="pwdMarkerSelect" style="background:#FFF;color:#0F2236;margin-bottom:.4rem;"></select>
-      <div class="acc-head"><span>Identifiant</span><span>Mot de passe</span></div>
-      <div id="pwdMarkerList"></div>
-      <button type="button" class="msg-add" id="pwdMarkerAdd">➕ Ajouter un marqueur</button>
     </div>
 
     <div class="preset-box" id="pwdTeamBox" style="margin-top:1rem;">
@@ -1324,6 +1319,11 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <label class="check-row"><input type="checkbox" id="gpHistory"><span>Modifier les matchs passés</span></label>
         <label class="check-row"><input type="checkbox" id="gpMessages"><span>Ajouter des messages de l'équipe</span></label>
       </div>
+      <label for="pwdMarkerSelect" style="margin-top:1rem;font-weight:700;">Marqueurs de l'équipe :</label>
+      <select id="pwdMarkerSelect" style="background:#FFF;color:#0F2236;margin-bottom:.4rem;"></select>
+      <div class="acc-head"><span>Identifiant</span><span>Mot de passe</span></div>
+      <div id="pwdMarkerList"></div>
+      <button type="button" class="msg-add" id="pwdMarkerAdd">➕ Ajouter un marqueur</button>
     </div>
     <p class="ctx" style="margin:.6rem 0 0;font-size:.8rem;">Vous pouvez modifier plusieurs mots de passe avant d'enregistrer : tout est sauvegardé d'un coup.</p>
 
@@ -3311,7 +3311,13 @@ document.addEventListener("DOMContentLoaded", function(){
     const o = pwdOrgs[pwdOrg]; if(!o || !pwdTeam) return;
     o.gp[pwdTeam] = { history: $("gpHistory").checked, messages: $("gpMessages").checked };
   }));
-  on("pwdTeamSelect", "change", () => { pwdStash(); pwdTeam = $("pwdTeamSelect").value; pwdRenderTeam(); });
+  // Les marqueurs suivent l'équipe choisie (sa place à elle, ou celle de sa catégorie)
+  function pwdSyncSlot(){
+    const o = pwdOrgs[pwdOrg]; if(!o || !pwdTeam) return;
+    const t = o.teamList.filter(x => x.value === pwdTeam)[0], cat = t ? (o.slots.filter(s => s.team === pwdTeam)[0] || o.slots.filter(s => !s.team && t.label.toLowerCase().indexOf(s.cat + " ") === 0)[0]) : null;
+    if(cat && cat.id !== pwdSlot){ pwdSlot = cat.id; $("pwdMarkerSelect").value = pwdSlot; pwdRenderMarkers(); }
+  }
+  on("pwdTeamSelect", "change", () => { pwdStash(); pwdTeam = $("pwdTeamSelect").value; pwdRenderTeam(); pwdSyncSlot(); });
   on("pwdTAdmAdd", "click", () => {
     const o = pwdOrgs[pwdOrg]; if(!isAdmin() || isTeamAdmin() || !o || !pwdTeam) return;
     pwdStash(); o.tad[pwdTeam].push({ id: "new_" + uid(), user: "", pwd: "" }); pwdRenderTeam();
@@ -3334,7 +3340,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const items = o ? o.slots.filter(s => !isTeamAdmin() || s.team === assignedTeam || (!s.team && s.cat === assignedCat)).map(s => ({ value: s.id, label: s.label })) : [];
     pwdSlot = items.length ? items[0].value : "";
     fillSelect($("pwdMarkerSelect"), items, pwdSlot, items.length ? null : (o ? "Aucune catégorie" : "Chargement..."));
-    pwdRenderMarkers();
+    pwdRenderMarkers(); pwdSyncSlot();
   }
   function pwdLoadOrg(orgKey){
     pwdOrg = orgKey; pwdSlot = "";
