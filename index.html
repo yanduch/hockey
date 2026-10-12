@@ -523,6 +523,10 @@ body:not(.role-viewer) .g-who{display:none}
 html.no-game #pad button[data-act], html.no-game #playMode [data-pm]{opacity:.4;filter:grayscale(.6)}
 /* Aucune partie lancée ou en attente : le tableau de pointage, les périodes, les boutons et les lancers par période sont retirés */
 html.no-game .board, html.no-game .periods, html.no-game #pad, html.no-game .game-only{display:none !important}
+.paste-box{margin:.2rem 0 .7rem;border:1px dashed var(--line);border-radius:8px;padding:.45rem .6rem}
+.paste-box summary{cursor:pointer;font-weight:700;font-size:.85rem}
+.paste-box textarea{width:100%;margin-top:.45rem;padding:.45rem;border:1px solid var(--line);border-radius:6px;background:#FFF;color:#0F2236;font:inherit;font-size:.85rem}
+.paste-box small{display:block;margin-top:.35rem;font-size:.72rem;color:var(--muted)}
 .stand-sub{margin:0 0 .4rem;font-size:.78rem;color:var(--muted)}
 .stand-wrap{overflow-x:auto}
 .stand{width:100%;border-collapse:collapse;font-size:.85rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -1384,6 +1388,12 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <input type="url" id="teamLogoInput" placeholder="https://..." style="width:100%;padding:.4rem;border:1px solid var(--line);border-radius:6px;background:#FFF;">
       <img id="logoPreview" class="logo-preview-img" src="" alt="Aperçu logo" style="display:none;">
     </div>
+    <details class="paste-box">
+      <summary>📋 Coller une liste de joueurs</summary>
+      <textarea id="pasteRoster" rows="7" placeholder="Une ligne par personne, par exemple :&#10;GARDIENS&#10;A. Gaudreault 1&#10;JOUEURS&#10;C. Messier 2&#10;PERSONNEL&#10;Éric Turcotte Entraîneur-chef"></textarea>
+      <button type="button" class="act-1" id="pasteRosterBtn" style="width:100%;min-height:2.2rem;margin-top:.4rem;font-size:.85rem;">Ajouter à l'équipe</button>
+      <small>Le numéro peut être avant ou après le nom. Les personnes sous « GARDIENS » deviennent des gardiens (G). Sous « PERSONNEL », le rôle est reconnu (chef, adjoint, gérant).</small>
+    </details>
     <label style="display:block;font-size:.8rem;margin-bottom:.2rem;font-weight:600;">Joueurs :</label>
     <div class="roster-grid" id="rosterForm"></div>
     <button type="button" class="act-2" id="addPlayerBtn" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">+ Ajouter un joueur</button>
@@ -2904,6 +2914,36 @@ document.addEventListener("DOMContentLoaded", function(){
     $("staffForm").appendChild(row);
   }
   on("addPlayerBtn", "click", () => addRosterRow("","","A"));
+  // Coller une liste (ex. copiée de Spordle) : « C. MESSIER 2 », « 2 C. Messier », sections GARDIENS / JOUEURS / PERSONNEL
+  on("pasteRosterBtn", "click", () => {
+    const lines = $("pasteRoster").value.split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+    let mode = "J", nP = 0, nS = 0;
+    const rows = () => Array.prototype.slice.call($("rosterForm").querySelectorAll(".roster-row"));
+    rows().forEach(r => { if(!r.querySelector(".r-no").value.trim() && !r.querySelector(".r-name").value.trim()) r.remove(); });
+    lines.forEach(l => {
+      if(/^gardien/i.test(l)){ mode = "G"; return; }
+      if(/^(joueur|attaquant|d[ée]fenseur)/i.test(l)){ mode = "J"; return; }
+      if(/^(personnel|staff|entra[îi]neur?s?$)/i.test(l)){ mode = "S"; return; }
+      if(mode === "S"){
+        const m = /^(.*?)\s*(entra[îi]neur[- ]?(chef|adjoint)|chef|adjoint|g[ée]rant[e]?)\s*$/i.exec(l);
+        const name = niceName(m ? m[1] : l), r = m ? m[2].toLowerCase() : "";
+        if(!name) return;
+        addStaffRow(name, /g[ée]rant/.test(r) ? "Gérant" : (/adjoint/.test(r) ? "Adjoint" : "Entraîneur-chef")); nS++;
+        return;
+      }
+      let m = /^(.*?[^\d\s])\s*#?(\d{1,2})$/.exec(l), num = "", name = "";
+      if(m){ name = m[1]; num = m[2]; } else if((m = /^#?(\d{1,2})\s+(.+)$/.exec(l))){ num = m[1]; name = m[2]; } else name = l;
+      name = niceName(name.replace(/\s*\((G|A|D)\)\s*$/i, "")); if(!name) return;
+      const pos = mode === "G" || /\(G\)\s*$/i.test(l) ? "G" : "A";
+      const same = num && rows().filter(r => no(r.querySelector(".r-no").value) === no(num))[0];
+      if(same){ same.querySelector(".r-name").value = name; same.querySelector(".r-pos").value = pos; }
+      else addRosterRow(num, name, pos);
+      nP++;
+    });
+    if(!rows().length) addRosterRow("", "", "A");
+    $("pasteRoster").value = ""; $("pasteRoster").closest("details").open = false;
+    notify(nP + " joueur" + (nP > 1 ? "s" : "") + (nS ? " et " + nS + " membre" + (nS > 1 ? "s" : "") + " du personnel" : "") + " ajouté" + (nP + nS > 1 ? "s" : "") + ". Vérifiez, puis touchez « Enregistrer l'équipe ».", "info");
+  });
   on("addStaffBtn", "click", () => addStaffRow("","Entraîneur-chef"));
   on("rsCancel", "click", () => swapDlg("rosterSheet", "orgDetailSheet"));
   on("rsSave", "click", () => {
