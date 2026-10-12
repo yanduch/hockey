@@ -536,6 +536,12 @@ html.no-game .board, html.no-game .periods, html.no-game #pad, html.no-game .gam
 .share-actions button{flex:1}
 .share-actions button[hidden]{display:none}
 .share-actions button{min-height:2.6rem;font-size:.78rem;padding:.2rem}
+body.team-admin .org-admin-only{display:none !important}
+body:not(.team-admin) .team-admin-only{display:none !important}
+body:not(.role-gerant) .gerant-only{display:none !important}
+.gp-box{margin-top:.8rem;padding:.5rem .6rem;border:1px dashed var(--line);border-radius:8px;font-size:.85rem}
+.gp-box>span{font-weight:700}
+.gp-box .check-row{margin-top:.4rem}
 .stand-sub{margin:0 0 .4rem;font-size:.78rem;color:var(--muted)}
 .stand-wrap{overflow-x:auto}
 .stand{width:100%;border-collapse:collapse;font-size:.85rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -863,6 +869,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </section>
 
   <button type="button" class="btn-reset-board marqueur-only" id="btnTeamMessages">📢 Messages de l'équipe</button>
+  <button type="button" class="quiet gerant-only" id="btnGerant" style="margin-top:1rem;">🧑‍💼 Gestion de l'équipe</button>
   <button type="button" class="quiet" id="btnManageSettings" style="margin-top:1rem;">⚙️️ Gestion</button>
   <div class="export-box">
     <button type="button" class="export-btn" id="btnExportPDF">📄 Imprimer / PDF</button>
@@ -888,6 +895,17 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <label for="linkPlayer" style="display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .3rem;">Le même joueur dans cette équipe</label>
     <select id="linkPlayer" class="full-input"></select>
     <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="linkClose">Fermer</button><button type="button" class="act-1" id="linkSave">🔗 Lier</button></div>
+  </div>
+</dialog>
+
+<dialog id="gerantSheet">
+  <div class="sheet-in">
+    <h2>Gestion de l'équipe</h2>
+    <p class="ctx" id="gerantTeam"></p>
+    <button type="button" class="act-1" id="gmRoster" style="width:100%;min-height:2.8rem;font-weight:600;background:#8E44AD;color:#FFF;">👥 Fiche et alignement de l'équipe</button>
+    <button type="button" class="act-1" id="gmHistory" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#2E63C6;color:#FFF;">🗂️ Matchs passés</button>
+    <button type="button" class="act-1" id="gmMessages" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#1F7A4D;color:#FFF;">📢 Messages de l'équipe</button>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="gmClose">Fermer</button></div>
   </div>
 </dialog>
 
@@ -969,9 +987,9 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <button type="button" class="act-1" id="btnOpenMessagesManage" style="width:100%;min-height:2.8rem;margin-top:0;font-weight:600;background:#1F7A4D;color:#FFF;">📢 Gestion des messages</button>
     <button type="button" class="act-1" id="btnOpenHistoryManage" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#2E63C6;color:#FFF;">🗂️ Gestion de l'historique</button>
     <button type="button" class="act-1" id="btnOpenCalendar" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#B5651D;color:#FFF;">📅 Gestion calendrier</button>
-    <button type="button" class="act-1 admin-only" id="btnOpenOrgManage" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#8E44AD;color:#FFF;">🏢 Organisation, catégories et équipes</button>
+    <button type="button" class="act-1 admin-only" id="btnOpenOrgManage" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#8E44AD;color:#FFF;"><span class="org-admin-only">🏢 Organisation, catégories et équipes</span><span class="team-admin-only">👥 Fiche et alignement de l'équipe</span></button>
 
-    <div class="field-group admin-only" style="margin-top:1.2rem;">
+    <div class="field-group admin-only org-admin-only" style="margin-top:1.2rem;">
       <label>Temps de période par défaut (minutes) :</label>
       <select id="defaultPeriodMinInput" style="width:100%;padding:.5rem;border:1px solid var(--line);border-radius:6px;background:#FFF;color:#0F2236;">
         <option value="10">10 minutes</option>
@@ -984,7 +1002,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <input type="number" id="customPeriodMinInput" min="1" max="99" placeholder="Durée en minutes" style="display:none;width:100%;margin-top:.4rem;padding:.5rem;border:1px solid var(--line);border-radius:6px;background:#FFF;color:#0F2236;">
     </div>
 
-    <div class="field-group admin-only" style="margin-top:1.2rem;">
+    <div class="field-group admin-only org-admin-only" style="margin-top:1.2rem;">
       <label>Type de parties par défaut (<span id="defPhaseCat"></span>) :</label>
       <div class="ph-choice">
         <label><input type="radio" name="defPhase" value="pre"><span>Pré-saison</span></label>
@@ -997,7 +1015,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 
     <div class="actions" style="margin-top:1.2rem;">
       <button type="button" class="act-2" id="settingsCancel">Fermer</button>
-      <button type="button" class="act-1 admin-only" id="settingsSave">Enregistrer</button>
+      <button type="button" class="act-1 admin-only org-admin-only" id="settingsSave">Enregistrer</button>
     </div>
   </div>
 </dialog>
@@ -1273,17 +1291,39 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <select id="pwdOrgSelect" style="background:#FFF;color:#0F2236;"></select>
       </div>
 
+      <div class="org-admin-only">
       <label style="font-weight:700;">Administrateurs de <span id="pwdOrgName">l'organisation</span> :</label>
       <div class="acc-head"><span>Identifiant</span><span>Mot de passe</span></div>
       <div id="pwdAdminList"></div>
       <button type="button" class="msg-add super-only" id="pwdAdminAdd">➕ Ajouter un administrateur</button>
       <small class="super-only" style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;">Administrateurs et marqueurs se connectent avec leur identifiant et leur mot de passe, de n'importe quelle page : ils arrivent directement sur la leur.</small>
+      </div>
 
       <label for="pwdMarkerSelect" style="margin-top:.9rem;font-weight:700;">Marqueurs de la catégorie :</label>
       <select id="pwdMarkerSelect" style="background:#FFF;color:#0F2236;margin-bottom:.4rem;"></select>
       <div class="acc-head"><span>Identifiant</span><span>Mot de passe</span></div>
       <div id="pwdMarkerList"></div>
       <button type="button" class="msg-add" id="pwdMarkerAdd">➕ Ajouter un marqueur</button>
+    </div>
+
+    <div class="preset-box" id="pwdTeamBox" style="margin-top:1rem;">
+      <label for="pwdTeamSelect" style="font-weight:700;">Comptes d'équipe :</label>
+      <select id="pwdTeamSelect" style="background:#FFF;color:#0F2236;margin-bottom:.4rem;"></select>
+      <label style="margin-top:.4rem;font-weight:700;">Administrateurs de l'équipe :</label>
+      <small style="display:block;margin:-.1rem 0 .3rem;color:var(--muted);font-size:.75rem;">Les mêmes droits qu'un administrateur, seulement pour cette équipe.</small>
+      <div class="acc-head"><span>Identifiant</span><span>Mot de passe</span></div>
+      <div id="pwdTAdmList"></div>
+      <button type="button" class="msg-add org-admin-only" id="pwdTAdmAdd">➕ Ajouter un administrateur d'équipe</button>
+      <label style="margin-top:.9rem;font-weight:700;">Gérant(e)s de l'équipe :</label>
+      <div class="acc-head"><span>Identifiant</span><span>Mot de passe</span></div>
+      <div id="pwdGerList"></div>
+      <button type="button" class="msg-add" id="pwdGerAdd">➕ Ajouter un(e) gérant(e)</button>
+      <div class="gp-box">
+        <span>Permissions du ou de la gérant(e) :</span>
+        <label class="check-row"><input type="checkbox" checked disabled><span>Alignement de l'équipe (toujours)</span></label>
+        <label class="check-row"><input type="checkbox" id="gpHistory"><span>Modifier les matchs passés</span></label>
+        <label class="check-row"><input type="checkbox" id="gpMessages"><span>Ajouter des messages de l'équipe</span></label>
+      </div>
     </div>
     <p class="ctx" style="margin:.6rem 0 0;font-size:.8rem;">Vous pouvez modifier plusieurs mots de passe avant d'enregistrer : tout est sauvegardé d'un coup.</p>
 
@@ -1946,21 +1986,30 @@ document.addEventListener("DOMContentLoaded", function(){
   let wantedTeam = cleanKey(urlParams.get("team") || (urlParams.get("org") ? "" : store.get(sessionStorage, "ohmtro_team")));
   let boardTeam = "", boardBase = "", boardSubs = [], matchRef = null, presetsLoaded = false;
   let boardLink = null, linkStale = false, linkKnown = true, pendingSnap = null;   // confrontation entre deux équipes de l'organisation
-  if(["admin","marqueur","viewer"].indexOf(currentRole) === -1) currentRole = "viewer";
+  if(["admin","marqueur","viewer","gerant"].indexOf(currentRole) === -1) currentRole = "viewer";
+  if(currentRole === "gerant" && !assignedTeam) currentRole = "viewer";
   if(currentRole === "admin" && !isAdminGlobal && !assignedOrg) currentRole = "viewer";
 
   const isAdmin = () => currentRole === "admin";
   const isSuper = () => currentRole === "admin" && isAdminGlobal;
+  // Administrateur d'équipe : les droits d'un administrateur, limités à son équipe ; gérant(e) : la gestion permise par l'équipe
+  const isTeamAdmin = () => isAdmin() && !isAdminGlobal && !!assignedTeam;
+  const isGerant = () => currentRole === "gerant";
+  const isStaff = () => currentRole === "admin" || currentRole === "marqueur";     // peut marquer une partie
+  const isTeamScoped = () => isTeamAdmin() || isGerant();
+  let gPerms = { history: false, messages: false };                                  // permissions du ou de la gérant(e)
+  const normGP = v => ({ history: !!(v && v.history), messages: !!(v && v.messages) });
   // Droits accordés par le super administrateur à l'administrateur de l'organisation
   const normPerms = v => ({ orgName: !!(v && v.orgName), categories: !!(v && v.categories), teams: !(v && v.teams === false) });
   let adminPerms = normPerms(null);
-  const can = p => isSuper() || (isAdmin() && !!adminPerms[p]);
+  const can = p => isSuper() || (isAdmin() && !isTeamAdmin() && !!adminPerms[p]);
   // « Inverser » : échange les côtés à l'écran, sur l'appareil du marqueur seulement (jamais pour les spectateurs)
   let inverted = store.get(sessionStorage, "ohmtro_inv") === "1";
-  const invOn = () => inverted && currentRole !== "viewer" && !archiveKey;
+  const invOn = () => inverted && isStaff() && !archiveKey;
   const sides = () => invOn() ? ["a","b"] : ["b","a"];       // de gauche à droite : visiteur puis local, sauf inversion
-  const roleLabel = () => isSuper() ? "SA" : currentRole.toUpperCase();
-  const canEdit = () => currentRole !== "viewer" && !archiveKey;
+  const roleLabel = () => isSuper() ? "SA" : isTeamAdmin() ? "ADMIN ÉQ." : isGerant() ? "GÉRANT(E)" : currentRole.toUpperCase();
+  // Le ou la gérant(e) peut corriger une partie passée (si permis) : seulement pendant cette correction
+  const canEdit = () => (isStaff() || (isGerant() && gPerms.history && !!editEntry)) && !archiveKey;
   let editEntry = null;                // partie de l'historique en cours de modification : { key, m, at }
   const now = () => Date.now() + serverOffset;      // heure du serveur : même chrono sur tous les appareils
 
@@ -2150,11 +2199,12 @@ document.addEventListener("DOMContentLoaded", function(){
     $("btnSwapSides").setAttribute("aria-pressed", String(invOn()));
   }
   function updatePermUI(){
+    if($("gmHistory")){ $("gmHistory").hidden = !gPerms.history; $("gmMessages").hidden = !gPerms.messages; }
     $("btnOpenOrgManage").style.display = (can("orgName") || can("categories") || can("teams")) ? "" : "none";
   }
 
   function updateRoleUI(){
-    document.body.className = "role-" + currentRole + (isSuper() ? " is-super" : "");
+    document.body.className = (isGerant() ? (editEntry ? "role-marqueur role-gerant" : "role-viewer role-gerant") : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
     $("btnLogin").textContent = (currentRole !== "viewer") ? "🔓 Déconnexion (" + roleLabel() + ")" : "🔒 Connexion";
     updateStatusDisplay(); applyInv(); updatePermUI();
   }
@@ -2229,6 +2279,8 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     // Un administrateur d'organisation n'a ses droits que dans son organisation
     if(!isAdminGlobal && currentRole === "admin" && assignedOrg !== orgKey) demoteToViewer();
+    // Administrateur d'équipe, gérant(e) : seulement dans la catégorie de leur équipe
+    if(!isAdminGlobal && (isTeamAdmin() || isGerant()) && (assignedOrg !== orgKey || (assignedCat && assignedCat !== catKey))) demoteToViewer();
 
     currentOrg = orgKey; currentCat = catKey;
     store.set(sessionStorage, "ohmtro_org", currentOrg);
@@ -2256,8 +2308,11 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   // Marqueur d'une équipe : il ne peut marquer que sur le tableau de son équipe
+  const onMyTeam = () => currentOrg === assignedOrg && (boardTeam === assignedTeam || (!boardTeam && presets[assignedTeam] && presets[assignedTeam].category === currentCat));
   function checkMarqueurScope(){
     if(presetsLoaded && !isAdminGlobal && currentRole === "marqueur" && (assignedTeam || "") !== boardTeam) demoteToViewer();
+    // Administrateur d'équipe et gérant(e) : seulement sur la page de leur équipe
+    if(presetsLoaded && !isAdminGlobal && (isTeamAdmin() || isGerant()) && !onMyTeam()){ demoteToViewer(); try{ updateRoleUI(); }catch(e){} }
   }
 
   function attachBoard(teamKey, nav){
@@ -2387,10 +2442,12 @@ document.addEventListener("DOMContentLoaded", function(){
       if(isOpen("rosterBlock")) renderRosters();
       if($("linkSheet").open) renderLinkSheet();
     });
+    sub(ref(currentOrg + "/gerantPerms"), snap => { const v = obj(snap.val()); gPerms = normGP(assignedTeam ? v[assignedTeam] : null); updatePermUI(); });
     sub(dbPresets, snap => {
       const v = snap.val();
       presets = (v && typeof v === "object") ? v : {};
       presetsRev++; indexPresets(); try{ renderStandings(); }catch(e){}
+      try{ checkMarqueurScope(); }catch(e){}
       if(resolveBoard()) return;         // changement de tableau : l'affichage est refait par attachBoard
       syncStateWithPresets(); render();
     });
@@ -2552,14 +2609,25 @@ document.addEventListener("DOMContentLoaded", function(){
           const found = [];
           all.forEach(d => {
             if(!d) return;
-            d.admins.forEach(a => { if(p && a.user === u && a.pwd === p) found.push({ kind: "admin", org: d.org, id: a.id, cats: d.cats }); });
+            d.admins.forEach(a => { if(p && a.user === u && a.pwd === p) found.push(a.team ? { kind: "tadmin", org: d.org, id: a.id, team: a.team, cat: d.teamCat(a.team), cats: d.cats }
+                                                                                       : { kind: "admin", org: d.org, id: a.id, cats: d.cats }); });
+            d.gerants.forEach(g => { if(p && g.user === u && g.pwd === p) found.push({ kind: "gerant", org: d.org, team: g.team, cat: d.teamCat(g.team), cats: d.cats }); });
             d.markers.forEach(m => { if(p && m.user === u && m.pwd === p) found.push({ kind: "marker", org: d.org, cat: m.cat, team: m.team }); });
           });
           if(!found.length){ notify("Identifiant ou mot de passe incorrect.", "error"); return; }
           // Plusieurs comptes possibles : celui de la page affichée d'abord
-          const score = f => (f.org === currentOrg ? 4 : 0) + (f.cat === currentCat ? 2 : 0) + (f.team === boardTeam ? 1 : 0) + (f.kind === "admin" ? 8 : 0);
+          const score = f => (f.org === currentOrg ? 4 : 0) + (f.cat === currentCat ? 2 : 0) + (f.team === boardTeam ? 1 : 0) + ({ admin: 16, tadmin: 12, gerant: 8 }[f.kind] || 0);
           const f = found.sort((x, y) => score(y) - score(x))[0];
-          if(f.kind === "admin"){
+          if(f.kind === "tadmin" || f.kind === "gerant"){
+            if(!f.cat){ notify("L'équipe de ce compte n'a pas de catégorie. Demandez à l'administrateur de l'organisation de la compléter.", "info"); return; }
+            currentRole = f.kind === "tadmin" ? "admin" : "gerant"; isAdminGlobal = false; assignedOrg = f.org; assignedCat = f.cat; assignedTeam = f.team; adminId = f.id || "";
+            store.set(sessionStorage, "ohmtro_admin_id", adminId); store.del(localStorage, "ohmtro_admin_auth");
+            store.set(sessionStorage, "ohmtro_role", currentRole); store.set(sessionStorage, "ohmtro_assigned_org", f.org);
+            store.set(sessionStorage, "ohmtro_assigned_cat", f.cat); store.set(sessionStorage, "ohmtro_assigned_team", f.team);
+            ref(f.org + "/gerantPerms/" + f.team).once("value").then(s => { gPerms = normGP(s.val()); updatePermUI(); });
+            if(f.org !== currentOrg || f.cat !== currentCat) switchOrganization(f.org, f.cat, undefined, f.team);
+            else if(!onMyTeam()) switchBoard(boardTeams(currentCat).indexOf(f.team) !== -1 && boardTeams(currentCat).length > 1 ? f.team : "");
+          } else if(f.kind === "admin"){
             currentRole = "admin"; isAdminGlobal = false; assignedCat = null; assignedOrg = f.org; assignedTeam = ""; adminId = f.id;
             store.set(sessionStorage, "ohmtro_admin_id", adminId);
             store.del(localStorage, "ohmtro_admin_auth"); store.set(sessionStorage, "ohmtro_role", "admin");
@@ -2595,9 +2663,11 @@ document.addEventListener("DOMContentLoaded", function(){
   function parseOrgLogins(v, adm, cats, teams){
     v = v || {}; adm = obj(adm); teams = obj(teams);
     const pw = { legacyAdmin: v.admin || "", orgAdmin: typeof v.orgAdmin === "string" ? v.orgAdmin : "", marqueur: v.marqueur || "buts",
-                 categories: obj(v.categories), teams: obj(v.teams), catUsers: obj(v.catUsers), teamUsers: obj(v.teamUsers), markers: obj(v.markers) };
-    const admins = Object.keys(adm).filter(k => adm[k] && adm[k].user).map(k => ({ id: k, user: String(adm[k].user), pwd: String(adm[k].pwd || "") }));
-    if(pw.orgAdmin && !admins.some(a => a.user === "admin")) admins.unshift({ id: "__legacy", user: "admin", pwd: pw.orgAdmin });
+                 categories: obj(v.categories), teams: obj(v.teams), catUsers: obj(v.catUsers), teamUsers: obj(v.teamUsers), markers: obj(v.markers), gerants: obj(v.gerants) };
+    const admins = Object.keys(adm).filter(k => adm[k] && adm[k].user).map(k => ({ id: k, user: String(adm[k].user), pwd: String(adm[k].pwd || ""), team: String(adm[k].team || "") }));
+    const gerants = Object.keys(pw.gerants).filter(k => pw.gerants[k] && pw.gerants[k].user && pw.gerants[k].team)
+                      .map(k => ({ id: k, user: String(pw.gerants[k].user), pwd: String(pw.gerants[k].pwd || ""), team: String(pw.gerants[k].team) }));
+    if(pw.orgAdmin && !admins.some(a => a.user === "admin")) admins.unshift({ id: "__legacy", user: "admin", pwd: pw.orgAdmin, team: "" });
     const slots = [];
     cats.forEach(cat => {
       const own = Object.keys(teams).filter(k => { const p = teams[k]; return p && p.name && p.own && (!p.category || p.category === cat); })
@@ -2619,7 +2689,8 @@ document.addEventListener("DOMContentLoaded", function(){
     });
     const markers = [];
     slots.forEach(s => accounts[s.id].forEach(a => markers.push({ id: a.id, slot: s.id, label: s.label, cat: s.cat, team: s.team, user: a.user, pwd: a.pwd })));
-    return { pw: pw, admins: admins, slots: slots, accounts: accounts, markers: markers };
+    const teamCat = k => (teams[k] && teams[k].category) || "";
+    return { pw: pw, admins: admins, gerants: gerants, teams: teams, teamCat: teamCat, slots: slots, accounts: accounts, markers: markers };
   }
   function fetchOrgLogins(org){
     return Promise.all([ref(org + "/passwords").once("value"), loadCats(org), ref(org + "/teams_presets").once("value"), ref(org + "/admins").once("value")])
@@ -2763,14 +2834,16 @@ document.addEventListener("DOMContentLoaded", function(){
   on("msgOrgAdd", "click", () => msgRow("msgOrgList", "", ORG_PH).focus());
   on("msgTeamAdd", "click", () => msgRow("msgTeamList", "", TEAM_PH).focus());
 
+  const msgAllowed = () => canEdit() || (isGerant() && gPerms.messages);
   function openMessages(){
-    if(!canEdit()) return;
+    if(!msgAllowed()) return;
     closeDlg("settingsSheet");
     const selOrg = $("msgOrgSelect");
     fillSelect(selOrg, orgItems(), currentOrg);
     selOrg.disabled = !isSuper();
-    $("msgOrgBox").style.display = isAdmin() ? "" : "none";   // le marqueur ne gère que les messages de son équipe
-    $("msgCatSelect").disabled = !isAdmin();
+    const orgLevel = isAdmin() && !isTeamAdmin();
+    $("msgOrgBox").style.display = orgLevel ? "" : "none";   // marqueur, équipe, gérant(e) : seulement les messages de son équipe
+    $("msgCatSelect").disabled = !orgLevel;
     msgSelectedOrgKey = selOrg.value || currentOrg;
     loadOrgMessageData(msgSelectedOrgKey);
     openDlg("messagesManageSheet");
@@ -2785,7 +2858,7 @@ document.addEventListener("DOMContentLoaded", function(){
     msgSelectedTeamKey = ""; msgTempTeams = {}; msgDirtyTeams = {};
     msgFill("msgOrgList", msgsOf(org), ORG_PH, !isAdmin());
     msgCatKey = orgKey === currentOrg ? currentCat : "";
-    const lockCat = !isAdmin();
+    const lockCat = !isAdmin() || isTeamAdmin();
     fillSelect($("msgCatSelect"), msgCatKey ? [{ value: msgCatKey, label: msgCatKey.toUpperCase() }] : [], msgCatKey);
     fillSelect($("msgTeamSelect"), [], null, "Chargement...");
     msgFill("msgTeamList", [], TEAM_PH, true);
@@ -2805,7 +2878,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Équipes de la catégorie choisie (une équipe sans catégorie apparaît dans toutes)
   function fillMsgTeams(){
     const items = Object.keys(msgTempTeams).filter(k => { const t = msgTempTeams[k]; return t && t.name && (!t.category || t.category === msgCatKey); })
-                        .filter(k => isAdmin() || !boardTeam || k === boardTeam)      // marqueur d'une équipe : la sienne seulement
+                        .filter(k => isTeamScoped() ? k === assignedTeam : (isAdmin() || !boardTeam || k === boardTeam))      // marqueur, équipe : la sienne seulement
                         .map(k => ({ value: k, label: msgTempTeams[k].name }))
                         .sort((x, y) => x.label.localeCompare(y.label, "fr", { numeric: true }));
     const sel = $("msgTeamSelect");
@@ -2827,8 +2900,8 @@ document.addEventListener("DOMContentLoaded", function(){
   on("msgTeamSelect", "change", () => { stashTeamMsgs(); msgSelectedTeamKey = $("msgTeamSelect").value; showTeamMsg(); });
   on("msgManageBack", "click", msgLeave);
   on("msgManageSave", "click", () => {
-    if(!canEdit()) return;
-    if(isAdmin()){
+    if(!msgAllowed()) return;
+    if(isAdmin() && !isTeamAdmin()){
       const org = organizationsList.find(o => o.id === msgSelectedOrgKey);
       if(org){ const msgs = msgRead("msgOrgList"); org.msgs = msgs; org.msg = msgs[0] || ""; dbOrgs.set(organizationsList); }
     }
@@ -2862,6 +2935,7 @@ document.addEventListener("DOMContentLoaded", function(){
   on("btnOpenOrgManage", "click", () => {
     if(!isAdmin()) return;
     closeDlg("settingsSheet");
+    if(isTeamAdmin()){ openOwnTeam(); return; }               // administrateur d'équipe : directement la fiche de son équipe
     if(!isSuper()){ openOrgDetail(currentOrg); return; }      // administrateur d'organisation : directement sa fiche
     renderOrgManageList(); openDlg("orgManageSheet");
   });
@@ -3018,8 +3092,16 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   on("btnAddNewTeam", "click", () => openTeamEditor(null));
+  // Fiche de sa propre équipe (administrateur d'équipe, gérant(e))
+  let teamEditSolo = false;
+  function openOwnTeam(){
+    if(!isTeamScoped() || !presets[assignedTeam]) return;
+    manageOrgKey = currentOrg; manageTeamPresets = presets; manageTeamCatKey = presets[assignedTeam].category || currentCat;
+    teamEditSolo = true; openTeamEditor(assignedTeam);
+  }
+  const ownTeamEdit = key => isTeamScoped() && key === assignedTeam && manageOrgKey === assignedOrg;
   function openTeamEditor(key){
-    if(!can("teams")) return;
+    if(!can("teams") && !ownTeamEdit(key)) return;
     editingTeamKey = key;
     const team = (key && manageTeamPresets[key]) || { name: "", logo: "", color: DEF_A, category: manageTeamCatKey || "", roster: [], staff: [] };
     $("rsTitle").textContent = key ? "Éditer l'Équipe" : "Créer une Équipe";
@@ -3029,11 +3111,12 @@ document.addEventListener("DOMContentLoaded", function(){
     // Nouvelle équipe : la catégorie doit être choisie ; une ancienne équipe sans catégorie reste « Toutes les catégories »
     fillSelect($("editTeamCatSelect"), cats, cat, key ? "Toutes les catégories" : "Veuillez choisir une catégorie");
     $("editTeamOwn").checked = !!team.own;
+    $("editTeamCatSelect").disabled = $("editTeamOwn").disabled = isTeamScoped();   // l'équipe ne change pas de catégorie elle-même
     updateLogoPreview();
     const roster = toArr(team.roster), staff = toArr(team.staff);
     $("rosterForm").textContent = ""; roster.forEach(p => addRosterRow(p.no, p.name, p.pos)); if(!roster.length) addRosterRow("","","A");
     $("staffForm").textContent = ""; staff.forEach(s => addStaffRow(s.name, s.role));
-    swapDlg("orgDetailSheet", "rosterSheet");
+    if(teamEditSolo) openDlg("rosterSheet"); else swapDlg("orgDetailSheet", "rosterSheet");
   }
   function updateLogoPreview(){
     const url = $("teamLogoInput").value.trim(), img = $("logoPreview");
@@ -3092,9 +3175,10 @@ document.addEventListener("DOMContentLoaded", function(){
     notify(nP + " joueur" + (nP > 1 ? "s" : "") + (nS ? " et " + nS + " membre" + (nS > 1 ? "s" : "") + " du personnel" : "") + " ajouté" + (nP + nS > 1 ? "s" : "") + ". Vérifiez, puis touchez « Enregistrer l'équipe ».", "info");
   });
   on("addStaffBtn", "click", () => addStaffRow("","Entraîneur-chef"));
-  on("rsCancel", "click", () => swapDlg("rosterSheet", "orgDetailSheet"));
+  const rsLeave = () => { if(teamEditSolo){ teamEditSolo = false; closeDlg("rosterSheet"); } else swapDlg("rosterSheet", "orgDetailSheet"); };
+  on("rsCancel", "click", rsLeave);
   on("rsSave", "click", () => {
-    if(!can("teams")) return;
+    if(!can("teams") && !ownTeamEdit(editingTeamKey)) return;
     const teamName = str($("editTeamNameInput").value, ""); if(!teamName){ notify("Le nom de l'équipe est obligatoire.", "info"); return; }
     const existing = editingTeamKey ? manageTeamPresets[editingTeamKey] : null;
     const category = $("editTeamCatSelect").value;
@@ -3120,7 +3204,7 @@ document.addEventListener("DOMContentLoaded", function(){
         name: teamName, msg: msgsOf(existing)[0] || "", msgs: msgsOf(existing), logo: $("teamLogoInput").value.trim(),
         color: $("presetTeamColor").value, category: category, own: $("editTeamOwn").checked, roster: roster, staff: staff
       });
-      notify("Équipe enregistrée !"); swapDlg("rosterSheet", "orgDetailSheet");
+      notify("Équipe enregistrée !"); rsLeave();
     };
     if(dup) ask("Le numéro " + dup + " est utilisé par plus d'un joueur : leurs statistiques seront confondues.\nEnregistrer quand même ?", { ok: "Enregistrer" }).then(ok => { if(ok) save(); });
     else save();
@@ -3130,9 +3214,10 @@ document.addEventListener("DOMContentLoaded", function(){
   // Le super administrateur choisit l'organisation ; l'administrateur ne voit que la sienne.
   // Administrateurs et marqueurs : comptes (identifiant + mot de passe) ajoutés, modifiés, supprimés ici.
   // Plusieurs changements (et plusieurs organisations) peuvent être faits avant d'enregistrer.
-  let pwdSuper = "", pwdOrg = "", pwdSlot = "", pwdOrgs = {}, pwdToken = 0;
+  let pwdSuper = "", pwdOrg = "", pwdSlot = "", pwdTeam = "", pwdOrgs = {}, pwdToken = 0;
   const pwdOrgLabel = k => { const o = organizationsList.find(x => x.id === k); return o ? o.name : String(k).toUpperCase(); };
   const cloneAcc = a => a.map(x => ({ id: x.id, user: x.user, pwd: x.pwd }));
+  const groupBy = (list, ids) => { const g = {}; ids.forEach(t => { g[t] = []; }); list.forEach(a => { if(g[a.team]) g[a.team].push({ id: a.id, user: a.user, pwd: a.pwd }); }); return g; };
 
   // Garde en mémoire ce qui est écrit dans les lignes affichées
   function readRows(boxId, list){
@@ -3145,6 +3230,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const o = pwdOrgs[pwdOrg]; if(!o) return;
     readRows("pwdAdminList", o.acc);
     if(pwdSlot && o.mk[pwdSlot]) readRows("pwdMarkerList", o.mk[pwdSlot]);
+    if(pwdTeam && o.tad[pwdTeam]){ readRows("pwdTAdmList", o.tad[pwdTeam]); readRows("pwdGerList", o.ger[pwdTeam]); }
   }
   // Lignes « identifiant / mot de passe / ✕ »
   function accRow(a, opts){
@@ -3191,11 +3277,61 @@ document.addEventListener("DOMContentLoaded", function(){
       box.appendChild(r[0]); addEye(r[1]);
     });
   }
+  // Comptes d'équipe : administrateurs de l'équipe et gérant(e)s, avec les permissions des gérant(e)s
+  function pwdRenderTeam(){
+    const o = pwdOrgs[pwdOrg], ta = $("pwdTAdmList"), ge = $("pwdGerList"); ta.textContent = ""; ge.textContent = "";
+    const ok = !!(o && pwdTeam && o.tad[pwdTeam]);
+    $("pwdTAdmAdd").disabled = $("pwdGerAdd").disabled = !ok; $("gpHistory").disabled = $("gpMessages").disabled = !ok;
+    if(!ok){ ta.appendChild(el("p", "empty", o ? "Aucune équipe de l'organisation." : "Chargement…")); $("gpHistory").checked = $("gpMessages").checked = false; return; }
+    const mineOnly = isTeamAdmin();
+    const tl = mineOnly ? o.tad[pwdTeam].filter(a => a.id === adminId) : o.tad[pwdTeam];
+    if(!tl.length) ta.appendChild(el("p", "empty", "Aucun administrateur pour cette équipe."));
+    tl.forEach(a => {
+      const r = accRow(a, { lockUser: mineOnly, onDelete: mineOnly ? null : () => {
+        pwdStash();
+        ask("Supprimer le compte administrateur d'équipe « " + (a.user || "sans identifiant") + " » ?", { title: "Supprimer", ok: "Supprimer", danger: true }).then(y => {
+          if(!y) return; o.tad[pwdTeam] = o.tad[pwdTeam].filter(x => x.id !== a.id); pwdRenderTeam();
+        });
+      } });
+      ta.appendChild(r[0]); addEye(r[1]);
+    });
+    if(!o.ger[pwdTeam].length) ge.appendChild(el("p", "empty", "Aucun(e) gérant(e) pour cette équipe."));
+    o.ger[pwdTeam].forEach(a => {
+      const r = accRow(a, { onDelete: () => {
+        pwdStash();
+        ask("Supprimer le compte gérant(e) « " + (a.user || "sans identifiant") + " » ?", { title: "Supprimer", ok: "Supprimer", danger: true }).then(y => {
+          if(!y) return; o.ger[pwdTeam] = o.ger[pwdTeam].filter(x => x.id !== a.id); pwdRenderTeam();
+        });
+      } });
+      ge.appendChild(r[0]); addEye(r[1]);
+    });
+    const gp = normGP(o.gp[pwdTeam]); $("gpHistory").checked = gp.history; $("gpMessages").checked = gp.messages;
+  }
+  ["gpHistory", "gpMessages"].forEach(id => on(id, "change", () => {
+    const o = pwdOrgs[pwdOrg]; if(!o || !pwdTeam) return;
+    o.gp[pwdTeam] = { history: $("gpHistory").checked, messages: $("gpMessages").checked };
+  }));
+  on("pwdTeamSelect", "change", () => { pwdStash(); pwdTeam = $("pwdTeamSelect").value; pwdRenderTeam(); });
+  on("pwdTAdmAdd", "click", () => {
+    const o = pwdOrgs[pwdOrg]; if(!isAdmin() || isTeamAdmin() || !o || !pwdTeam) return;
+    pwdStash(); o.tad[pwdTeam].push({ id: "new_" + uid(), user: "", pwd: "" }); pwdRenderTeam();
+    const rows = $("pwdTAdmList").querySelectorAll(".acc-user"); rows[rows.length - 1].focus();
+  });
+  on("pwdGerAdd", "click", () => {
+    const o = pwdOrgs[pwdOrg]; if(!isAdmin() || !o || !pwdTeam) return;
+    pwdStash(); o.ger[pwdTeam].push({ id: "new_" + uid(), user: "", pwd: "" }); pwdRenderTeam();
+    const rows = $("pwdGerList").querySelectorAll(".acc-user"); rows[rows.length - 1].focus();
+  });
   function pwdShowOrg(){
     const o = pwdOrgs[pwdOrg];
     $("pwdOrgName").textContent = pwdOrgLabel(pwdOrg);
     pwdRenderAdmins();
-    const items = o ? o.slots.map(s => ({ value: s.id, label: s.label })) : [];
+    const tItems = o ? o.teamList.filter(t => !isTeamAdmin() || t.value === assignedTeam) : [];
+    pwdTeam = tItems.length ? (tItems.some(t => t.value === pwdTeam) ? pwdTeam : tItems[0].value) : "";
+    fillSelect($("pwdTeamSelect"), tItems, pwdTeam, tItems.length ? null : (o ? "Aucune équipe de l'organisation" : "Chargement..."));
+    $("pwdTeamSelect").disabled = isTeamAdmin();
+    pwdRenderTeam();
+    const items = o ? o.slots.filter(s => !isTeamAdmin() || s.team === assignedTeam || (!s.team && s.cat === assignedCat)).map(s => ({ value: s.id, label: s.label })) : [];
     pwdSlot = items.length ? items[0].value : "";
     fillSelect($("pwdMarkerSelect"), items, pwdSlot, items.length ? null : (o ? "Aucune catégorie" : "Chargement..."));
     pwdRenderMarkers();
@@ -3205,9 +3341,17 @@ document.addEventListener("DOMContentLoaded", function(){
     pwdShowOrg();
     if(pwdOrgs[orgKey]) return Promise.resolve();
     const token = ++pwdToken;
-    return fetchOrgLogins(orgKey).then(d => {
+    return Promise.all([fetchOrgLogins(orgKey), ref(orgKey + "/gerantPerms").once("value")]).then(r => {
+      const d = r[0], gp = obj(r[1].val());
       const mk = {}; d.slots.forEach(s => { mk[s.id] = cloneAcc(d.accounts[s.id]); });
-      pwdOrgs[orgKey] = { pw: d.pw, slots: d.slots, mk: mk, mkInit: JSON.stringify(mk), acc: cloneAcc(d.admins), accInit: JSON.stringify(d.admins) };
+      const teamList = Object.keys(d.teams).filter(k => d.teams[k] && d.teams[k].own && d.teams[k].name)
+        .map(k => ({ value: k, label: String(d.teams[k].category || "").toUpperCase() + " - " + d.teams[k].name }))
+        .sort((x, y) => x.label.localeCompare(y.label, "fr", { numeric: true }));
+      const ids = teamList.map(t => t.value), orgAdm = cloneAcc(d.admins.filter(a => !a.team));
+      const tad = groupBy(d.admins.filter(a => a.team), ids), ger = groupBy(d.gerants, ids);
+      pwdOrgs[orgKey] = { pw: d.pw, slots: d.slots, mk: mk, mkInit: JSON.stringify(mk), acc: orgAdm, accInit: JSON.stringify(orgAdm),
+                          teamList: teamList, tad: tad, tadInit: JSON.stringify(tad), ger: ger, gerInit: JSON.stringify(ger), gp: gp, gpInit: JSON.stringify(gp),
+                          otherAdmins: d.admins.filter(a => a.team && ids.indexOf(a.team) === -1), otherGer: d.gerants.filter(g => ids.indexOf(g.team) === -1) };
       if(token === pwdToken && pwdOrg === orgKey) pwdShowOrg();
     });
   }
@@ -3244,7 +3388,7 @@ document.addEventListener("DOMContentLoaded", function(){
   on("pwdSave", "click", () => {
     if(!isAdmin()) return;
     pwdStash();
-    const sup = isSuper() ? ($("pwdSuperInput").value.trim() || pwdSuper) : pwdSuper, writes = [], adminWrites = [], newPairs = [];
+    const sup = isSuper() ? ($("pwdSuperInput").value.trim() || pwdSuper) : pwdSuper, writes = [], adminWrites = [], gpWrites = [], newPairs = [];
     const keys = Object.keys(pwdOrgs).filter(k => isSuper() || k === currentOrg);
     const bad = (who, a) => {                                // vérifications communes à un compte
       if(!IDENT_RE.test(a.user)) return "Identifiant invalide pour " + who + " : « " + a.user + " ».\nDe 2 à 30 caractères : lettres sans accent, chiffres, point, tiret.";
@@ -3255,11 +3399,21 @@ document.addEventListener("DOMContentLoaded", function(){
     };
     for(let n = 0; n < keys.length; n++){
       const k = keys[n], o = pwdOrgs[k], where = isSuper() ? " (" + pwdOrgLabel(k) + ")" : "";
-      const accChanged = JSON.stringify(o.acc) !== o.accInit, mkInit = JSON.parse(o.mkInit);
+      const tadChanged = JSON.stringify(o.tad) !== o.tadInit, gerChanged = JSON.stringify(o.ger) !== o.gerInit, gpChanged = JSON.stringify(o.gp) !== o.gpInit;
+      const accChanged = JSON.stringify(o.acc) !== o.accInit || tadChanged, mkInit = JSON.parse(o.mkInit);
+      const teamLabel = t => (o.teamList.filter(x => x.value === t)[0] || { label: t }).label;
+      // Comptes d'équipe : vérifications
+      const tadAll = [], gerAll = [];
+      Object.keys(o.tad).forEach(t => o.tad[t].forEach(a => tadAll.push(Object.assign({ team: t }, a))));
+      Object.keys(o.ger).forEach(t => o.ger[t].forEach(a => gerAll.push(Object.assign({ team: t }, a))));
+      if(tadChanged) for(let m = 0; m < tadAll.length; m++){ const err = bad("l'administrateur d'équipe « " + tadAll[m].user + " » (" + teamLabel(tadAll[m].team) + ")" + where, tadAll[m]); if(err){ notify(err, "info"); return; } }
+      if(gerChanged) for(let m = 0; m < gerAll.length; m++){ const err = bad("le ou la gérant(e) « " + gerAll[m].user + " » (" + teamLabel(gerAll[m].team) + ")" + where, gerAll[m]); if(err){ notify(err, "info"); return; } }
       const slotChanged = o.slots.filter(s => JSON.stringify(o.mk[s.id]) !== JSON.stringify(mkInit[s.id]));
       // Administrateurs
       if(accChanged){
         const seen = {};
+        tadAll.forEach(a => { seen[a.user] = true; });
+        if(new Set(tadAll.map(a => a.user)).size !== tadAll.length){ notify("Un identifiant d'administrateur d'équipe est utilisé deux fois" + where + ".", "info"); return; }
         for(let m = 0; m < o.acc.length; m++){
           const a = o.acc[m], who = "l'administrateur « " + a.user + " »" + where, err = bad(who, a);
           if(err){ notify(err, "info"); return; }
@@ -3290,7 +3444,8 @@ document.addEventListener("DOMContentLoaded", function(){
           if(n2 > 1){ notify("L'identifiant « " + a.user + " » est déjà utilisé par un autre marqueur de la catégorie " + s.cat.toUpperCase() + where + ".\nChoisissez un identifiant différent.", "info"); return; }
         }
       }
-      if(!accChanged && !slotChanged.length) continue;
+      if(!accChanged && !slotChanged.length && !gerChanged && !gpChanged) continue;
+      if(gpChanged) gpWrites.push([k, o.gp]);
 
       // À enregistrer : administrateurs (…/admins) et comptes marqueur (passwords.markers)
       if(accChanged){
@@ -3300,6 +3455,8 @@ document.addEventListener("DOMContentLoaded", function(){
           if(a.id === "__legacy" && adminId === "__legacy"){ adminId = id; store.set(sessionStorage, "ohmtro_admin_id", id); }
           admins[id] = { user: a.user, pwd: a.pwd };
         });
+        tadAll.forEach(a => { admins[a.id.indexOf("new_") === 0 ? uid() : a.id] = { user: a.user, pwd: a.pwd, team: a.team }; });
+        o.otherAdmins.forEach(a => { admins[a.id] = { user: a.user, pwd: a.pwd, team: a.team }; });
         adminWrites.push([k, admins]);
       }
       const markers = {};
@@ -3308,11 +3465,16 @@ document.addEventListener("DOMContentLoaded", function(){
         const id = (a.id.indexOf("legacy:") === 0 || a.id.indexOf("new_") === 0) ? uid() : a.id;
         markers[id] = { user: a.user, pwd: a.pwd, slot: s.id };
       }));
+      const gerants = {};
+      if(gerChanged){ gerAll.forEach(a => { gerants[a.id.indexOf("new_") === 0 ? uid() : a.id] = { user: a.user, pwd: a.pwd, team: a.team }; }); o.otherGer.forEach(g => { gerants[g.id] = { user: g.user, pwd: g.pwd, team: g.team }; }); }
+      else Object.keys(o.pw.gerants).forEach(id => { gerants[id] = o.pw.gerants[id]; });
       writes.push([k, { admin: o.pw.legacyAdmin || "", orgAdmin: accChanged ? "" : o.pw.orgAdmin, marqueur: o.pw.marqueur,
-                        categories: o.pw.categories, teams: o.pw.teams, catUsers: o.pw.catUsers, teamUsers: o.pw.teamUsers, markers: markers }]);
+                        categories: o.pw.categories, teams: o.pw.teams, catUsers: o.pw.catUsers, teamUsers: o.pw.teamUsers, markers: markers, gerants: gerants }]);
       // Paires identifiant + mot de passe nouvelles ou modifiées : elles doivent mener à un seul compte
-      const initAcc = JSON.parse(o.accInit);
+      const initAcc = JSON.parse(o.accInit), tadInit = JSON.parse(o.tadInit), gerInit = JSON.parse(o.gerInit);
       o.acc.forEach(a => { if(!initAcc.some(x => x.id === a.id && x.user === a.user && x.pwd === a.pwd)) newPairs.push({ org: k, id: "adm:" + a.id, user: a.user, pwd: a.pwd, label: "l'administrateur « " + a.user + " »" + where }); });
+      tadAll.forEach(a => { if(!(tadInit[a.team] || []).some(x => x.id === a.id && x.user === a.user && x.pwd === a.pwd)) newPairs.push({ org: k, id: "adm:" + a.id, user: a.user, pwd: a.pwd, label: "l'administrateur d'équipe « " + a.user + " »" + where }); });
+      gerAll.forEach(a => { if(!(gerInit[a.team] || []).some(x => x.id === a.id && x.user === a.user && x.pwd === a.pwd)) newPairs.push({ org: k, id: "ger:" + a.id, user: a.user, pwd: a.pwd, label: "le ou la gérant(e) « " + a.user + " »" + where }); });
       slotChanged.forEach(s => o.mk[s.id].forEach(a => {
         if(!(mkInit[s.id] || []).some(x => x.id === a.id && x.user === a.user && x.pwd === a.pwd))
           newPairs.push({ org: k, id: "mk:" + a.id, user: a.user, pwd: a.pwd, label: "le marqueur « " + a.user + " » (" + s.label + (isSuper() ? ", " + pwdOrgLabel(k) : "") + ")" });
@@ -3323,12 +3485,15 @@ document.addEventListener("DOMContentLoaded", function(){
     const btnS = $("pwdSave"); btnS.disabled = true;
     Promise.all(others.map(k => fetchOrgLogins(k).catch(() => null))).then(fetched => {
       const all = [];
-      const addOrg = (k, admins, slots, mk) => {
+      const addOrg = (k, admins, slots, mk, gers) => {
         admins.forEach(a => all.push({ org: k, id: "adm:" + a.id, user: a.user, pwd: a.pwd, label: "l'administrateur « " + a.user + " » (" + pwdOrgLabel(k) + ")" }));
+        (gers || []).forEach(a => all.push({ org: k, id: "ger:" + a.id, user: a.user, pwd: a.pwd, label: "le ou la gérant(e) « " + a.user + " » (" + pwdOrgLabel(k) + ")" }));
         slots.forEach(s => mk[s.id].forEach(a => all.push({ org: k, id: "mk:" + a.id, user: a.user, pwd: a.pwd, label: "le marqueur « " + a.user + " » (" + s.label + ", " + pwdOrgLabel(k) + ")" })));
       };
-      Object.keys(pwdOrgs).filter(k => isSuper() || k === currentOrg).forEach(k => addOrg(k, pwdOrgs[k].acc, pwdOrgs[k].slots, pwdOrgs[k].mk));
-      fetched.forEach(d => { if(d) addOrg(d.org, d.admins, d.slots, d.accounts); });
+      const flat = g => Object.keys(g).reduce((t, x) => t.concat(g[x]), []);
+      Object.keys(pwdOrgs).filter(k => isSuper() || k === currentOrg).forEach(k => { const o = pwdOrgs[k];
+        addOrg(k, o.acc.concat(flat(o.tad), o.otherAdmins), o.slots, o.mk, flat(o.ger).concat(o.otherGer)); });
+      fetched.forEach(d => { if(d) addOrg(d.org, d.admins, d.slots, d.accounts, d.gerants); });
       for(let n = 0; n < newPairs.length; n++){
         const np = newPairs[n], clash = all.filter(x => x.user === np.user && x.pwd === np.pwd && !(x.org === np.org && x.id === np.id))[0];
         if(clash){
@@ -3339,6 +3504,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(isSuper()) dbSuper.set(sup);
       writes.forEach(w => ref(w[0] + "/passwords").set(w[1]));
       adminWrites.forEach(w => ref(w[0] + "/admins").set(w[1]));
+      gpWrites.forEach(w => ref(w[0] + "/gerantPerms").set(w[1]));
       closeDlg("passwordsSheet"); notify("Mots de passe enregistrés !");
     }).catch(() => notify("Impossible de vérifier les comptes pour le moment. Réessayez.", "error"))
       .then(() => { btnS.disabled = false; });
@@ -3454,6 +3620,7 @@ document.addEventListener("DOMContentLoaded", function(){
     closeDlg("settingsSheet");
     fillSelect($("calOrgSelect"), orgItems(), currentOrg);
     calLoadOrg(currentOrg, currentCat);
+    $("calCatSelect").disabled = isTeamAdmin();
     openDlg("calendarSheet");
   });
   // Équipes et catégories de l'organisation choisie (celles de l'organisation affichée sont déjà chargées)
@@ -3485,6 +3652,7 @@ document.addEventListener("DOMContentLoaded", function(){
     calMgr.forEach(c => { names[c.a] = true; names[c.b] = true; });
     const items = Object.keys(names).sort((x, y) => x.localeCompare(y, "fr", { numeric: true })).map(n => ({ value: n, label: n }));
     fillSelect(sel, items, prev || (calHere() && boardTeam && calPresets[boardTeam] ? calPresets[boardTeam].name : null), "Toutes les équipes");
+    if(isTeamAdmin() && calPresets[assignedTeam]){ sel.value = calPresets[assignedTeam].name; sel.disabled = true; } else sel.disabled = false;   // administrateur d'équipe : ses parties
   }
   function calRender(loading){
     const list = $("calList"); list.textContent = "";
@@ -3549,6 +3717,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("calDate").value = c ? c.date : todayStr(); $("calTime").value = c ? c.time : "";
     calFillTeamSelect("b", c ? c.bKey : "", c ? c.b : ""); calFillTeamSelect("a", c ? c.aKey : "", c ? c.a : "");
     if(!c && calHere() && boardTeam && calPresets[boardTeam]){ $("calTeamA").value = boardTeam; calToggleOther("a"); }
+    if(!c && isTeamAdmin() && calPresets[assignedTeam]){ $("calTeamA").value = assignedTeam; calToggleOther("a"); }
     // Aréna : choisie dans la liste ; une ancienne aréna écrite à la main est retrouvée par son nom, sinon proposée comme nouvelle
     let aid = c ? c.arena : "";
     if(c && !aid && c.place){ const m = arenaList().filter(a => a.name === c.place)[0]; aid = m ? m.id : "__new"; }
@@ -3967,22 +4136,24 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!editEntry) return;
     editEntry = null; state = blank(); lastLocal = 0; openCardId = null;
     setArchiveBar(null); watchMatch(); render();
+    if(isGerant()) updateRoleUI();
     if(!silent) notify("Partie archivée mise à jour.");
   }
   on("archiveBack", "click", () => { if(editEntry) exitEdit(); else exitArchive(); });
 
   /* ============ Gestion de l'historique ============ */
   let hmOrg = currentOrg, hmCat = currentCat, hmList = [], hmToken = 0;
-  on("btnOpenHistoryManage", "click", () => {
-    if(!isAdmin()) return;
-    closeDlg("settingsSheet");
+  function openHistoryManage(){
+    if(!isAdmin() && !(isGerant() && gPerms.history)) return;
+    closeDlg("settingsSheet"); closeDlg("gerantSheet");
     hmOrg = currentOrg; hmCat = currentCat;
     fillSelect($("hmOrgSelect"), orgItems(), hmOrg);
     $("hmOrgSelect").disabled = !isSuper();                    // seul le super administrateur change d'organisation
-    $("hmCatSelect").disabled = !isAdmin();                    // le marqueur gère seulement sa catégorie
+    $("hmCatSelect").disabled = !isAdmin() || isTeamScoped();  // une équipe gère seulement sa catégorie
     hmLoadCats(); openDlg("historyManageSheet");
-  });
-  on("hmBack", "click", () => swapDlg("historyManageSheet", "settingsSheet"));
+  }
+  on("btnOpenHistoryManage", "click", openHistoryManage);
+  on("hmBack", "click", () => { if(isGerant()) closeDlg("historyManageSheet"); else swapDlg("historyManageSheet", "settingsSheet"); });
   on("hmClose", "click", () => closeDlg("historyManageSheet"));
   on("hmOrgSelect", "change", () => { hmOrg = $("hmOrgSelect").value; hmCat = ""; hmLoadCats(); });
   on("hmCatSelect", "change", () => { hmCat = $("hmCatSelect").value; hmLoad(); });
@@ -4014,11 +4185,13 @@ document.addEventListener("DOMContentLoaded", function(){
     hmList.forEach(h => { names[h.a] = true; names[h.b] = true; });
     const items = Object.keys(names).sort((x, y) => x.localeCompare(y, "fr", { numeric: true })).map(n => ({ value: n, label: n }));
     fillSelect($("hmTeamSelect"), items, prev, "Toutes les équipes");
+    $("hmTeamSelect").disabled = isTeamScoped();
   }
   function hmRender(loading){
     const list = $("hmList"), team = $("hmTeamSelect").value; list.textContent = "";
     if(loading === true){ list.appendChild(el("li", "empty", "Chargement…")); $("hmCount").textContent = ""; return; }
-    const rows = hmList.filter(h => !team || h.a === team || h.b === team);
+    const mine = isTeamScoped() && presets[assignedTeam] ? presets[assignedTeam].name : "";
+    const rows = hmList.filter(h => (!team || h.a === team || h.b === team) && (!mine || h.a === mine || h.b === mine));
     $("hmCount").textContent = rows.length + (rows.length > 1 ? " parties" : " partie");
     if(!rows.length){ list.appendChild(el("li", "empty", "Aucune partie enregistrée.")); return; }
     const frag = document.createDocumentFragment();
@@ -4046,12 +4219,13 @@ document.addEventListener("DOMContentLoaded", function(){
     list.appendChild(frag);
   }
   function hmEdit(h){
-    if(currentRole === "viewer") return;
+    if(currentRole === "viewer" || (isGerant() && !gPerms.history)) return;
     closeDlg("historyManageSheet");
     if(archiveKey) exitArchive();
     editEntry = { key: h.key, m: h.m, at: h.at };
     if(hmOrg !== currentOrg || hmCat !== currentCat) switchOrganization(hmOrg, hmCat);   // attachBoard ouvre la partie
     else { applyEdit(); render(); }
+    if(isGerant()) updateRoleUI();
     window.scrollTo(0, 0);
   }
 
@@ -4997,7 +5171,7 @@ document.addEventListener("DOMContentLoaded", function(){
   });
 
   on("btnSwapSides", "click", () => {
-    if(currentRole === "viewer") return;
+    if(!isStaff()) return;
     inverted = !inverted; store.set(sessionStorage, "ohmtro_inv", inverted ? "1" : "0");
     applyInv(); renderShotsTable();
   });
@@ -5193,7 +5367,7 @@ document.addEventListener("DOMContentLoaded", function(){
       hornTrack = { key: key, n: n };
     }catch(e){}
   }
-  const ambLive = () => currentRole !== "viewer" && isLive(state) && !editEntry && !archiveKey;
+  const ambLive = () => isStaff() && isLive(state) && !editEntry && !archiveKey;
   function sendFx(t, text){ if(t === "msg" ? !(isAdmin() && !editEntry && !archiveKey) : !ambLive()) return; unlock(); const v = { id: uid(), t: t, text: text || "", at: Date.now() }; ambTargets().forEach(p => ref(p + "/fx").set(v)); }
   document.querySelectorAll("[data-fx]").forEach(b => b.addEventListener("click", () => sendFx(b.dataset.fx)));
   // Message : fenêtre de 5 s ou bandeau (seulement pour la partie en cours ou à venir de ce tableau)
@@ -5393,7 +5567,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("playMode").classList.toggle("swap", invOn());
   }
   function pmOpen(){
-    if(currentRole === "viewer") return;
+    if(!isStaff()) return;
     $("playMode").hidden = false; document.body.style.overflow = "hidden";
     pmSync(); clearInterval(pmTimer); pmTimer = setInterval(pmSync, 250);
   }
@@ -5428,6 +5602,17 @@ document.addEventListener("DOMContentLoaded", function(){
     if(real) real.click();
     setTimeout(pmSync, 50);
   }));
+
+  /* ============ Gérant(e) : gestion de son équipe ============ */
+  on("btnGerant", "click", () => {
+    if(!isGerant()) return;
+    setText("gerantTeam", presets[assignedTeam] ? presets[assignedTeam].name + " · " + String(assignedCat || currentCat).toUpperCase() : "");
+    updatePermUI(); openDlg("gerantSheet");
+  });
+  on("gmClose", "click", () => closeDlg("gerantSheet"));
+  on("gmRoster", "click", () => { closeDlg("gerantSheet"); openOwnTeam(); });
+  on("gmHistory", "click", () => { if(gPerms.history) openHistoryManage(); });
+  on("gmMessages", "click", () => { if(gPerms.messages){ closeDlg("gerantSheet"); openMessages(); } });
 
   /* ============ Partager la page : code QR de la page en cours, ou de n'importe quelle équipe ============ */
   const pageBase = () => location.origin + location.pathname.replace(/index\.html$/, "");
