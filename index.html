@@ -61,6 +61,7 @@ button:disabled{cursor:not-allowed;opacity:.4}
 .tk-cd{font-variant-numeric:tabular-nums}
 .g-fix{margin-top:.5rem;width:100%;font-size:.78rem;font-weight:700;padding:.4rem .3rem;border:1px dashed var(--line);border-radius:8px;background:transparent;color:var(--ink);cursor:pointer}
 body.role-viewer .g-fix{display:none !important}
+.ph-main{margin-top:1rem;font-size:1rem}
 .ph-sel{width:100%;margin:0 0 .6rem;padding:.5rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:700}
 .ph-seg{display:flex;gap:.25rem;margin:0 0 .6rem;padding:.2rem;background:var(--ice);border:1px solid var(--line);border-radius:10px}
 .ph-seg button{flex:1;padding:.4rem .2rem;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:700;font-size:.85rem;cursor:pointer}
@@ -735,9 +736,9 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   <ul class="events-list" id="eventsList"></ul>
   </div>
 
+  <select id="phaseSel" class="ph-sel ph-main" aria-label="Saison et type de parties pour les statistiques"></select>
   <h2 class="toggle-title collapsed" id="toggleStatsBtn">Résumé Statistiques</h2>
   <div class="toggle-block hidden" id="statsBlock">
-    <select id="phaseSel" class="ph-sel" aria-label="Parties comptées"></select>
     <section class="stats-card">
       <div class="stats-card-header">
         <h3>Statistiques d'équipe</h3>
@@ -771,7 +772,6 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <button type="button" id="btnScopeMatch" class="active">Ce match</button>
         <button type="button" id="btnScopeAll">Cumulatif</button>
       </div>
-      <select id="phaseSel2" class="ph-sel" aria-label="Parties comptées" style="margin-top:.4rem;"></select>
       <p class="ctx" id="rosterHint" style="margin:.2rem 0 0;"></p>
     </div>
 
@@ -3965,9 +3965,9 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderPhaseUI(){
     const years = {}; years[seasonOf(Date.now())] = 1; historyAll.forEach(h => { years[seasonOf(h.at)] = 1; }); years[curYear()] = 1;
     const items = []; Object.keys(years).map(Number).sort((a, b) => b - a).forEach(y => {
-      items.push({ value: y + "|pre", label: seasonLabel(y) + " Pré-saison" }, { value: y + "|reg", label: seasonLabel(y) + " Saison" }, { value: y + "|all", label: seasonLabel(y) + " Tout" });
+      items.push({ value: y + "|pre", label: y + "-" + (y + 1) + " Pré-saison" }, { value: y + "|reg", label: y + "-" + (y + 1) + " Saison régulière" });
     });
-    ["phaseSel", "phaseSel2"].forEach(id => { const s = $(id); fillSelect(s, items, viewKey()); });
+    fillSelect($("phaseSel"), items, viewKey());
     const d = defPhase(); document.querySelectorAll("input[name=defPhase]").forEach(r => { r.checked = r.value === d; });
     setText("defPhaseCat", String(currentCat).toUpperCase());
   }
@@ -3976,7 +3976,7 @@ document.addEventListener("DOMContentLoaded", function(){
     renderPhaseUI(); renderStats(); renderGoalies();
     if(isOpen("rosterBlock")) renderRosters();
   }
-  ["phaseSel", "phaseSel2"].forEach(id => on(id, "change", () => { phaseView = $(id).value; applyPhaseView(); }));
+  on("phaseSel", "change", () => { phaseView = $("phaseSel").value; applyPhaseView(); });
   document.querySelectorAll("input[name=defPhase]").forEach(r => r.addEventListener("change", () => {
     if(!isAdmin() || !r.checked) return;
     ref(currentOrg + "/config/phases/" + currentCat).set(r.value);
@@ -4241,7 +4241,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(isCardOpen){
         const isG = p.pos === "G", card = el("div", "player-card-inline"), h4 = el("h4"), grid = el("div", "p-grid" + (isG ? " g-grid" : ""));
         h4.appendChild(el("span", null, (isG ? "🥅 " : "👤 ") + (p.no ? "#" + p.no + " " : "") + p.name));
-        h4.appendChild(el("small", null, "(" + (scope === "match" ? "Ce match" : seasonLabel(curYear()) + " " + (curView() === "all" ? "Tout" : PHASE_LABEL[curView()])) + ")"));
+        h4.appendChild(el("small", null, "(" + (scope === "match" ? "Ce match" : curYear() + "-" + (curYear() + 1) + " " + (curView() === "reg" ? "Saison régulière" : "Pré-saison")) + ")"));
         let cells;
         if(isG){
           // Gardien : fiche, blanchissages, moyenne de buts accordés par match, lancers reçus, buts contre, arrêts, % d'arrêts
