@@ -3354,7 +3354,8 @@ document.addEventListener("DOMContentLoaded", function(){
     return Promise.all([fetchOrgLogins(orgKey), ref(orgKey + "/gerantPerms").once("value")]).then(r => {
       const d = r[0], gp = obj(r[1].val());
       const mk = {}; d.slots.forEach(s => { mk[s.id] = cloneAcc(d.accounts[s.id]); });
-      const teamList = Object.keys(d.teams).filter(k => d.teams[k] && d.teams[k].own && d.teams[k].name)
+      // Équipes de l'organisation dont la catégorie existe encore (une équipe d'une catégorie supprimée est ignorée)
+      const teamList = Object.keys(d.teams).filter(k => d.teams[k] && d.teams[k].own && d.teams[k].name && (!d.teams[k].category || d.cats.indexOf(d.teams[k].category) !== -1))
         .map(k => ({ value: k, label: String(d.teams[k].category || "").toUpperCase() + " - " + d.teams[k].name }))
         .sort((x, y) => x.label.localeCompare(y.label, "fr", { numeric: true }));
       const ids = teamList.map(t => t.value), orgAdm = cloneAcc(d.admins.filter(a => !a.team));
