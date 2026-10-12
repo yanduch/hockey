@@ -539,6 +539,7 @@ html.no-game .board, html.no-game .periods, html.no-game #pad, html.no-game .gam
 body.team-admin .org-admin-only{display:none !important}
 body:not(.team-admin) .team-admin-only{display:none !important}
 body:not(.role-gerant) .gerant-only{display:none !important}
+body.role-gerant #btnTeamMessages{display:none !important}
 .gp-box{margin-top:.8rem;padding:.5rem .6rem;border:1px dashed var(--line);border-radius:8px;font-size:.85rem}
 .gp-box>span{font-weight:700}
 .gp-box .check-row{margin-top:.4rem}
@@ -1232,7 +1233,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 
     <div class="super-only" id="odPerms">
     <h3 class="sheet-sub">Droits de l'administrateur de l'organisation</h3>
-    <label class="check-row"><input type="checkbox" id="permOrgName"><span>Modifier le nom de l'organisation</span></label>
+    <label class="check-row" hidden><input type="checkbox" id="permOrgName"><span>Modifier le nom de l'organisation</span></label>
     <label class="check-row"><input type="checkbox" id="permCategories"><span>Gérer les catégories</span></label>
     <label class="check-row"><input type="checkbox" id="permTeams"><span>Gérer les équipes</span></label>
     </div>
@@ -1995,21 +1996,23 @@ document.addEventListener("DOMContentLoaded", function(){
   // Administrateur d'équipe : les droits d'un administrateur, limités à son équipe ; gérant(e) : la gestion permise par l'équipe
   const isTeamAdmin = () => isAdmin() && !isAdminGlobal && !!assignedTeam;
   const isGerant = () => currentRole === "gerant";
-  const isStaff = () => currentRole === "admin" || currentRole === "marqueur";     // peut marquer une partie
+  // Hiérarchie : super administrateur > administrateur d'organisation > administrateur d'équipe > gérant(e) > marqueur
+  const isStaff = () => currentRole === "admin" || currentRole === "marqueur" || currentRole === "gerant";     // peut marquer une partie
   const isTeamScoped = () => isTeamAdmin() || isGerant();
   let gPerms = { history: false, messages: false };                                  // permissions du ou de la gérant(e)
   const normGP = v => ({ history: !!(v && v.history), messages: !!(v && v.messages) });
   // Droits accordés par le super administrateur à l'administrateur de l'organisation
   const normPerms = v => ({ orgName: !!(v && v.orgName), categories: !!(v && v.categories), teams: !(v && v.teams === false) });
   let adminPerms = normPerms(null);
-  const can = p => isSuper() || (isAdmin() && !isTeamAdmin() && !!adminPerms[p]);
+  // Le nom de l'organisation : super administrateur seulement
+  const can = p => isSuper() || (p !== "orgName" && isAdmin() && !isTeamAdmin() && !!adminPerms[p]);
   // « Inverser » : échange les côtés à l'écran, sur l'appareil du marqueur seulement (jamais pour les spectateurs)
   let inverted = store.get(sessionStorage, "ohmtro_inv") === "1";
   const invOn = () => inverted && isStaff() && !archiveKey;
   const sides = () => invOn() ? ["a","b"] : ["b","a"];       // de gauche à droite : visiteur puis local, sauf inversion
   const roleLabel = () => isSuper() ? "SA" : isTeamAdmin() ? "ADMIN ÉQ." : isGerant() ? "GÉRANT(E)" : currentRole.toUpperCase();
   // Le ou la gérant(e) peut corriger une partie passée (si permis) : seulement pendant cette correction
-  const canEdit = () => (isStaff() || (isGerant() && gPerms.history && !!editEntry)) && !archiveKey;
+  const canEdit = () => isStaff() && !archiveKey;
   let editEntry = null;                // partie de l'historique en cours de modification : { key, m, at }
   const now = () => Date.now() + serverOffset;      // heure du serveur : même chrono sur tous les appareils
 
@@ -2204,7 +2207,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   function updateRoleUI(){
-    document.body.className = (isGerant() ? (editEntry ? "role-marqueur role-gerant" : "role-viewer role-gerant") : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
+    document.body.className = (isGerant() ? "role-marqueur role-gerant" : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
     $("btnLogin").textContent = (currentRole !== "viewer") ? "🔓 Déconnexion (" + roleLabel() + ")" : "🔒 Connexion";
     updateStatusDisplay(); applyInv(); updatePermUI();
   }
@@ -2834,7 +2837,7 @@ document.addEventListener("DOMContentLoaded", function(){
   on("msgOrgAdd", "click", () => msgRow("msgOrgList", "", ORG_PH).focus());
   on("msgTeamAdd", "click", () => msgRow("msgTeamList", "", TEAM_PH).focus());
 
-  const msgAllowed = () => canEdit() || (isGerant() && gPerms.messages);
+  const msgAllowed = () => isGerant() ? gPerms.messages && !archiveKey : canEdit();
   function openMessages(){
     if(!msgAllowed()) return;
     closeDlg("settingsSheet");
@@ -3112,6 +3115,7 @@ document.addEventListener("DOMContentLoaded", function(){
     fillSelect($("editTeamCatSelect"), cats, cat, key ? "Toutes les catégories" : "Veuillez choisir une catégorie");
     $("editTeamOwn").checked = !!team.own;
     $("editTeamCatSelect").disabled = $("editTeamOwn").disabled = isTeamScoped();   // l'équipe ne change pas de catégorie elle-même
+    $("editTeamNameInput").readOnly = isTeamScoped() && !!key;                       // ni de nom (réservé à l'administrateur de l'organisation)
     updateLogoPreview();
     const roster = toArr(team.roster), staff = toArr(team.staff);
     $("rosterForm").textContent = ""; roster.forEach(p => addRosterRow(p.no, p.name, p.pos)); if(!roster.length) addRosterRow("","","A");
@@ -3179,7 +3183,7 @@ document.addEventListener("DOMContentLoaded", function(){
   on("rsCancel", "click", rsLeave);
   on("rsSave", "click", () => {
     if(!can("teams") && !ownTeamEdit(editingTeamKey)) return;
-    const teamName = str($("editTeamNameInput").value, ""); if(!teamName){ notify("Le nom de l'équipe est obligatoire.", "info"); return; }
+    const teamName = (isTeamScoped() && editingTeamKey && manageTeamPresets[editingTeamKey]) ? manageTeamPresets[editingTeamKey].name : str($("editTeamNameInput").value, ""); if(!teamName){ notify("Le nom de l'équipe est obligatoire.", "info"); return; }
     const existing = editingTeamKey ? manageTeamPresets[editingTeamKey] : null;
     const category = $("editTeamCatSelect").value;
     if(!editingTeamKey && !category){ notify("Il n'est pas possible de créer une équipe sans choisir sa catégorie.", "info"); return; }
