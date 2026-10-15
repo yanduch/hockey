@@ -592,6 +592,11 @@ button.tcal-d{cursor:pointer;font-weight:800}
 
 /* --- Gestion des messages : plusieurs messages --- */
 .msg-list{display:grid;gap:.35rem}
+.auto-list{display:grid;gap:.7rem}
+.auto-item .auto-lbl{display:flex;justify-content:space-between;align-items:center;gap:.4rem;font-size:.82rem;font-weight:700;margin-bottom:.15rem}
+.auto-item .auto-vars{font-size:.7rem;color:var(--muted);margin:0 0 .2rem}
+.auto-item textarea{width:100%;min-height:3.2rem;resize:vertical;padding:.45rem;border:1px solid var(--line);border-radius:6px;background:#FFF;color:#0F2236;font:inherit;font-size:.85rem;box-sizing:border-box}
+.auto-item .auto-reset{flex-shrink:0;white-space:nowrap;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:.15rem .5rem;font-size:.75rem;font-weight:700;cursor:pointer}
 .msg-row{display:flex;gap:.3rem;align-items:center}
 .msg-row .msg-num{flex:none;width:1.2rem;font-size:.8rem;font-weight:700;color:var(--muted);text-align:right}
 .msg-row input{flex:1;min-width:0;padding:.5rem;border:1px solid var(--line);border-radius:6px;background:#FFF;color:#0F2236}
@@ -1109,6 +1114,12 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <div class="msg-list" id="msgTeamList"></div>
       <button type="button" class="msg-add" id="msgTeamAdd">➕ Ajouter un message</button>
       <small style="display:block;margin-top:.4rem;color:var(--muted);font-size:.78rem;">La prochaine partie de l'équipe inscrite dans Gestion calendrier s'affiche automatiquement, avant ces messages.</small>
+    </div>
+
+    <div class="preset-box" id="msgAutoBox" style="margin-top:1rem;">
+      <label style="font-weight:700;">3. Messages automatiques :</label>
+      <small style="display:block;margin:.1rem 0 .5rem;color:var(--muted);font-size:.78rem;">Ces messages s'affichent seuls selon la situation. Les mots entre accolades, comme {équipe}, sont remplacés automatiquement : gardez-les tels quels. Toucher ↺ remet le message d'origine.</small>
+      <div id="msgAutoList" class="auto-list"></div>
     </div>
 
     <div class="actions" style="margin-top:1.2rem;">
@@ -2472,6 +2483,7 @@ document.addEventListener("DOMContentLoaded", function(){
     sub(dbConfig, snap => {
       const cfg = snap.val() || {};
       adminPerms = normPerms(cfg.adminPerms); updatePermUI();
+      autoMsg = (cfg.autoMsg && typeof cfg.autoMsg === "object") ? cfg.autoMsg : {}; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {}; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
       const min = int(cfg.defaultPeriodMin || 20, 1, 99), mVal = String(min);
@@ -2543,11 +2555,33 @@ document.addEventListener("DOMContentLoaded", function(){
     const txt = a ? [a.address, a.city].filter(Boolean).join(", ") : "";
     return txt ? " (" + txt + ")" : "";
   }
+  // ----- Messages automatiques : modèles modifiables dans Gestion des messages (par organisation) -----
+  var AUTO_MSGS = [
+    { k: "nomatch", lbl: "Aucun match, prochaine partie connue", vars: "{équipe} {date} {adversaire} {aréna}", def: "🏒 Aucun match présentement pour {équipe}, soyez là le {date} contre {adversaire} · {aréna} !" },
+    { k: "nomatchNone", lbl: "Aucun match, pas de prochaine partie", vars: "{équipe}", def: "🏒 Aucun match présentement pour {équipe}." },
+    { k: "next", lbl: "Prochaine partie d'une équipe", vars: "{équipe} {date} {adversaire} {aréna}", def: "📅 {équipe} — prochaine partie : {date} contre {adversaire} · {aréna}" },
+    { k: "start", lbl: "Avant le match (bouton du bandeau)", vars: "{temps} {équipe}", def: "La partie commence dans {temps}, Go {équipe} Go !" },
+    { k: "go", lbl: "Le match commence", vars: "{équipe}", def: "C'est parti ! Go {équipe} Go !" },
+    { k: "good", lbl: "Pendant le match, avant le premier but", vars: "", def: "🏒 Bon match !" },
+    { k: "goal", lbl: "But", vars: "{équipe} {buteur} {passes} {temps} {période}", def: "🚨 But des {équipe} marqué par {buteur}{passes}, à {temps} {période}" },
+    { k: "live", lbl: "Autre partie en cours dans l'organisation", vars: "{catégorie} {équipe}", def: "🔴 Présentement en cours dans {catégorie} : l'équipe {équipe} — sélectionnez-la juste ici ⬆⬆⬆" }
+  ];
+  var autoMsg = {};
+  function autoDef(k){ for(var i = 0; i < AUTO_MSGS.length; i++) if(AUTO_MSGS[i].k === k) return AUTO_MSGS[i].def; return ""; }
+  function autoTpl(k){ const v = autoMsg && autoMsg[k]; return typeof v === "string" && v.trim() ? v : autoDef(k); }
+  // Remplit un modèle ; une valeur vide retire proprement ce qui l'entoure (« · », « contre », « marqué par »)
+  function autoFill(k, vars){
+    let t = autoTpl(k);
+    Object.keys(vars).forEach(n => { t = t.split("{" + n + "}").join(vars[n] == null ? "" : String(vars[n])); });
+    t = t.replace(/ marqué par\s*,\s*/g, " marqué ").replace(/ marqué par\s*(?=[.!]|$)/g, " marqué").replace(/\s+contre\s*(?=[·,.!]|$)/g, "")
+         .replace(/\s*·\s*(?=[·,.!]|$)/g, "").replace(/\s*,\s*(?=[,.!]|$)/g, "").replace(/ {2,}/g, " ").trim();
+    return t;
+  }
   function nextGameText(c, name){
     const where = c.place ? " · " + c.place + arenaAddr(c) : "";
     if(!name) return "📅 Prochaine partie : " + calWhen(c) + " — " + calTitle(c) + where;
     const opp = c.a === name ? c.b : c.a;
-    return "📅 " + name + " — prochaine partie : " + calWhen(c) + " contre " + opp + where;
+    return autoFill("next", { "équipe": name, date: calWhen(c), adversaire: opp, "aréna": c.place ? c.place + arenaAddr(c) : "" });
   }
   let tickerSig = null, tickerMsg = [], lastWidth = window.innerWidth, resizeTimer = null;
   const TICKER_SPEED = 55;             // pixels par seconde
@@ -2561,8 +2595,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const k = boardTeam || boardTeams(currentCat)[0], tp = k && presets[k], g = nextGameOf(tp || null);
       skipNext = tp || "cat";
       const who = tp ? tp.name : String(currentCat).toUpperCase();
-      const vs = g ? (tp ? " contre " + (g.a === tp.name ? g.b : g.a) : " — " + calTitle(g)) : "";
-      messages.push("🏒 Aucun match présentement pour " + who + (g ? ", soyez là le " + calWhen(g) + vs + (g.place ? " · " + g.place + arenaAddr(g) : "") + " !" : "."));
+      messages.push(g ? autoFill("nomatch", { "équipe": who, date: calWhen(g), adversaire: tp ? (g.a === tp.name ? g.b : g.a) : calTitle(g), "aréna": g.place ? g.place + arenaAddr(g) : "" })
+                      : autoFill("nomatchNone", { "équipe": who }));
     }
     if(gl) messages.push(gl);                // pendant le match : « Bon match ! » puis le dernier but
     if(bt) messages.push("📣 " + bt);
@@ -2572,7 +2606,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const g = liveGames[k];
       if(!g || k === mine || !g.cat || now() - (Number(g.at) || 0) > LIVE_STALE) return;
       const p = g.team && presets[g.team], cat = String(g.cat).toUpperCase();
-      messages.push(p && p.name ? "🔴 Présentement en cours dans " + cat + " : l'équipe " + p.name + " — sélectionnez-la juste ici ⬆⬆⬆"
+      messages.push(p && p.name ? autoFill("live", { "catégorie": cat, "équipe": p.name })
                                 : "🔴 Présentement en cours dans " + cat + " : " + (g.a || "") + " contre " + (g.b || "") + " — sélectionnez la catégorie juste ici ⬆⬆⬆");
     });
     msgsOf(org).forEach(m => messages.push(m));
@@ -2892,7 +2926,8 @@ document.addEventListener("DOMContentLoaded", function(){
     fillSelect(selOrg, orgItems(), currentOrg);
     selOrg.disabled = !isSuper();
     const orgLevel = isAdmin() && !isTeamAdmin();
-    $("msgOrgBox").style.display = orgLevel ? "" : "none";   // marqueur, équipe, gérant(e) : seulement les messages de son équipe
+    $("msgOrgBox").style.display = orgLevel ? "" : "none";
+    $("msgAutoBox").style.display = orgLevel ? "" : "none";   // marqueur, équipe, gérant(e) : seulement les messages de son équipe
     $("msgCatSelect").disabled = !orgLevel;
     msgSelectedOrgKey = selOrg.value || currentOrg;
     loadOrgMessageData(msgSelectedOrgKey);
@@ -2907,6 +2942,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const token = ++msgToken, org = organizationsList.find(o => o.id === orgKey);
     msgSelectedTeamKey = ""; msgTempTeams = {}; msgDirtyTeams = {};
     msgFill("msgOrgList", msgsOf(org), ORG_PH, !isAdmin());
+    autoFillForm(orgKey === currentOrg ? autoMsg : {});
+    if(orgKey !== currentOrg) ref(orgKey + "/config/autoMsg").once("value").then(s => { if(token === msgToken) autoFillForm(s.val() || {}); });
     msgCatKey = orgKey === currentOrg ? currentCat : "";
     const lockCat = !isAdmin() || isTeamAdmin();
     fillSelect($("msgCatSelect"), msgCatKey ? [{ value: msgCatKey, label: msgCatKey.toUpperCase() }] : [], msgCatKey);
@@ -2949,11 +2986,33 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   on("msgTeamSelect", "change", () => { stashTeamMsgs(); msgSelectedTeamKey = $("msgTeamSelect").value; showTeamMsg(); });
   on("msgManageBack", "click", msgLeave);
+  function autoFillForm(vals){
+    const list = $("msgAutoList"); list.textContent = "";
+    AUTO_MSGS.forEach(a => {
+      const box = el("div", "auto-item"), lb = el("div", "auto-lbl"), ta = el("textarea");
+      lb.appendChild(el("span", null, a.lbl));
+      const rs = el("button", "auto-reset", "↺ Par défaut"); rs.type = "button"; rs.title = "Remettre le message d'origine";
+      rs.addEventListener("click", () => { ta.value = a.def; });
+      lb.appendChild(rs); box.appendChild(lb);
+      if(a.vars) box.appendChild(el("p", "auto-vars", "Variables : " + a.vars));
+      ta.dataset.k = a.k; ta.rows = 2; ta.value = typeof vals[a.k] === "string" && vals[a.k].trim() ? vals[a.k] : a.def;
+      ta.setAttribute("aria-label", a.lbl);
+      box.appendChild(ta); list.appendChild(box);
+    });
+  }
+  function autoSave(orgKey){
+    Array.prototype.forEach.call($("msgAutoList").querySelectorAll("textarea"), ta => {
+      const k = ta.dataset.k, v = ta.value.trim(), r = ref(orgKey + "/config/autoMsg/" + k);
+      if(!v || v === autoDef(k)){ r.remove(); if(orgKey === currentOrg) delete autoMsg[k]; }
+      else { r.set(v); if(orgKey === currentOrg) autoMsg[k] = v; }
+    });
+  }
   on("msgManageSave", "click", () => {
     if(!msgAllowed()) return;
     if(isAdmin() && !isTeamAdmin()){
       const org = organizationsList.find(o => o.id === msgSelectedOrgKey);
       if(org){ const msgs = msgRead("msgOrgList"); org.msgs = msgs; org.msg = msgs[0] || ""; dbOrgs.set(organizationsList); }
+      autoSave(msgSelectedOrgKey);
     }
     stashTeamMsgs();
     Object.keys(msgDirtyTeams).forEach(k => {
@@ -5549,7 +5608,7 @@ document.addEventListener("DOMContentLoaded", function(){
   document.querySelectorAll("[data-fx]").forEach(b => b.addEventListener("click", () => sendFx(b.dataset.fx)));
   // Message : fenêtre de 5 s ou bandeau (seulement pour la partie en cours ou à venir de ce tableau)
   var banner = null;
-  var TPL_START = "La partie commence dans {temps}, Go {équipe} Go !";
+  const tplStart = () => autoTpl("start");
   const annMode = () => { const r = document.querySelector('input[name="annMode"]:checked'); return r ? r.value : "pop"; };
   function myTeamName(){
     const k = boardTeam || boardTeams(currentCat)[0];
@@ -5571,7 +5630,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(t.indexOf("{") === -1) return t;
     const team = myTeamName();
     if(/\{temps\}/.test(t)){
-      if(isLive(state) && isStarted(state)) return "C'est parti ! Go " + team + " Go !";
+      if(isLive(state) && isStarted(state)) return autoFill("go", { "équipe": team });
       const k = boardTeam || boardTeams(currentCat)[0], g = nextGameOf(k ? presets[k] : null) ||
                 (state.calId ? calendarList.filter(c => c.id === state.calId)[0] : null);
       const left = g && g.at ? g.at - now() : null;
@@ -5595,19 +5654,13 @@ document.addEventListener("DOMContentLoaded", function(){
     const team = state.names[g.team] || "", who = id => id ? getPlayerName(g.team, id) : "";
     const sc = who(g.scorer), a1 = who(g.a1), a2 = who(g.a2);
     const per = g.period === 3 ? "en prolongation" : "de la " + (PLONG[g.period] || "");
-    let t = "🚨 But des " + team;
-    if(sc){
-      t += " marqué par " + sc;
-      if(a1 && a2) t += ", avec les passes de " + a1 + " et de " + a2;
-      else if(a1 || a2) t += ", avec la passe de " + (a1 || a2);
-      t += ",";
-    } else t += " marqué";
-    return t + " à " + g.time + " " + per;
+    const passes = !sc ? "" : a1 && a2 ? ", avec les passes de " + a1 + " et de " + a2 : (a1 || a2) ? ", avec la passe de " + (a1 || a2) : "";
+    return autoFill("goal", { "équipe": team, buteur: sc, passes: passes, temps: g.time, "période": per });
   }
   function gameLine(){
     if(editEntry || archiveKey || !isLive(state) || !chronoStarted(state)) return "";
     for(let i = state.events.length - 1; i >= 0; i--) if(state.events[i].type === "goal") return goalText(state.events[i]);
-    return "🏒 Bon match !";
+    return autoFill("good", {});
   }
   // Dès que le chronomètre part, le message du bandeau d'avant-match est retiré
   var chronoWas = null, chronoAt = 0;
@@ -5636,7 +5689,7 @@ document.addEventListener("DOMContentLoaded", function(){
   const annIds = () => Object.keys(anns).filter(k => anns[k] && anns[k].text).sort((x, y) => (anns[x].order || 0) - (anns[y].order || 0));
   function renderAnns(){
     const list = $("annList"); list.textContent = "";
-    const tb = btn("tpl", "⏱️ La partie commence dans … Go " + (myTeamName() || "…") + " Go !", () => annPush(TPL_START)); list.appendChild(tb);
+    const tb = btn("tpl", "⏱️ " + tplStart().split("{temps}").join("…").split("{équipe}").join(myTeamName() || "…"), () => annPush(tplStart())); list.appendChild(tb);
     annIds().forEach(k => list.appendChild(btn("", "💬 " + anns[k].text, () => annPush(anns[k].text))));
     const rows = $("msgRows"); rows.textContent = "";
     if(!annIds().length) rows.appendChild(el("p", "empty", "Aucun message enregistré."));
