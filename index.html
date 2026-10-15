@@ -2263,13 +2263,16 @@ document.addEventListener("DOMContentLoaded", function(){
 
   /* ============ Organisations / catégories (barre du haut) ============ */
 
+  // Listes du haut en ordre alphabétique (M9 avant M11, accents et majuscules ignorés)
+  function byLabel(x, y){ return String(x.label).localeCompare(String(y.label), "fr", { numeric: true, sensitivity: "base" }); }
   function renderOrgsDropdownTop(){
     const items = organizationsList.map(o => ({ value: o.id, label: o.name }));
     if(!items.some(i => i.value === currentOrg)) items.push({ value: currentOrg, label: currentOrg.toUpperCase() });
+    items.sort(byLabel);
     fillSelect($("orgSelectTop"), items, currentOrg);
   }
   function renderCategoriesDropdownTop(){
-    fillSelect($("catSelectTop"), categoriesList.map(c => ({ value: c, label: String(c).toUpperCase() })), currentCat);
+    fillSelect($("catSelectTop"), categoriesList.map(c => ({ value: c, label: String(c).toUpperCase() })).sort(byLabel), currentCat);
   }
 
   const brandLogo = $("ohmtroLogo");
@@ -2291,7 +2294,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Équipes de l'organisation dans une catégorie (celles qui peuvent avoir leur propre tableau)
   function boardTeams(cat){
     return Object.keys(presets).filter(k => { const p = presets[k]; return p && p.name && p.own && (!p.category || p.category === cat); })
-                 .sort((x, y) => String(presets[x].name).localeCompare(String(presets[y].name), "fr", { numeric: true }));
+                 .sort((x, y) => String(presets[x].name).localeCompare(String(presets[y].name), "fr", { numeric: true, sensitivity: "base" }));
   }
   function boardFor(cat, team){
     const teams = boardTeams(cat);
