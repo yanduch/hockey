@@ -543,9 +543,12 @@ body.role-gerant #btnTeamMessages{display:none !important}
 .gp-box{margin-top:.8rem;padding:.5rem .6rem;border:1px dashed var(--line);border-radius:8px;font-size:.85rem}
 .gp-box>span{font-weight:700}
 .gp-box .check-row{margin-top:.4rem}
-.tcal{display:grid;grid-template-columns:repeat(auto-fill,minmax(15.5rem,1fr));gap:.7rem}
+.tcal{display:grid;grid-template-columns:minmax(0,26rem);justify-content:center;gap:.7rem}
 .tcal-m{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.45rem .45rem .5rem}
-.tcal-m h3{margin:0 0 .3rem;font-size:.85rem;font-family:var(--display);text-transform:capitalize;color:var(--ink)}
+.tcal-nav{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin:0 0 .35rem}
+.tcal-arrow{width:2.4rem;height:2.4rem;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--ink);font-size:1.4rem;font-weight:800;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 .15rem}
+.tcal-arrow:disabled{opacity:.3;cursor:default}
+.tcal-m h3{margin:0;text-align:center;font-size:.85rem;font-family:var(--display);text-transform:capitalize;color:var(--ink)}
 .tcal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .tcal-g .wd{font-size:.6rem;font-weight:700;color:var(--muted);text-align:center;padding-bottom:2px}
 .tcal-d{position:relative;height:2.15rem;display:flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:var(--ink);font:inherit;font-size:.8rem;font-variant-numeric:tabular-nums;padding:0}
@@ -4136,7 +4139,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   // ----- Calendrier de l'équipe pour la saison : plein = à domicile (local), hachuré = à l'étranger (visiteur) -----
-  var teamCalSel = "";
+  var teamCalSel = "", teamCalIdx = null;
   function teamCalKey(){
     const top = $("teamSelectTop"), tk = boardTeam || (top && top.style.display !== "none" ? top.value : "");
     if(tk && presets[tk]) return tk;
@@ -4165,10 +4168,20 @@ document.addEventListener("DOMContentLoaded", function(){
     let first = 2, last = 8;                                   // index depuis juillet : 2 = septembre, 8 = mars
     games.forEach(g => { const m = Number(g.c.date.slice(5, 7)) - 1, idx = (m + 6) % 12; first = Math.min(first, idx); last = Math.max(last, idx); });
     if(teamCalSel && !byDay[teamCalSel]) teamCalSel = "";
+    // Un seul mois à la fois : le mois en cours par défaut, les flèches parcourent la saison
+    if(teamCalIdx == null) teamCalIdx = (now.getMonth() + 6) % 12;
+    teamCalIdx = Math.max(first, Math.min(last, teamCalIdx));
     const grid = $("teamCalGrid"); grid.textContent = "";
-    for(let idx = first; idx <= last; idx++){
+    {
+      const idx = teamCalIdx;
       const m = (idx + 6) % 12, y = m >= 6 ? sy : sy + 1, box = el("div", "tcal-m");
-      box.appendChild(el("h3", null, new Date(y, m, 1).toLocaleDateString("fr-CA", { month: "long", year: "numeric" })));
+      const nav = el("div", "tcal-nav"), arrow = (txt, lbl, dir, off) => {
+        const b = el("button", "tcal-arrow", txt); b.type = "button"; b.setAttribute("aria-label", lbl); b.disabled = off;
+        b.addEventListener("click", () => { teamCalIdx += dir; teamCalSel = ""; renderTeamCal(); }); return b; };
+      nav.appendChild(arrow("‹", "Mois précédent", -1, idx <= first));
+      nav.appendChild(el("h3", null, new Date(y, m, 1).toLocaleDateString("fr-CA", { month: "long", year: "numeric" })));
+      nav.appendChild(arrow("›", "Mois suivant", 1, idx >= last));
+      box.appendChild(nav);
       const g = el("div", "tcal-g");
       ["D", "L", "M", "M", "J", "V", "S"].forEach(w => g.appendChild(el("div", "wd", w)));
       const start = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
@@ -4988,7 +5001,7 @@ document.addEventListener("DOMContentLoaded", function(){
   setupToggle("toggleGoaliesBtn", "goaliesBlock", () => { ensureHistory(); renderGoalies(); });
   setupToggle("toggleHistoryBtn", "historyBlock", () => { ensureHistory(); renderHistory(); });
   setupToggle("toggleStandBtn", "standBlock", () => { ensureHistory(); renderStandings(); });
-  setupToggle("toggleTeamCalBtn", "teamCalBlock", () => { teamCalSel = ""; renderTeamCal(); });
+  setupToggle("toggleTeamCalBtn", "teamCalBlock", () => { teamCalSel = ""; teamCalIdx = null; renderTeamCal(); });
 
   /* ============ Nouvelle partie ============ */
   function populateWizTeamSelect(selectId, currentName){
