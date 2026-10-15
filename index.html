@@ -201,6 +201,7 @@ body.role-viewer .seg button:not([aria-pressed="true"]){opacity:0.3;pointer-even
 .stat-item .val.v{color:var(--ok)} .stat-item .val.d{color:var(--red)} .stat-item .val.blue{color:var(--blue)}
 
 .export-box{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1.2rem}
+.export-box.one{grid-template-columns:1fr}
 .export-btn{padding:.7rem .5rem;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:.9rem;font-weight:600;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:.4rem}
 
 .btn-login-bottom{margin-top:1.2rem;width:100%;padding:.7rem;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:.9rem;}
@@ -1271,6 +1272,12 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <label class="check-row" hidden><input type="checkbox" id="permOrgName"><span>Modifier le nom de l'organisation</span></label>
     <label class="check-row"><input type="checkbox" id="permCategories"><span>Gérer les catégories</span></label>
     <label class="check-row"><input type="checkbox" id="permTeams"><span>Gérer les équipes</span></label>
+    </div>
+
+    <div class="super-only" id="odExports">
+    <h3 class="sheet-sub">Boutons affichés sur la page</h3>
+    <label class="check-row"><input type="checkbox" id="showPDF"><span>📄 Imprimer / PDF</span></label>
+    <label class="check-row"><input type="checkbox" id="showCSV"><span>📊 Exporter CSV</span></label>
     </div>
 
     <div id="odCats">
@@ -2462,6 +2469,7 @@ document.addEventListener("DOMContentLoaded", function(){
     sub(dbConfig, snap => {
       const cfg = snap.val() || {};
       adminPerms = normPerms(cfg.adminPerms); updatePermUI();
+      exportCfg = normExports(cfg.exports); applyExports();
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {}; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
       const min = int(cfg.defaultPeriodMin || 20, 1, 99), mVal = String(min);
       defaultPeriodSec = min * 60;
@@ -3027,6 +3035,9 @@ document.addEventListener("DOMContentLoaded", function(){
       const show = p => { $("permOrgName").checked = p.orgName; $("permCategories").checked = p.categories; $("permTeams").checked = p.teams; };
       show(orgKey === currentOrg ? adminPerms : normPerms(null));
       if(orgKey !== currentOrg) ref(orgKey + "/config/adminPerms").once("value").then(s => { if(orgKey === manageOrgKey) show(normPerms(s.val())); });
+      const showX = x => { $("showPDF").checked = x.pdf; $("showCSV").checked = x.csv; };
+      showX(orgKey === currentOrg ? exportCfg : normExports(null));
+      if(orgKey !== currentOrg) ref(orgKey + "/config/exports").once("value").then(s => { if(orgKey === manageOrgKey) showX(normExports(s.val())); });
     }
     manageTeamCatKey = (orgKey === currentOrg) ? currentCat : "";
     manageCategoriesList = []; renderCategoriesManageList(); fillTeamCatSelect();
@@ -3037,6 +3048,22 @@ document.addEventListener("DOMContentLoaded", function(){
     loadTeamsForManage(orgKey);
     swapDlg("orgManageSheet", "orgDetailSheet");
   }
+  // Boutons Imprimer / PDF et Exporter CSV : le super administrateur choisit, par organisation, s'ils paraissent
+  var exportCfg = { pdf: true, csv: true };
+  function normExports(v){ v = v && typeof v === "object" ? v : {}; return { pdf: v.pdf !== false, csv: v.csv !== false }; }
+  function applyExports(){
+    $("btnExportPDF").style.display = exportCfg.pdf ? "" : "none";
+    $("btnExportCSV").style.display = exportCfg.csv ? "" : "none";
+    const box = $("btnExportPDF").parentNode;
+    box.style.display = exportCfg.pdf || exportCfg.csv ? "" : "none";
+    box.classList.toggle("one", exportCfg.pdf !== exportCfg.csv);
+  }
+  ["showPDF","showCSV"].forEach(id => on(id, "change", () => {
+    if(!isSuper()) return;
+    const v = { pdf: $("showPDF").checked, csv: $("showCSV").checked };
+    ref(manageOrgKey + "/config/exports").set(v);
+    if(manageOrgKey === currentOrg){ exportCfg = v; applyExports(); }
+  }));
   ["permOrgName","permCategories","permTeams"].forEach(id => on(id, "change", () => {
     if(!isSuper()) return;
     ref(manageOrgKey + "/config/adminPerms").set({ orgName: $("permOrgName").checked, categories: $("permCategories").checked, teams: $("permTeams").checked });
