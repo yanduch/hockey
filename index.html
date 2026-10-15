@@ -543,6 +543,31 @@ body.role-gerant #btnTeamMessages{display:none !important}
 .gp-box{margin-top:.8rem;padding:.5rem .6rem;border:1px dashed var(--line);border-radius:8px;font-size:.85rem}
 .gp-box>span{font-weight:700}
 .gp-box .check-row{margin-top:.4rem}
+.tcal{display:grid;grid-template-columns:repeat(auto-fill,minmax(15.5rem,1fr));gap:.7rem}
+.tcal-m{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.45rem .45rem .5rem}
+.tcal-m h3{margin:0 0 .3rem;font-size:.85rem;font-family:var(--display);text-transform:capitalize;color:var(--ink)}
+.tcal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.tcal-g .wd{font-size:.6rem;font-weight:700;color:var(--muted);text-align:center;padding-bottom:2px}
+.tcal-d{position:relative;height:2.15rem;display:flex;align-items:center;justify-content:center;border:0;border-radius:7px;background:transparent;color:var(--ink);font:inherit;font-size:.8rem;font-variant-numeric:tabular-nums;padding:0}
+.tcal-d.out{visibility:hidden}
+.tcal-d.today{box-shadow:inset 0 0 0 2px var(--muted)}
+button.tcal-d{cursor:pointer;font-weight:800}
+.tcal-d.home{background:var(--tc);color:var(--tc-ink)}
+.tcal-d.away{background:repeating-linear-gradient(135deg,var(--tc) 0 3px,transparent 3px 7px);box-shadow:inset 0 0 0 2px var(--tc);color:var(--ink)}
+.tcal-d.away span{background:var(--surface);border-radius:4px;padding:0 .15rem;line-height:1.15}
+.tcal-d.sel{outline:3px solid var(--ink);outline-offset:1px}
+.tcal-d .res{position:absolute;top:-4px;right:-4px;min-width:.95rem;height:.95rem;border-radius:50%;font-size:.55rem;line-height:.95rem;font-weight:800;color:#FFF;background:#6B7785;text-align:center;box-shadow:0 0 0 1.5px var(--surface)}
+.tcal-d .res.v{background:#1E9E5A}.tcal-d .res.d{background:#D2453A}
+.tcal-card{grid-column:1/-1;margin-top:.45rem}
+.tcal-card .p-grid{grid-template-columns:repeat(4,1fr)!important}
+.tcal-legend{display:flex;flex-wrap:wrap;gap:.45rem .9rem;margin:.6rem 0 .2rem;font-size:.75rem;color:var(--muted);align-items:center}
+.tcal-legend span{display:inline-flex;align-items:center;gap:.35rem}
+.tcal-legend i{display:inline-block;width:1.05rem;height:1.05rem;border-radius:5px;position:relative}
+.tcal-legend i.home{background:var(--tc)}
+.tcal-legend i.away{background:repeating-linear-gradient(135deg,var(--tc) 0 3px,transparent 3px 7px);box-shadow:inset 0 0 0 2px var(--tc)}
+.tcal-legend i.today{box-shadow:inset 0 0 0 2px var(--muted)}
+.tcal-legend i.dot{width:.85rem;height:.85rem;border-radius:50%;font-style:normal;font-size:.5rem;font-weight:800;color:#FFF;text-align:center;line-height:.85rem}
+.tcal-empty{grid-column:1/-1;color:var(--muted);font-size:.85rem;text-align:center;padding:.6rem}
 .stand-sub{margin:0 0 .4rem;font-size:.78rem;color:var(--muted)}
 .stand-wrap{overflow-x:auto}
 .stand{width:100%;border-collapse:collapse;font-size:.85rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -835,6 +860,13 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   <div class="toggle-block hidden" id="standBlock">
     <p class="stand-sub" id="standSub"></p>
     <div class="stand-wrap"><table class="stand" id="standTable"></table></div>
+  </div>
+
+  <h2 class="toggle-title collapsed" id="toggleTeamCalBtn" style="display:none">Calendrier</h2>
+  <div class="toggle-block hidden" id="teamCalBlock">
+    <p class="stand-sub" id="teamCalSub"></p>
+    <div class="tcal" id="teamCalGrid"></div>
+    <div class="tcal-legend" id="teamCalLegend"></div>
   </div>
 
   <button type="button" class="share-btn" id="btnShare">📤 Partager la page</button>
@@ -2388,6 +2420,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!teams.length){ sel.style.display = "none"; return; }
     fillSelect(sel, teams.map(k => ({ value: k, label: presets[k].name })), boardTeam || teams[0]);
     sel.style.display = "";
+    try{ renderTeamCal(); }catch(e){}
   }
 
   on("orgSelectTop", "change", () => {
@@ -2399,7 +2432,7 @@ document.addEventListener("DOMContentLoaded", function(){
   on("catSelectTop", "change", () => { editEntry = null; switchOrganization(currentOrg, $("catSelectTop").value); });
   on("teamSelectTop", "change", () => {
     if(boardTeams(currentCat).length < 2) return;            // une seule équipe : un seul tableau, rien à changer
-    editEntry = null; switchBoard($("teamSelectTop").value);
+    editEntry = null; switchBoard($("teamSelectTop").value); teamCalSel = ""; try{ renderTeamCal(); }catch(e){}
   });
   window.addEventListener("popstate", () => {
     const p = new URLSearchParams(window.location.search); editEntry = null;
@@ -4071,6 +4104,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Liste publique : consultation seulement (la suppression et la modification sont dans Gestion)
   // Classement de la catégorie : parties de SAISON seulement (V = 2 pts, défaite en prolongation ou fusillade = 1, nulle = 1)
   function renderStandings(){
+    try{ renderTeamCal(); }catch(e){}
     if(!isOpen("standBlock")) return;
     const tbl = $("standTable"); tbl.textContent = "";
     setText("standSub", "Saison " + seasonLabel(seasonOf(Date.now())) + " · " + String(currentCat).toUpperCase() + " · victoire 2 pts, défaite en prolongation 1 pt, nulle 1 pt");
@@ -4099,6 +4133,94 @@ document.addEventListener("DOMContentLoaded", function(){
       [[i + 1, "rk"], [r.n], [r.pj], [r.v], [r.d], [r.dp], [r.nu], [r.pts, "pts"], [(r.dif > 0 ? "+" : "") + r.dif]].forEach(c => tr.appendChild(el("td", c[1] || null, String(c[0]))));
       tbl.appendChild(tr);
     });
+  }
+
+  // ----- Calendrier de l'équipe pour la saison : plein = à domicile (local), hachuré = à l'étranger (visiteur) -----
+  var teamCalSel = "";
+  function teamCalKey(){
+    const top = $("teamSelectTop"), tk = boardTeam || (top && top.style.display !== "none" ? top.value : "");
+    if(tk && presets[tk]) return tk;
+    return presetsLoaded ? (boardTeams(currentCat)[0] || "") : "";
+  }
+  function inkOn(c){
+    const h = hex(c, DEF_A).slice(1), r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#0F2236" : "#FFFFFF";
+  }
+  function renderTeamCal(){
+    const btnT = $("toggleTeamCalBtn"); if(!btnT) return;
+    const key = teamCalKey(), p = key ? presets[key] : null, sy = seasonOf(Date.now());
+    if(!p){ btnT.style.display = "none"; $("teamCalBlock").classList.add("hidden"); btnT.classList.add("collapsed"); return; }
+    btnT.style.display = "";
+    btnT.textContent = "Calendrier des " + p.name + " pour " + sy + "-" + (sy + 1);
+    const blk = $("teamCalBlock"), color = hex(p.color, DEF_A);
+    blk.style.setProperty("--tc", color); blk.style.setProperty("--tc-ink", inkOn(color));
+    if(!isOpen("teamCalBlock")) return;
+    setText("teamCalSub", String(currentCat).toUpperCase() + " · touchez une date de match pour voir les détails");
+    const games = calendarList.filter(c => seasonOf(c.at) === sy && ((c.aKey === key || c.bKey === key) || c.a === p.name || c.b === p.name))
+                              .map(c => ({ c: c, home: c.aKey ? c.aKey === key : c.a === p.name }))
+                              .sort((x, y) => x.c.at - y.c.at);
+    const byDay = {}; games.forEach(g => (byDay[g.c.date] = byDay[g.c.date] || []).push(g));
+    const pad = n => (n < 10 ? "0" : "") + n, now = new Date(), today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+    // Mois montrés : de septembre à mars au minimum, élargis aux mois où l'équipe joue (saison de juillet à juin)
+    let first = 2, last = 8;                                   // index depuis juillet : 2 = septembre, 8 = mars
+    games.forEach(g => { const m = Number(g.c.date.slice(5, 7)) - 1, idx = (m + 6) % 12; first = Math.min(first, idx); last = Math.max(last, idx); });
+    if(teamCalSel && !byDay[teamCalSel]) teamCalSel = "";
+    const grid = $("teamCalGrid"); grid.textContent = "";
+    for(let idx = first; idx <= last; idx++){
+      const m = (idx + 6) % 12, y = m >= 6 ? sy : sy + 1, box = el("div", "tcal-m");
+      box.appendChild(el("h3", null, new Date(y, m, 1).toLocaleDateString("fr-CA", { month: "long", year: "numeric" })));
+      const g = el("div", "tcal-g");
+      ["D", "L", "M", "M", "J", "V", "S"].forEach(w => g.appendChild(el("div", "wd", w)));
+      const start = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+      for(let i = 0; i < start; i++) g.appendChild(el("div", "tcal-d out"));
+      let selRow = null;
+      for(let d = 1; d <= days; d++){
+        const ds = y + "-" + pad(m + 1) + "-" + pad(d), list = byDay[ds];
+        let cell;
+        if(list){
+          cell = el("button", "tcal-d " + (list[0].home ? "home" : "away")); cell.type = "button";
+          cell.appendChild(el("span", null, String(d)));
+          cell.setAttribute("aria-label", d + " : " + list.map(x => (x.home ? "à domicile contre " + x.c.b : "visiteur chez " + x.c.a)).join(", "));
+          const pl = list.filter(x => x.c.played)[0];
+          if(pl){
+            const me = Number(pl.home ? pl.c.scoreA : pl.c.scoreB), op = Number(pl.home ? pl.c.scoreB : pl.c.scoreA);
+            const r = me > op ? "v" : me < op ? "d" : "n";
+            cell.appendChild(el("b", "res " + r, r === "v" ? "V" : r === "d" ? (pl.c.end ? "DP" : "D") : "N"));
+          }
+          if(ds === teamCalSel){ cell.classList.add("sel"); selRow = list; }
+          cell.addEventListener("click", () => { teamCalSel = teamCalSel === ds ? "" : ds; renderTeamCal(); });
+        } else cell = el("div", "tcal-d", String(d));
+        if(ds === today) cell.classList.add("today");
+        g.appendChild(cell);
+      }
+      box.appendChild(g);
+      if(selRow) selRow.forEach(x => box.appendChild(teamCalCard(x, p)));
+      grid.appendChild(box);
+    }
+    if(!games.length) grid.insertBefore(el("p", "tcal-empty", "Aucune partie au calendrier pour cette équipe pour l'instant."), grid.firstChild);
+    const lg = $("teamCalLegend"); lg.textContent = "";
+    const item = (cls, txt, sym, bg) => { const s = el("span"), i = el("i", cls, sym || ""); if(bg) i.style.background = bg; s.appendChild(i); s.appendChild(document.createTextNode(txt)); lg.appendChild(s); };
+    item("home", "À domicile (local)"); item("away", "À l'étranger (visiteur)"); item("today", "Aujourd'hui");
+    item("dot", "Victoire", "V", "#1E9E5A"); item("dot", "Défaite", "D", "#D2453A"); item("dot", "Défaite en prolongation", "DP", "#D2453A"); item("dot", "Nulle", "N", "#6B7785");
+  }
+  function teamCalCard(x, p){
+    const c = x.c, opp = x.home ? c.b : c.a, card = el("div", "player-card-inline tcal-card");
+    const h = el("h4"); h.appendChild(el("span", null, (x.home ? p.name + " vs " : p.name + " @ ") + opp));
+    const cl = el("span", null, "✕"); cl.style.cursor = "pointer"; cl.addEventListener("click", () => { teamCalSel = ""; renderTeamCal(); }); h.appendChild(cl);
+    card.appendChild(h);
+    card.appendChild(el("div", "p-team", (x.home ? "Local · à domicile" : "Visiteur · à l'étranger") + " · " + (c.phase === "reg" ? "Saison régulière" : "Pré-saison")));
+    const gr = el("div", "p-grid"), stat = (l, v) => { const s = el("div", "p-stat"); s.appendChild(el("span", "p-lbl", l)); s.appendChild(el("span", "p-val", v)); gr.appendChild(s); };
+    const pts = c.date.split("-").map(Number), dt = new Date(pts[0], pts[1] - 1, pts[2]);
+    stat("DATE", dt.toLocaleDateString("fr-CA", { day: "numeric", month: "short" }));
+    stat("HEURE", c.time ? c.time.replace(":", " h ") : "–");
+    stat("CÔTÉ", x.home ? "Local" : "Visiteur");
+    if(c.played){
+      const me = Number(x.home ? c.scoreA : c.scoreB), op = Number(x.home ? c.scoreB : c.scoreA);
+      stat(me > op ? "VICTOIRE" : me < op ? (c.end ? "DÉF. PROL." : "DÉFAITE") : "NULLE", me + " - " + op);
+    } else stat("STATUT", c.started ? "En cours" : "À venir");
+    card.appendChild(gr);
+    card.appendChild(el("p", "p-note", "📅 " + calWhen(c) + (c.place ? " · 📍 " + c.place + arenaAddr(c) : "")));
+    return card;
   }
 
   function renderHistory(){
@@ -4866,6 +4988,7 @@ document.addEventListener("DOMContentLoaded", function(){
   setupToggle("toggleGoaliesBtn", "goaliesBlock", () => { ensureHistory(); renderGoalies(); });
   setupToggle("toggleHistoryBtn", "historyBlock", () => { ensureHistory(); renderHistory(); });
   setupToggle("toggleStandBtn", "standBlock", () => { ensureHistory(); renderStandings(); });
+  setupToggle("toggleTeamCalBtn", "teamCalBlock", () => { teamCalSel = ""; renderTeamCal(); });
 
   /* ============ Nouvelle partie ============ */
   function populateWizTeamSelect(selectId, currentName){
