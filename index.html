@@ -4248,7 +4248,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function teamCalCard(x, p){
     const c = x.c, opp = x.home ? c.b : c.a, card = el("div", "player-card-inline tcal-card");
-    const h = el("h4"); h.appendChild(el("span", null, (x.home ? p.name + " vs " : p.name + " @ ") + opp));
+    const h = el("h4"); h.appendChild(el("span", null, c.b + " vs " + c.a));            // visiteur vs local, comme partout ailleurs
     const cl = el("span", null, "✕"); cl.style.cursor = "pointer"; cl.addEventListener("click", () => { teamCalSel = ""; renderTeamCal(); }); h.appendChild(cl);
     card.appendChild(h);
     card.appendChild(el("div", "p-team", (x.home ? "Local · à domicile" : "Visiteur · à l'étranger") + " · " + (c.phase === "reg" ? "Saison régulière" : "Pré-saison")));
@@ -4259,7 +4259,7 @@ document.addEventListener("DOMContentLoaded", function(){
     stat("CÔTÉ", x.home ? "Local" : "Visiteur");
     if(c.played){
       const me = Number(x.home ? c.scoreA : c.scoreB), op = Number(x.home ? c.scoreB : c.scoreA);
-      stat(me > op ? "VICTOIRE" : me < op ? (c.end ? "DÉF. PROL." : "DÉFAITE") : "NULLE", me + " - " + op);
+      stat(me > op ? "VICTOIRE" : me < op ? (c.end ? "DÉF. PROL." : "DÉFAITE") : "NULLE", c.scoreB + " - " + c.scoreA);   // visiteur - local
     } else stat("STATUT", c.started ? "En cours" : "À venir");
     card.appendChild(gr);
     card.appendChild(el("p", "p-note", "📅 " + calWhen(c) + (c.place ? " · 📍 " + c.place + arenaAddr(c) : "")));
