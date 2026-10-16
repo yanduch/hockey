@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -201,6 +202,7 @@ body.role-viewer .seg button:not([aria-pressed="true"]){opacity:0.3;pointer-even
 .stat-item .val.v{color:var(--ok)} .stat-item .val.d{color:var(--red)} .stat-item .val.blue{color:var(--blue)}
 
 .export-box{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1.2rem}
+.build-tag{margin:.6rem 0 0;text-align:center;font-size:.68rem;color:var(--muted);opacity:.75}
 .export-box.one{grid-template-columns:1fr}
 .export-btn{padding:.7rem .5rem;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:.9rem;font-weight:600;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:.4rem}
 
@@ -922,6 +924,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <button type="button" class="export-btn" id="btnExportCSV">📊 Exporter CSV</button>
   </div>
   <button type="button" class="btn-login-bottom" id="btnLogin">🔒 Connexion</button>
+  <p class="build-tag" id="buildTag"></p>
 </div>
 
 <button type="button" id="btnSound" aria-label="Son">🔊</button>
@@ -1876,6 +1879,36 @@ window.QR = (function(){
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   "use strict";
+
+  /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
+  var BUILD = "202610161956";
+  (function(){
+    const tag = document.getElementById("buildTag");
+    if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
+    let asked = false, last = 0;
+    function check(){
+      if(!/^\d{12}$/.test(BUILD) || asked || Date.now() - last < 60000 || !/^https?:/.test(location.protocol)) return;
+      last = Date.now();
+      fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(t => {
+        const m = /var BUILD = "(\d{12})"/.exec(t || "");
+        if(!m || Number(m[1]) <= Number(BUILD) || asked) return;
+        asked = true;
+        const staff = /role-(admin|marqueur|gerant)/.test(document.body.className);
+        // Visiteur : rechargement automatique, une seule fois par version (évite de boucler si le téléphone garde l'ancienne copie)
+        let tried = ""; try{ tried = sessionStorage.getItem("hk_reload_for") || ""; }catch(e){}
+        if(!staff && tried !== m[1]){ try{ sessionStorage.setItem("hk_reload_for", m[1]); }catch(e){} location.reload(); return; }
+        // Personne connectée (peut-être en train de marquer) : on demande avant de recharger
+        const bar = document.createElement("button");
+        bar.type = "button"; bar.textContent = "🔄 Nouvelle version de la page disponible : toucher pour mettre à jour";
+        bar.style.cssText = "position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483001;padding:.8rem;border:0;border-radius:12px;background:#1F7A4D;color:#FFF;font:inherit;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3)";
+        bar.addEventListener("click", () => location.reload());
+        document.body.appendChild(bar);
+      }).catch(() => {});
+    }
+    setTimeout(check, 3000);
+    document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") check(); });
+    setInterval(check, 10 * 60000);
+  })();
 
   /* ============ Utilitaires ============ */
   const $ = id => document.getElementById(id);
