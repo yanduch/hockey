@@ -559,6 +559,10 @@ button.tcal-d{cursor:pointer;font-weight:800}
 .tcal-d.home{background:var(--tc);color:var(--tc-ink)}
 .tcal-d.away{background:repeating-linear-gradient(135deg,var(--tc) 0 3px,transparent 3px 7px);box-shadow:inset 0 0 0 2px var(--tc);color:var(--ink)}
 .tcal-d.away span{background:var(--surface);border-radius:4px;padding:0 .15rem;line-height:1.15}
+.tcal-d.prac{box-shadow:inset 0 0 0 2.5px var(--tc);color:var(--ink);border-radius:50%}
+.tcal-d.also-prac::after{content:"";position:absolute;bottom:2px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--surface);box-shadow:0 0 0 1.5px var(--tc)}
+.tcal-card.prac-card .p-grid{grid-template-columns:repeat(3,1fr)!important}
+.tcal-legend i.prac{box-shadow:inset 0 0 0 2.5px var(--tc);border-radius:50%}
 .tcal-d.sel{outline:3px solid var(--ink);outline-offset:1px}
 .tcal-d .res{position:absolute;top:-4px;right:-4px;min-width:.95rem;height:.95rem;border-radius:50%;font-size:.55rem;line-height:.95rem;font-weight:800;color:#FFF;background:#6B7785;text-align:center;box-shadow:0 0 0 1.5px var(--surface)}
 .tcal-d .res.v{background:#1E9E5A}.tcal-d .res.d{background:#D2453A}
@@ -2478,6 +2482,8 @@ document.addEventListener("DOMContentLoaded", function(){
       renderCategoriesDropdownTop();
     });
 
+    teamPractices = {};
+    sub(ref(catBase() + "/practices"), snap => { teamPractices = obj(snap.val()); try{ renderTeamCal(); }catch(e){} });
     sub(ref(catBase() + "/calendar"), snap => {
       calendarList = calEntries(snap.val());
       if(historyLoaded){ renderStats(); renderStandings(); }
@@ -3923,7 +3929,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Chaque partie garde le numéro du fichier (UID) : réimporter le même horaire met les parties à jour, sans doublon.
   // Les noms d'équipes du fichier sont associés une fois aux équipes enregistrées ; l'association est retenue (…/<cat>/icsTeams).
   const normKey = s => arenaKey(s);
-  function icsParse(text){
+  function icsParse(text, withPractice){
     const lines = String(text).replace(/\r\n?/g, "\n").replace(/\n[ \t]/g, "").split("\n");
     const unesc = v => v.replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
     const out = []; let ev = null;
@@ -3942,12 +3948,6 @@ document.addEventListener("DOMContentLoaded", function(){
         const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]));
         date = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); time = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
       } else { date = m[1] + "-" + m[2] + "-" + m[3]; if(m[4]) time = m[4] + ":" + m[5]; }
-      // « Match - VISITEUR @ LOCAL »
-      let sum = String(e.SUMMARY || "").replace(/^\s*(match|partie|game)\s*[-:–]\s*/i, "");
-      const at = sum.split(/\s+@\s+/);
-      // Abonnement Spordle : « VISITEUR VS LOCAL » (le 2e nom joue à domicile)
-      if(at.length !== 2) { const vs = sum.split(/\s+(?:vs\.?|contre)\s+/i); if(vs.length !== 2) return null; at[0] = vs[0]; at[1] = vs[1]; }
-      if(/practice|pratique/i.test(e.CATEGORIES || "")) return null;
       // « Aréna X (Glace 1) - 5225 Rue de Courcelette, Trois-Rivières, QC »
       const loc = String(e.LOCATION || ""), dash = loc.indexOf(" - ");
       const arenaName = (dash >= 0 ? loc.slice(0, dash) : loc.split(",")[0]).replace(/\s*\((glace|patinoire|rink|surface)[^)]*\)\s*/ig, " ").replace(/\s+/g, " ").trim();
@@ -3959,7 +3959,20 @@ document.addEventListener("DOMContentLoaded", function(){
       if(parts.length && /^(qc|québec|quebec|on|ontario|canada)$/i.test(parts[parts.length - 1])) parts.pop();
       const city = parts.length > 1 ? parts.pop() : "";
       const address = parts.join(", ").replace(/^(\d+[a-z]?)\s+(rue|av\.?|avenue|boul\.?|boulevard|ch\.?|chemin|rang|route|place|montée)\b/i, (s0, n, w) => n + ", " + w.toLowerCase());
-      return { uid: String(e.UID || "").replace(/^game-/i, ""), date: date, time: time, b: at[0].trim(), a: at[1].trim(), arenaName: arenaFull, city: city, address: address };
+      // Fin (pratiques) : « 18:30 »
+      let endTime = "";
+      const me = /^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)?(Z)?/.exec(e.DTEND || "");
+      if(me){ if(me[7]){ const d2 = new Date(Date.UTC(+me[1], +me[2] - 1, +me[3], +me[4], +me[5])); endTime = pad2(d2.getHours()) + ":" + pad2(d2.getMinutes()); } else endTime = me[4] + ":" + me[5]; }
+      const uidv = String(e.UID || "").replace(/^game-/i, "");
+      if(/practice|pratique/i.test(e.CATEGORIES || "") || /^practice-/i.test(String(e.UID || ""))){
+        return withPractice ? { practice: true, uid: uidv, date: date, time: time, end: endTime, title: String(e.SUMMARY || "").trim(), arenaName: arenaFull, city: city, address: address } : null;
+      }
+      // « Match - VISITEUR @ LOCAL »
+      let sum = String(e.SUMMARY || "").replace(/^\s*(match|partie|game)\s*[-:–]\s*/i, "");
+      const at = sum.split(/\s+@\s+/);
+      // Abonnement Spordle : « VISITEUR VS LOCAL » (le 2e nom joue à domicile)
+      if(at.length !== 2) { const vs = sum.split(/\s+(?:vs\.?|contre)\s+/i); if(vs.length !== 2) return null; at[0] = vs[0]; at[1] = vs[1]; }
+      return { uid: uidv, date: date, time: time, b: at[0].trim(), a: at[1].trim(), arenaName: arenaFull, city: city, address: address };
     }).filter(Boolean);
   }
   // NOM EN MAJUSCULES → Nom en majuscules (les sigles courts restent en majuscules)
@@ -4090,8 +4103,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const last = obj(s.val());
       if(!force && last.url === p.icsUrl && now() - (Number(last.at) || 0) < SPORDLE_EVERY) return null;
       ref(base + "/icsSync/" + key).set({ at: now(), url: p.icsUrl, ok: last.ok || 0, n: last.n || 0 });       // réservé : un seul appareil à la fois
-      return spordleFetch(p.icsUrl, org, key).then(text => Promise.all([ref(base + "/calendar").once("value"), ref(base + "/icsTeams").once("value")]).then(r => {
-        const games = icsParse(text), cal = obj(r[0].val()), saved = obj(r[1].val()), map = Object.assign({}, saved);
+      return spordleFetch(p.icsUrl, org, key).then(text => Promise.all([ref(base + "/calendar").once("value"), ref(base + "/icsTeams").once("value"), ref(base + "/practices/" + key).once("value")]).then(r => {
+        const all = icsParse(text, true), games = all.filter(g => !g.practice), cal = obj(r[0].val()), saved = obj(r[1].val()), map = Object.assign({}, saved);
         // L'équipe de l'abonnement : le nom présent dans toutes ses parties
         const cnt = {}; games.forEach(g => { cnt[g.a] = (cnt[g.a] || 0) + 1; cnt[g.b] = (cnt[g.b] || 0) + 1; });
         const own = Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x])[0];
@@ -4131,8 +4144,16 @@ document.addEventListener("DOMContentLoaded", function(){
         Object.keys(cal).forEach(id => { const c = cal[id];
           if(c && c.feed === key && !seen[id] && c.date >= today && !isNum(c.scoreA) && !c.started && !c.histKey){ ref(base + "/calendar/" + id).remove(); removed++; } });
         if(JSON.stringify(map) !== JSON.stringify(saved)) ref(base + "/icsTeams").set(map);
+        // Pratiques : gardées à part, seulement pour le calendrier de l'équipe
+        const prac = {};
+        all.filter(g => g.practice && g.uid).forEach(g => {
+          let aid = icsArena(g); if(!aid && g.arenaName) aid = addArena(g.arenaName, g.city, g.address);
+          prac["p" + cleanKey(g.uid).slice(0, 40)] = { date: g.date, time: g.time, end: g.end || "", place: aid ? arenas[aid].name : g.arenaName || "", arena: aid || "" };
+        });
+        const pracN = Object.keys(prac).length;
+        if(JSON.stringify(prac) !== JSON.stringify(obj(r[2] && r[2].val()))){ if(pracN) ref(base + "/practices/" + key).set(prac); else ref(base + "/practices/" + key).remove(); }
         ref(base + "/icsSync/" + key).set({ at: now(), url: p.icsUrl, ok: now(), n: games.length });
-        return done({ games: games.length, added: added, updated: updated, removed: removed });
+        return done({ games: games.length, added: added, updated: updated, removed: removed, practices: pracN });
       })).catch(e => { ref(base + "/icsSync/" + key).set({ at: now(), url: p.icsUrl, ok: last.ok || 0, n: last.n || 0, err: String(e && e.message || e).slice(0, 80) }); throw e; });
     }).then(done, e => { done(); throw e; });
   }
@@ -4154,7 +4175,7 @@ document.addEventListener("DOMContentLoaded", function(){
     Promise.all(keys.map(k => spordleSync(calCat, k, true).then(r => ({ k: k, r: r }), e => ({ k: k, e: e })))).then(res => {
       $("calSpordle").disabled = false;
       notify(res.map(x => presets[x.k].name + " : " + (x.e ? "lecture impossible (" + (x.e.message || x.e) + ")" :
-        !x.r ? "déjà en cours" : x.r.games + " partie" + (x.r.games > 1 ? "s" : "") + " · " + x.r.added + " ajoutée" + (x.r.added > 1 ? "s" : "") + ", " + x.r.updated + " modifiée" + (x.r.updated > 1 ? "s" : "") + ", " + x.r.removed + " retirée" + (x.r.removed > 1 ? "s" : ""))).join("\n"),
+        !x.r ? "déjà en cours" : x.r.games + " partie" + (x.r.games > 1 ? "s" : "") + " · " + x.r.added + " ajoutée" + (x.r.added > 1 ? "s" : "") + ", " + x.r.updated + " modifiée" + (x.r.updated > 1 ? "s" : "") + ", " + x.r.removed + " retirée" + (x.r.removed > 1 ? "s" : "") + " · " + x.r.practices + " pratique" + (x.r.practices > 1 ? "s" : ""))).join("\n"),
         res.some(x => x.e) ? "error" : "ok");
     });
   });
@@ -4339,7 +4360,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   // ----- Calendrier de l'équipe pour la saison : plein = à domicile (local), hachuré = à l'étranger (visiteur) -----
-  var teamCalSel = "", teamCalIdx = null;
+  var teamCalSel = "", teamCalIdx = null, teamPractices = {};
   function teamCalKey(){
     const top = $("teamSelectTop"), tk = boardTeam || (top && top.style.display !== "none" ? top.value : "");
     if(tk && presets[tk]) return tk;
@@ -4358,16 +4379,20 @@ document.addEventListener("DOMContentLoaded", function(){
     const blk = $("teamCalBlock"), color = hex(p.color, DEF_A);
     blk.style.setProperty("--tc", color); blk.style.setProperty("--tc-ink", inkOn(color));
     if(!isOpen("teamCalBlock")) return;
-    setText("teamCalSub", String(currentCat).toUpperCase() + " · touchez une date de match pour voir les détails");
+    setText("teamCalSub", String(currentCat).toUpperCase() + " · touchez une date pour voir les détails");
     const games = calendarList.filter(c => seasonOf(c.at) === sy && ((c.aKey === key || c.bKey === key) || c.a === p.name || c.b === p.name))
                               .map(c => ({ c: c, home: c.aKey ? c.aKey === key : c.a === p.name }))
                               .sort((x, y) => x.c.at - y.c.at);
     const byDay = {}; games.forEach(g => (byDay[g.c.date] = byDay[g.c.date] || []).push(g));
+    const pr = obj(teamPractices[key]), pracDay = {};
+    Object.keys(pr).forEach(id => { const x = pr[id]; if(x && x.date) (pracDay[x.date] = pracDay[x.date] || []).push(x); });
+    Object.keys(pracDay).forEach(dd => pracDay[dd].sort((x, y) => String(x.time).localeCompare(String(y.time))));
     const pad = n => (n < 10 ? "0" : "") + n, now = new Date(), today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
     // Mois montrés : de septembre à mars au minimum, élargis aux mois où l'équipe joue (saison de juillet à juin)
     let first = 2, last = 8;                                   // index depuis juillet : 2 = septembre, 8 = mars
-    games.forEach(g => { const m = Number(g.c.date.slice(5, 7)) - 1, idx = (m + 6) % 12; first = Math.min(first, idx); last = Math.max(last, idx); });
-    if(teamCalSel && !byDay[teamCalSel]) teamCalSel = "";
+    games.map(g => g.c.date).concat(Object.keys(pracDay)).forEach(ds => { const p2 = ds.split("-").map(Number); if(seasonOf(new Date(p2[0], p2[1] - 1, p2[2]).getTime()) !== sy) return;
+      const m = p2[1] - 1, idx = (m + 6) % 12; first = Math.min(first, idx); last = Math.max(last, idx); });
+    if(teamCalSel && !byDay[teamCalSel] && !pracDay[teamCalSel]) teamCalSel = "";
     // Un seul mois à la fois : le mois en cours par défaut, les flèches parcourent la saison
     if(teamCalIdx == null) teamCalIdx = (now.getMonth() + 6) % 12;
     teamCalIdx = Math.max(first, Math.min(last, teamCalIdx));
@@ -4388,33 +4413,46 @@ document.addEventListener("DOMContentLoaded", function(){
       for(let i = 0; i < start; i++) g.appendChild(el("div", "tcal-d out"));
       let selRow = null;
       for(let d = 1; d <= days; d++){
-        const ds = y + "-" + pad(m + 1) + "-" + pad(d), list = byDay[ds];
+        const ds = y + "-" + pad(m + 1) + "-" + pad(d), list = byDay[ds], pl2 = pracDay[ds];
         let cell;
-        if(list){
-          cell = el("button", "tcal-d " + (list[0].home ? "home" : "away")); cell.type = "button";
+        if(list || pl2){
+          cell = el("button", "tcal-d " + (list ? (list[0].home ? "home" : "away") : "prac") + (list && pl2 ? " also-prac" : "")); cell.type = "button";
           cell.appendChild(el("span", null, String(d)));
-          cell.setAttribute("aria-label", d + " : " + list.map(x => (x.home ? "à domicile contre " + x.c.b : "visiteur chez " + x.c.a)).join(", "));
-          const pl = list.filter(x => x.c.played)[0];
+          cell.setAttribute("aria-label", d + " : " + (list || []).map(x => (x.home ? "à domicile contre " + x.c.b : "visiteur chez " + x.c.a)).concat(pl2 ? ["pratique"] : []).join(", "));
+          const pl = (list || []).filter(x => x.c.played)[0];
           if(pl){
             const me = Number(pl.home ? pl.c.scoreA : pl.c.scoreB), op = Number(pl.home ? pl.c.scoreB : pl.c.scoreA);
             const r = me > op ? "v" : me < op ? "d" : "n";
             cell.appendChild(el("b", "res " + r, r === "v" ? "V" : r === "d" ? (pl.c.end ? "DP" : "D") : "N"));
           }
-          if(ds === teamCalSel){ cell.classList.add("sel"); selRow = list; }
+          if(ds === teamCalSel){ cell.classList.add("sel"); selRow = { g: list || [], p: pl2 || [] }; }
           cell.addEventListener("click", () => { teamCalSel = teamCalSel === ds ? "" : ds; renderTeamCal(); });
         } else cell = el("div", "tcal-d", String(d));
         if(ds === today) cell.classList.add("today");
         g.appendChild(cell);
       }
       box.appendChild(g);
-      if(selRow) selRow.forEach(x => box.appendChild(teamCalCard(x, p)));
+      if(selRow){ selRow.g.forEach(x => box.appendChild(teamCalCard(x, p))); selRow.p.forEach(x => box.appendChild(teamPracCard(x, p))); }
       grid.appendChild(box);
     }
-    if(!games.length) grid.insertBefore(el("p", "tcal-empty", "Aucune partie au calendrier pour cette équipe pour l'instant."), grid.firstChild);
+    if(!games.length && !Object.keys(pracDay).length) grid.insertBefore(el("p", "tcal-empty", "Aucune partie au calendrier pour cette équipe pour l'instant."), grid.firstChild);
     const lg = $("teamCalLegend"); lg.textContent = "";
     const item = (cls, txt, sym, bg) => { const s = el("span"), i = el("i", cls, sym || ""); if(bg) i.style.background = bg; s.appendChild(i); s.appendChild(document.createTextNode(txt)); lg.appendChild(s); };
-    item("home", "À domicile (local)"); item("away", "À l'étranger (visiteur)"); item("today", "Aujourd'hui");
+    item("home", "À domicile (local)"); item("away", "À l'étranger (visiteur)"); if(Object.keys(pr).length) item("prac", "Pratique"); item("today", "Aujourd'hui");
     item("dot", "Victoire", "V", "#1E9E5A"); item("dot", "Défaite", "D", "#D2453A"); item("dot", "Défaite en prolongation", "DP", "#D2453A"); item("dot", "Nulle", "N", "#6B7785");
+  }
+  function teamPracCard(x, p){
+    const card = el("div", "player-card-inline tcal-card prac-card"), h = el("h4");
+    h.appendChild(el("span", null, "Pratique · " + p.name));
+    const cl = el("span", null, "✕"); cl.style.cursor = "pointer"; cl.addEventListener("click", () => { teamCalSel = ""; renderTeamCal(); }); h.appendChild(cl);
+    card.appendChild(h);
+    const gr = el("div", "p-grid"), stat = (l, v) => { const s = el("div", "p-stat"); s.appendChild(el("span", "p-lbl", l)); s.appendChild(el("span", "p-val", v)); gr.appendChild(s); };
+    const pts = x.date.split("-").map(Number), dt = new Date(pts[0], pts[1] - 1, pts[2]), hh = t => t ? t.replace(":", " h ") : "–";
+    stat("DATE", dt.toLocaleDateString("fr-CA", { day: "numeric", month: "short" }));
+    stat("DÉBUT", hh(x.time)); stat("FIN", hh(x.end));
+    card.appendChild(gr);
+    card.appendChild(el("p", "p-note", "📅 " + calWhen({ date: x.date, time: x.time }) + (x.place ? " · 📍 " + x.place + arenaAddr({ place: x.place, arena: x.arena }) : "")));
+    return card;
   }
   function teamCalCard(x, p){
     const c = x.c, opp = x.home ? c.b : c.a, card = el("div", "player-card-inline tcal-card");
