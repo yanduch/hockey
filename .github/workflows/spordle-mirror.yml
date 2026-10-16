@@ -1,0 +1,23 @@
+name: Calendriers Spordle (relais)
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: spordle-mirror
+jobs:
+  copie:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node .github/scripts/spordle-mirror.mjs
+      - name: Enregistrer les changements
+        run: |
+          git add spordle
+          if git diff --cached --quiet; then echo "Aucun changement"; exit 0; fi
+          git -c user.name="Calendrier Spordle" -c user.email="actions@users.noreply.github.com" commit -m "Calendriers Spordle mis à jour"
+          git push

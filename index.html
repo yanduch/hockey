@@ -1143,6 +1143,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <select id="calTeamFilter" aria-label="Équipe"></select>
     </div>
     <button type="button" class="act-1" id="calAdd" style="width:100%;min-height:2.6rem;margin-bottom:.5rem;font-size:.9rem;">➕ Ajouter une partie</button>
+    <button type="button" class="act-2" id="calSpordle" style="width:100%;min-height:2.4rem;margin-bottom:.5rem;font-size:.88rem;">🔄 Synchroniser avec Spordle</button>
     <button type="button" class="act-2 super-only" id="calImport" style="width:100%;min-height:2.4rem;margin-bottom:.8rem;font-size:.88rem;">📥 Importer un horaire (.ics)</button>
     <input type="file" id="calIcsFile" accept=".ics,text/calendar" hidden>
     <ul class="cal-list" id="calList"></ul>
@@ -1500,6 +1501,11 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <select id="editTeamCatSelect" class="full-input"></select>
     </div>
     <label class="check-row"><input type="checkbox" id="editTeamOwn"><span>Équipe de l'organisation<small>Si une catégorie compte deux équipes de l'organisation ou plus, chacune a son propre tableau en direct et son mot de passe de marqueur.</small></span></label>
+    <div class="field-group" style="margin-top:.6rem;">
+      <label for="editTeamIcs">Calendrier Spordle (adresse d'abonnement) :</label>
+      <input type="url" id="editTeamIcs" class="full-input" placeholder="https://api.mobile.spordle.com/teams/…/calendar" inputmode="url" autocomplete="off">
+      <small style="display:block;margin-top:.25rem;color:var(--muted);font-size:.76rem;">Les matchs de l'équipe sont copiés au calendrier et mis à jour automatiquement (au plus une fois l'heure). Les pratiques sont ignorées.</small>
+    </div>
     <div class="color-picker-row" style="margin:.6rem 0;">
       <label>Couleur par défaut :</label>
       <input type="color" id="presetTeamColor" value="#6FA2EE">
@@ -2509,6 +2515,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const v = snap.val();
       presets = (v && typeof v === "object") ? v : {};
       presetsRev++; indexPresets(); try{ renderStandings(); }catch(e){}
+      setTimeout(() => { try{ spordleAuto(); }catch(e){} }, 1500);
       try{ checkMarqueurScope(); }catch(e){}
       if(resolveBoard()) return;         // changement de tableau : l'affichage est refait par attachBoard
       syncStateWithPresets(); render();
@@ -2574,7 +2581,7 @@ document.addEventListener("DOMContentLoaded", function(){
     let t = autoTpl(k);
     Object.keys(vars).forEach(n => { t = t.split("{" + n + "}").join(vars[n] == null ? "" : String(vars[n])); });
     t = t.replace(/ marqué par\s*,\s*/g, " marqué ").replace(/ marqué par\s*(?=[.!]|$)/g, " marqué").replace(/\s+contre\s*(?=[·,.!]|$)/g, "")
-         .replace(/\s*·\s*(?=[·,.!]|$)/g, "").replace(/\s*,\s*(?=[,.!]|$)/g, "").replace(/ {2,}/g, " ").trim();
+         .replace(/\s*·\s*(?=[·,.!]|$)/g, " ").replace(/\s*,\s*(?=[,.!]|$)/g, " ").replace(/ {2,}/g, " ").replace(/ ([,.])/g, "$1").trim();
     return t;
   }
   function nextGameText(c, name){
@@ -3239,6 +3246,7 @@ document.addEventListener("DOMContentLoaded", function(){
     // Nouvelle équipe : la catégorie doit être choisie ; une ancienne équipe sans catégorie reste « Toutes les catégories »
     fillSelect($("editTeamCatSelect"), cats, cat, key ? "Toutes les catégories" : "Veuillez choisir une catégorie");
     $("editTeamOwn").checked = !!team.own;
+    $("editTeamIcs").value = team.icsUrl || "";
     $("editTeamCatSelect").disabled = $("editTeamOwn").disabled = isTeamScoped();   // l'équipe ne change pas de catégorie elle-même
     $("editTeamNameInput").readOnly = isTeamScoped() && !!key;                       // ni de nom (réservé à l'administrateur de l'organisation)
     updateLogoPreview();
@@ -3328,10 +3336,13 @@ document.addEventListener("DOMContentLoaded", function(){
       const nm = r.querySelector(".s-name").value.trim(), rl = r.querySelector(".s-role").value;
       if(nm) staff.push({ name: nm, role: rl });
     });
+    let icsUrl = $("editTeamIcs").value.trim().replace(/^webcals?:\/\//i, "https://");
+    if(icsUrl && !/^https:\/\/[^\s]+$/i.test(icsUrl)){ notify("L'adresse du calendrier Spordle doit commencer par https://", "info"); return; }
     const save = () => {
       ref(manageOrgKey + "/teams_presets/" + key).set({
         name: teamName, msg: msgsOf(existing)[0] || "", msgs: msgsOf(existing), logo: $("teamLogoInput").value.trim(),
-        color: $("presetTeamColor").value, category: category, own: $("editTeamOwn").checked, roster: roster, staff: staff
+        color: $("presetTeamColor").value, category: category, own: $("editTeamOwn").checked, roster: roster, staff: staff,
+        icsUrl: icsUrl
       });
       notify("Équipe enregistrée !"); rsLeave();
     };
@@ -3934,15 +3945,21 @@ document.addEventListener("DOMContentLoaded", function(){
       // « Match - VISITEUR @ LOCAL »
       let sum = String(e.SUMMARY || "").replace(/^\s*(match|partie|game)\s*[-:–]\s*/i, "");
       const at = sum.split(/\s+@\s+/);
-      if(at.length !== 2) { const vs = sum.split(/\s+(?:vs\.?|contre)\s+/i); if(vs.length !== 2) return null; at[0] = vs[1]; at[1] = vs[0]; }
+      // Abonnement Spordle : « VISITEUR VS LOCAL » (le 2e nom joue à domicile)
+      if(at.length !== 2) { const vs = sum.split(/\s+(?:vs\.?|contre)\s+/i); if(vs.length !== 2) return null; at[0] = vs[0]; at[1] = vs[1]; }
+      if(/practice|pratique/i.test(e.CATEGORIES || "")) return null;
       // « Aréna X (Glace 1) - 5225 Rue de Courcelette, Trois-Rivières, QC »
       const loc = String(e.LOCATION || ""), dash = loc.indexOf(" - ");
       const arenaName = (dash >= 0 ? loc.slice(0, dash) : loc.split(",")[0]).replace(/\s*\((glace|patinoire|rink|surface)[^)]*\)\s*/ig, " ").replace(/\s+/g, " ").trim();
       const parts = (dash >= 0 ? loc.slice(dash + 3) : "").split(",").map(x => x.trim()).filter(Boolean);
+      let arenaFull = arenaName;
+      if(parts.length && /^(glace|patinoire|rink|surface)\b/i.test(parts[0])) parts.shift();
+      else if(parts.length > 2 && !/\d/.test(parts[0])){ arenaFull = arenaName + " (" + parts[0] + ")"; parts.shift(); }   // « Colisée Videotron - Amphithéatre, … »
+      if(parts.length && /^[a-z]\d[a-z]\s?\d[a-z]\d$/i.test(parts[parts.length - 1])) parts.pop();                   // code postal
       if(parts.length && /^(qc|québec|quebec|on|ontario|canada)$/i.test(parts[parts.length - 1])) parts.pop();
       const city = parts.length > 1 ? parts.pop() : "";
       const address = parts.join(", ").replace(/^(\d+[a-z]?)\s+(rue|av\.?|avenue|boul\.?|boulevard|ch\.?|chemin|rang|route|place|montée)\b/i, (s0, n, w) => n + ", " + w.toLowerCase());
-      return { uid: String(e.UID || ""), date: date, time: time, b: at[0].trim(), a: at[1].trim(), arenaName: arenaName, city: city, address: address };
+      return { uid: String(e.UID || "").replace(/^game-/i, ""), date: date, time: time, b: at[0].trim(), a: at[1].trim(), arenaName: arenaFull, city: city, address: address };
     }).filter(Boolean);
   }
   // NOM EN MAJUSCULES → Nom en majuscules (les sigles courts restent en majuscules)
@@ -3957,9 +3974,12 @@ document.addEventListener("DOMContentLoaded", function(){
     return inside[0] || "__other";
   }
   function icsArena(g){
-    const k = normKey(g.arenaName).replace(/^(arena|centre|complexe|colisee)_/, "");
-    const hit = arenaList().filter(a => { const n = normKey(a.name).replace(/^(arena|centre|complexe|colisee)_/, ""); return n === k; })[0];
-    return hit ? hit.id : "";
+    const short = s => normKey(s).replace(/^(arena|centre|complexe|colisee)_/, ""), k = short(g.arenaName);
+    const hit = arenaList().filter(a => short(a.name) === k)[0]; if(hit) return hit.id;
+    if(/\(/.test(g.arenaName)) return "";
+    const k2 = short(String(g.arenaName).replace(/\s*\([^)]*\)/g, ""));
+    const hit2 = arenaList().filter(a => short(String(a.name).replace(/\s*\([^)]*\)/g, "")) === k2)[0];
+    return hit2 ? hit2.id : "";
   }
   let icsGames = [], icsNames = [], icsMap = {}, icsSaved = {};
   on("calImport", "click", () => { if(isSuper() && calCat) $("calIcsFile").click(); });
@@ -4046,6 +4066,97 @@ document.addEventListener("DOMContentLoaded", function(){
     ref(base + "/icsTeams").set(map);
     swapDlg("calImportSheet", "calendarSheet");
     notify("Horaire importé dans " + calCat.toUpperCase() + " : " + added + " partie" + (added > 1 ? "s" : "") + " ajoutée" + (added > 1 ? "s" : "") + ", " + updated + " mise" + (updated > 1 ? "s" : "") + " à jour.");
+  });
+
+  /* --- Abonnement au calendrier Spordle d'une équipe (adresse .ics de l'équipe, inscrite dans sa fiche) --- */
+  // Lu à l'ouverture de la page, au plus une fois l'heure (pour tous les visiteurs), ou sur demande dans Gestion calendrier.
+  // Les parties gardent le numéro Spordle : mises à jour sans doublon, même celles importées avant à la main.
+  // Une partie retirée de Spordle (à venir, jamais commencée) est retirée du calendrier.
+  const SPORDLE_EVERY = 3600000;
+  var spordleBusy = {};
+  function spordleFetch(url, org, key){
+    const direct = () => fetch(url, { cache: "no-store" }).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.text(); });
+    const mirror = () => fetch("spordle/" + org + "__" + key + ".ics", { cache: "no-store" }).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.text(); });
+    return direct().then(t => { if(!/BEGIN:VCALENDAR/.test(t)) throw new Error("format"); return t; })
+                   .catch(() => mirror().then(t => { if(!/BEGIN:VCALENDAR/.test(t)) throw new Error("format"); return t; }));
+  }
+  function spordleSync(cat, key, force){
+    const org = currentOrg, p = presets[key];
+    if(!p || !p.icsUrl || spordleBusy[org + cat + key]) return Promise.resolve(null);
+    const base = org + "/" + cat;
+    spordleBusy[org + cat + key] = true;
+    const done = r => { delete spordleBusy[org + cat + key]; return r; };
+    return ref(base + "/icsSync/" + key).once("value").then(s => {
+      const last = obj(s.val());
+      if(!force && last.url === p.icsUrl && now() - (Number(last.at) || 0) < SPORDLE_EVERY) return null;
+      ref(base + "/icsSync/" + key).set({ at: now(), url: p.icsUrl, ok: last.ok || 0, n: last.n || 0 });       // réservé : un seul appareil à la fois
+      return spordleFetch(p.icsUrl, org, key).then(text => Promise.all([ref(base + "/calendar").once("value"), ref(base + "/icsTeams").once("value")]).then(r => {
+        const games = icsParse(text), cal = obj(r[0].val()), saved = obj(r[1].val()), map = Object.assign({}, saved);
+        // L'équipe de l'abonnement : le nom présent dans toutes ses parties
+        const cnt = {}; games.forEach(g => { cnt[g.a] = (cnt[g.a] || 0) + 1; cnt[g.b] = (cnt[g.b] || 0) + 1; });
+        const own = Object.keys(cnt).sort((x, y) => cnt[y] - cnt[x])[0];
+        const teamOf = n => {
+          if(n === own){ map[normKey(n)] = key; return { key: key, name: p.name }; }
+          const sv = saved[normKey(n)];
+          if(typeof sv === "string" && sv.charAt(0) === "=" && sv.length > 1) return { key: "", name: sv.slice(1) };
+          if(typeof sv === "string" && presets[sv] && presets[sv].name) return { key: sv, name: presets[sv].name };
+          const k = normKey(n), keys = Object.keys(presets).filter(t => presets[t] && presets[t].name && (!presets[t].category || presets[t].category === cat));
+          const hit = keys.filter(t => normKey(presets[t].name) === k)[0] ||
+                      keys.filter(t => { const m = normKey(presets[t].name); return m.length >= 3 && ("_" + k + "_").indexOf("_" + m + "_") !== -1; })
+                          .sort((x, y) => normKey(presets[y].name).length - normKey(presets[x].name).length)[0];
+          if(hit){ map[k] = hit; return { key: hit, name: presets[hit].name }; }
+          const nm = niceName(n); map[k] = "=" + nm; return { key: "", name: nm };
+        };
+        const seen = {}; let added = 0, updated = 0, removed = 0;
+        games.forEach(g => {
+          if(!g.uid) return;
+          const id = "ics" + cleanKey(g.uid).slice(0, 40);
+          const A = teamOf(g.a), B = teamOf(g.b); if(A.name === B.name) return;
+          let old = cal[id] && typeof cal[id] === "object" ? cal[id] : null, moved = false;
+          if(!old){
+            // Même partie déjà inscrite à la main (même date, mêmes équipes) : on la reprend au lieu de la doubler
+            const tag = c => [c.aKey || normKey(c.a), c.bKey || normKey(c.b)].sort().join("|"), want = tag({ a: A.name, b: B.name, aKey: A.key, bKey: B.key });
+            const dup = Object.keys(cal).filter(x => { const c = cal[x]; return c && typeof c === "object" && !c.ics && !seen[x] && c.date === g.date && tag(c) === want; })[0];
+            if(dup){ old = cal[dup]; moved = true; seen[dup] = true; ref(base + "/calendar/" + dup).remove(); delete cal[dup]; cal[id] = null; }
+          }
+          seen[id] = true;
+          let aid = icsArena(g); if(!aid && g.arenaName) aid = addArena(g.arenaName, g.city, g.address);
+          const entry = Object.assign({}, old || {}, { date: g.date, time: g.time, a: A.name, b: B.name, aKey: A.key, bKey: B.key,
+                          place: aid ? arenas[aid].name : "", arena: aid || "", ics: g.uid, feed: key, phase: (old && old.phase) || defPhase(cat) });
+          const same = old && ["date", "time", "a", "b", "aKey", "bKey", "place", "arena", "feed"].every(f => String(old[f] || "") === String(entry[f] || ""));
+          if(same && !moved) return;
+          ref(base + "/calendar/" + id).set(entry); if(old) updated++; else added++;
+        });
+        const d = new Date(), today = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+        Object.keys(cal).forEach(id => { const c = cal[id];
+          if(c && c.feed === key && !seen[id] && c.date >= today && !isNum(c.scoreA) && !c.started && !c.histKey){ ref(base + "/calendar/" + id).remove(); removed++; } });
+        if(JSON.stringify(map) !== JSON.stringify(saved)) ref(base + "/icsTeams").set(map);
+        ref(base + "/icsSync/" + key).set({ at: now(), url: p.icsUrl, ok: now(), n: games.length });
+        return done({ games: games.length, added: added, updated: updated, removed: removed });
+      })).catch(e => { ref(base + "/icsSync/" + key).set({ at: now(), url: p.icsUrl, ok: last.ok || 0, n: last.n || 0, err: String(e && e.message || e).slice(0, 80) }); throw e; });
+    }).then(done, e => { done(); throw e; });
+  }
+  // À l'ouverture : les équipes de la catégorie affichée qui ont une adresse Spordle
+  var spordleTried = {};
+  function spordleAuto(){
+    if(!presetsLoaded || archiveKey) return;
+    Object.keys(presets).forEach(k => { const p = presets[k];
+      if(!p || !p.icsUrl || (p.category && p.category !== currentCat)) return;
+      const t = currentOrg + "|" + currentCat + "|" + k + "|" + p.icsUrl; if(spordleTried[t]) return; spordleTried[t] = true;
+      spordleSync(currentCat, k, false).catch(() => {});
+    });
+  }
+  on("calSpordle", "click", () => {
+    if(!canEdit() || calOrg !== currentOrg) return;
+    const keys = Object.keys(presets).filter(k => presets[k] && presets[k].icsUrl && (!presets[k].category || presets[k].category === calCat));
+    if(!keys.length){ notify("Aucune équipe de " + String(calCat).toUpperCase() + " n'a d'adresse de calendrier Spordle.\nAjoutez-la dans la fiche de l'équipe (Organisation, catégories et équipes → Éditer).", "info"); return; }
+    $("calSpordle").disabled = true;
+    Promise.all(keys.map(k => spordleSync(calCat, k, true).then(r => ({ k: k, r: r }), e => ({ k: k, e: e })))).then(res => {
+      $("calSpordle").disabled = false;
+      notify(res.map(x => presets[x.k].name + " : " + (x.e ? "lecture impossible (" + (x.e.message || x.e) + ")" :
+        !x.r ? "déjà en cours" : x.r.games + " partie" + (x.r.games > 1 ? "s" : "") + " · " + x.r.added + " ajoutée" + (x.r.added > 1 ? "s" : "") + ", " + x.r.updated + " modifiée" + (x.r.updated > 1 ? "s" : "") + ", " + x.r.removed + " retirée" + (x.r.removed > 1 ? "s" : ""))).join("\n"),
+        res.some(x => x.e) ? "error" : "ok");
+    });
   });
 
   /* --- Nouvelle partie : partir d'une partie prévue au calendrier --- */
