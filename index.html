@@ -1057,7 +1057,13 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <label><input type="radio" name="defPhase" value="pre"><span>Pré-saison</span></label>
         <label><input type="radio" name="defPhase" value="reg"><span>Saison</span></label>
       </div>
-      <small style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;">Les nouvelles parties sont classées ainsi. On peut changer une partie dans « Gestion de l'historique ».</small>
+      <label for="regStartInput" style="display:block;margin-top:.7rem;">Début de la saison régulière :</label>
+      <div class="inline-row">
+        <input type="date" id="regStartInput" class="full-input">
+        <button type="button" class="act-2" id="regStartClear" style="display:none;">Effacer</button>
+      </div>
+      <small id="regStartNote" style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;"></small>
+      <small style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;">Les nouvelles parties (et celles importées ou synchronisées avec Spordle) sont classées ainsi. On peut changer une partie dans « Gestion de l'historique ».</small>
     </div>
 
     <button type="button" class="act-2 admin-only" id="btnOpenPasswords" style="width:100%;min-height:2.8rem;margin-top:1.2rem;font-weight:600;">🔑 Gestion des mots de passe</button>
@@ -1881,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610161956";
+  var BUILD = "202610171207";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2049,7 +2055,11 @@ document.addEventListener("DOMContentLoaded", function(){
   let cfgPhases = {};                  // type de parties par défaut, par catégorie : "pre" (pré-saison) ou "reg" (saison)
   const PHASE_LABEL = { pre: "Pré-saison", reg: "Saison" };
   const phaseOfM = m => (m && m.phase === "reg") ? "reg" : "pre";       // une partie sans type (anciennes parties) = pré-saison
-  const defPhase = cat => cfgPhases[cat || currentCat] === "reg" ? "reg" : "pre";
+  var cfgRegStart = {};                // date de début de la saison régulière, par catégorie (« AAAA-MM-JJ »)
+  const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth() + 1) + "-" + (d.getDate() < 10 ? "0" : "") + d.getDate(); };
+  // Type d'une partie selon sa date : avec une date de début de saison, avant = pré-saison, à partir de = saison
+  const phaseFor = (cat, date) => { const s = cfgRegStart[cat || currentCat]; return s && date ? (String(date) >= s ? "reg" : "pre") : (cfgPhases[cat || currentCat] === "reg" ? "reg" : "pre"); };
+  const defPhase = cat => phaseFor(cat, todayStr());
   let phaseView = null;                // filtre des statistiques : "<année>|pre", "<année>|reg" ou "<année>|all" (null = saison en cours, type par défaut)
   const seasonOf = at => { const d = new Date(at || Date.now()); return d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1; };   // saison de juillet à juin
   const seasonLabel = y => String(y % 100).padStart(2, "0") + "-" + String((y + 1) % 100).padStart(2, "0");
@@ -2530,7 +2540,8 @@ document.addEventListener("DOMContentLoaded", function(){
       adminPerms = normPerms(cfg.adminPerms); updatePermUI();
       autoMsg = (cfg.autoMsg && typeof cfg.autoMsg === "object") ? cfg.autoMsg : {}; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
-      cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {}; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
+      cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
+      cfgRegStart = (cfg.regStart && typeof cfg.regStart === "object") ? cfg.regStart : {}; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
       const min = int(cfg.defaultPeriodMin || 20, 1, 99), mVal = String(min);
       defaultPeriodSec = min * 60;
       if(["10","12","15","18","20"].indexOf(mVal) !== -1){
@@ -3756,7 +3767,6 @@ document.addEventListener("DOMContentLoaded", function(){
   // Parties prévues d'une catégorie : …/<catégorie>/calendar/<id> = { date, time, a (local), b (visiteur), aKey, bKey, place,
   // scoreA, scoreB, end ("", "OT" prolongation, "TB" tirs de barrage), histKey (partie marquée sur le tableau) }
   const pad2 = n => (n < 10 ? "0" : "") + n;
-  const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); };
   const isNum = v => typeof v === "number" && isFinite(v);
   function calEntries(val){
     return Object.keys(val || {}).map(id => {
@@ -3912,6 +3922,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("calScoreB").value = c && c.played ? c.scoreB : ""; $("calScoreA").value = c && c.played ? c.scoreA : "";
     $("calEnd").value = c ? c.end : "";
     $("calPhase").value = (c && c.phase) || (calOrg === currentOrg ? defPhase(calCat) : "pre");
+    calPhaseTouched = !!(c && c.phase);
     $("calDelete").hidden = !c;
     $("calLinkedNote").hidden = !(c && c.histKey);
     swapDlg("calendarSheet", "calEditSheet");
@@ -3956,6 +3967,10 @@ document.addEventListener("DOMContentLoaded", function(){
       swapDlg("calEditSheet", "calendarSheet");
     });
   });
+
+  var calPhaseTouched = false;
+  on("calPhase", "change", () => { calPhaseTouched = true; });
+  on("calDate", "change", () => { if(!calPhaseTouched && calOrg === currentOrg && $("calDate").value) $("calPhase").value = phaseFor(calCat, $("calDate").value); });
 
   /* --- Importation d'un horaire .ics (Spordle et autres) : super administrateur --- */
   // Le fichier ne dit pas la catégorie : les parties vont dans la catégorie choisie dans la fenêtre du calendrier.
@@ -4100,7 +4115,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(!aid && g.arenaName) aid = addArena(g.arenaName, g.city, g.address);
       const entry = { date: g.date, time: g.time, a: A.name, b: B.name, aKey: A.key, bKey: B.key,
                       place: aid ? arenas[aid].name : "", arena: aid || "", end: old ? old.end : "", histKey: old ? old.histKey : "", ics: g.uid,
-                      phase: (old && old.phase) || (calOrg === currentOrg ? defPhase(calCat) : "pre") };
+                      phase: (old && old.phase) || (calOrg === currentOrg ? phaseFor(calCat, g.date) : "pre") };
       if(old && old.played){ entry.scoreA = old.scoreA; entry.scoreB = old.scoreB; }
       if(old && old.started) entry.started = old.started;
       if(A.name === B.name) return;
@@ -4168,7 +4183,7 @@ document.addEventListener("DOMContentLoaded", function(){
           seen[id] = true;
           let aid = icsArena(g); if(!aid && g.arenaName) aid = addArena(g.arenaName, g.city, g.address);
           const entry = Object.assign({}, old || {}, { date: g.date, time: g.time, a: A.name, b: B.name, aKey: A.key, bKey: B.key,
-                          place: aid ? arenas[aid].name : "", arena: aid || "", ics: g.uid, feed: key, phase: (old && old.phase) || defPhase(cat) });
+                          place: aid ? arenas[aid].name : "", arena: aid || "", ics: g.uid, feed: key, phase: (old && old.phase) || phaseFor(cat, g.date) });
           const same = old && ["date", "time", "a", "b", "aKey", "bKey", "place", "arena", "feed"].every(f => String(old[f] || "") === String(entry[f] || ""));
           if(same && !moved) return;
           ref(base + "/calendar/" + id).set(entry); if(old) updated++; else added++;
@@ -4746,8 +4761,12 @@ document.addEventListener("DOMContentLoaded", function(){
       items.push({ value: y + "|pre", label: y + "-" + (y + 1) + " Pré-saison" }, { value: y + "|reg", label: y + "-" + (y + 1) + " Saison régulière" });
     });
     fillSelect($("phaseSel"), items, viewKey());
-    const d = defPhase(); document.querySelectorAll("input[name=defPhase]").forEach(r => { r.checked = r.value === d; });
+    const d = defPhase(), st = cfgRegStart[currentCat] || "";
+    document.querySelectorAll("input[name=defPhase]").forEach(r => { r.checked = r.value === d; r.disabled = !!st; });
     setText("defPhaseCat", String(currentCat).toUpperCase());
+    if($("regStartInput") && document.activeElement !== $("regStartInput")) $("regStartInput").value = st;
+    if($("regStartClear")) $("regStartClear").style.display = st ? "" : "none";
+    setText("regStartNote", st ? "Avant le " + calWhen({ date: st }) + " : pré-saison. À partir de cette date : saison régulière. Le type change seul à cette date." : "Sans date, le choix ci-dessus s'applique à toutes les nouvelles parties.");
   }
   function applyPhaseView(){
     historyList = historyAll.filter(h => phaseOk(h.m, h.at));
@@ -4761,6 +4780,27 @@ document.addEventListener("DOMContentLoaded", function(){
     cfgPhases[currentCat] = r.value; phaseView = null; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
     notify("Type de parties par défaut pour " + currentCat.toUpperCase() + " : " + PHASE_LABEL[r.value].toLowerCase() + ".", "ok");
   }));
+  // Date de début de la saison régulière (par catégorie)
+  function saveRegStart(v){
+    if(!isAdmin()) return;
+    const cat = currentCat, r = ref(currentOrg + "/config/regStart/" + cat);
+    if(v) r.set(v); else r.remove();
+    if(v) cfgRegStart[cat] = v; else delete cfgRegStart[cat];
+    phaseView = null; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
+    try{ renderStandings(); updateTickerDisplay(); }catch(e){}
+    if(!v){ notify("Date de début de saison retirée pour " + cat.toUpperCase() + ".", "ok"); return; }
+    // Les parties déjà au calendrier : on propose de les reclasser selon la date
+    ref(currentOrg + "/" + cat + "/calendar").once("value").then(s => {
+      const cal = obj(s.val()), sy = seasonOf(Date.now()), diff = Object.keys(cal).filter(id => { const c = cal[id]; if(!c || !c.date) return false;
+        const p = String(c.date).split("-").map(Number); return seasonOf(new Date(p[0], p[1] - 1, p[2]).getTime()) === sy && (c.phase || "pre") !== phaseFor(cat, c.date); });
+      if(!diff.length){ notify("Saison régulière de " + cat.toUpperCase() + " à partir du " + calWhen({ date: v }), "ok"); return; }
+      ask("Saison régulière de " + cat.toUpperCase() + " à partir du " + calWhen({ date: v }) + "\n\n" + diff.length + " partie" + (diff.length > 1 ? "s" : "") + " de cette saison au calendrier " + (diff.length > 1 ? "ont" : "a") + " un autre type. Les reclasser selon cette date ?", { ok: "Reclasser" })
+        .then(ok => { if(!ok) return; diff.forEach(id => ref(currentOrg + "/" + cat + "/calendar/" + id + "/phase").set(phaseFor(cat, cal[id].date)));
+                      notify(diff.length + " partie" + (diff.length > 1 ? "s" : "") + " reclassée" + (diff.length > 1 ? "s" : "") + ".", "ok"); });
+    });
+  }
+  on("regStartInput", "change", () => { const v = $("regStartInput").value; if(/^\d{4}-\d\d-\d\d$/.test(v)) saveRegStart(v); });
+  on("regStartClear", "click", () => { $("regStartInput").value = ""; saveRegStart(""); });
   on("statsTeamSelect", "change", () => {
     $("statsTeamSelect").dataset.userTouched = "1"; renderStats();
     if(!hasGame(state)){ openCardId = null; if(isOpen("rosterBlock")) renderRosters(); }   // tableau vide : l'alignement suit l'équipe choisie
