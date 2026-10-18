@@ -1887,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610171207";
+  var BUILD = "202610180832";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2640,6 +2640,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const opp = c.a === name ? c.b : c.a;
     return autoFill("next", { "équipe": name, date: calWhen(c), adversaire: opp, "aréna": c.place ? c.place + arenaAddr(c) : "" });
   }
+  var AUTO_CD_MS = 8 * 3600000, autoCdOn = false;
+  setInterval(() => { try{ updateTickerDisplay(); }catch(e){} }, 60000);   // l'heure avance : début du compte à rebours, étapes
   let tickerSig = null, tickerMsg = [], lastWidth = window.innerWidth, resizeTimer = null;
   const TICKER_SPEED = 55;             // pixels par seconde
   function updateTickerDisplay(){
@@ -2647,6 +2649,13 @@ document.addEventListener("DOMContentLoaded", function(){
     const messages = [];
     let bt = "", gl = ""; try{ bt = bannerText(); gl = gameLine(); }catch(e){}
     let skipNext = null;
+    // Compte à rebours automatique : 8 h avant la partie (si aucun message d'avant-match n'est déjà au bandeau)
+    autoCdOn = false;
+    if(!bt && !archiveKey && !editEntry && !(isLive(state) && chronoStarted(state)) && !state.finished){
+      const k0 = boardTeam || boardTeams(currentCat)[0], g0 = nextGameOf(k0 ? presets[k0] : null) || (state.calId ? calendarList.filter(c => c.id === state.calId)[0] : null);
+      const left0 = g0 && g0.at ? g0.at - now() : null;
+      if(left0 != null && left0 <= AUTO_CD_MS && left0 > -3600000){ autoCdOn = true; messages.push("📣 " + fillAnn(tplStart())); }
+    }
     if(!hasGame(state) && !archiveKey && !editEntry){
       // Aucun match : on invite au prochain (ce message remplace l'annonce « prochaine partie » de cette équipe)
       const k = boardTeam || boardTeams(currentCat)[0], tp = k && presets[k], g = nextGameOf(tp || null);
@@ -5830,7 +5839,7 @@ document.addEventListener("DOMContentLoaded", function(){
   document.querySelectorAll("[data-fx]").forEach(b => b.addEventListener("click", () => sendFx(b.dataset.fx)));
   // Message : fenêtre de 5 s ou bandeau (seulement pour la partie en cours ou à venir de ce tableau)
   var banner = null;
-  const tplStart = () => autoTpl("start");
+  function tplStart(){ return autoTpl("start"); }
   const annMode = () => { const r = document.querySelector('input[name="annMode"]:checked'); return r ? r.value : "pop"; };
   function myTeamName(){
     const k = boardTeam || boardTeams(currentCat)[0];
