@@ -1887,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610180832";
+  var BUILD = "202610180838";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2661,7 +2661,8 @@ document.addEventListener("DOMContentLoaded", function(){
       const k = boardTeam || boardTeams(currentCat)[0], tp = k && presets[k], g = nextGameOf(tp || null);
       skipNext = tp || "cat";
       const who = tp ? tp.name : String(currentCat).toUpperCase();
-      messages.push(g ? autoFill("nomatch", { "équipe": who, date: calWhen(g), adversaire: tp ? (g.a === tp.name ? g.b : g.a) : calTitle(g), "aréna": g.place ? g.place + arenaAddr(g) : "" })
+      // Un message d'avant-match est déjà affiché (compte à rebours automatique ou message de l'administrateur) : pas de « Aucun match présentement »
+      if(!autoCdOn && !bt) messages.push(g ? autoFill("nomatch", { "équipe": who, date: calWhen(g), adversaire: tp ? (g.a === tp.name ? g.b : g.a) : calTitle(g), "aréna": g.place ? g.place + arenaAddr(g) : "" })
                       : autoFill("nomatchNone", { "équipe": who }));
     }
     if(gl) messages.push(gl);                // pendant le match : « Bon match ! » puis le dernier but
