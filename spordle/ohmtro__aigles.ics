@@ -67,10 +67,10 @@ STATUS:Active
 END:VEVENT
 BEGIN:VEVENT
 UID:game-980342
-DTSTART:20261026T003000Z
-DTEND:20261026T020000Z
+DTSTART:20261025T213000Z
+DTEND:20261025T230000Z
 SUMMARY:PATRIOTES UQTR VS AIGLES TROIS-RIVIERES-OUEST
-LOCATION:Colisée Jean-Guy Talbot - Glace 1, 1740 Av. Gilles-Villeneuve, Trois-Rivières, G8Y 7B6
+LOCATION:Complexe Sportif Promutuel Assurance - Glace 1, 260 Rue Dessureault, Trois-Rivières, G8T 9T9
 DESCRIPTION:Game\nhttps://page.spordle.com/en/ligue-de-hockey-de-la-mauricie/schedule/980342
 CATEGORIES:Game
 STATUS:Active
