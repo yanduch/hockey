@@ -2015,7 +2015,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610211200";
+  var BUILD = "202610211329";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2756,6 +2756,19 @@ document.addEventListener("DOMContentLoaded", function(){
                                     (!p || (key && (c.aKey === key || c.bKey === key)) || c.a === p.name || c.b === p.name))
                        .sort((x, y) => x.at - y.at)[0] || null;
   }
+  // Prochain entraînement ou activité d'une équipe (pratiques Spordle comprises), pas encore terminé
+  function nextEventOf(key){
+    const td = todayStr(), n = new Date(), nowHM = pad2(n.getHours()) + ":" + pad2(n.getMinutes()), list = [];
+    const add = (x, type) => { if(!x || !x.date || x.date < td) return;
+      const st = x.time || x.start || "", en = x.end || (st ? pad2(Math.min(23, Number(st.slice(0, 2)) + 2)) + st.slice(2) : "23:59");
+      if(x.date === td && nowHM > en) return;
+      const p = x.date.split("-").map(Number), hm = (st || "00:00").split(":").map(Number);
+      list.push({ type: type || x.type, title: x.title || "", date: x.date, time: st, end: x.end || "", place: x.place || "", arena: x.arena || "", address: x.address || "",
+                  at: new Date(p[0], p[1] - 1, p[2], hm[0] || 0, hm[1] || 0).getTime() }); };
+    const pr = obj(teamPractices[key]); Object.keys(pr).forEach(id => add(pr[id], "practice"));
+    Object.keys(teamEvents).forEach(id => { const e = teamEvents[id]; if(e && e.team === key) add(e); });
+    return list.sort((x, y) => x.at - y.at)[0] || null;
+  }
   // Adresse de l'aréna d'une partie : « (1740, avenue Gilles-Villeneuve, Trois-Rivières) »
   function arenaAddr(c){
     const a = (c.arena && arenas[c.arena]) || Object.keys(arenas).map(k => arenas[k]).filter(x => x && x.name === c.place)[0];
@@ -2765,11 +2778,12 @@ document.addEventListener("DOMContentLoaded", function(){
   // ----- Messages automatiques : modèles modifiables dans Gestion des messages (par organisation) -----
   var AUTO_MSGS = [
     { k: "nomatch", lbl: "Aucun match, prochaine partie connue", vars: "{équipe} {date} {adversaire} {aréna}", def: "🏒 Aucun match présentement pour {équipe}, soyez là le {date} contre {adversaire} · {aréna} !" },
-    { k: "nomatchNone", lbl: "Aucun match, pas de prochaine partie", vars: "{équipe}", def: "🏒 Aucun match présentement pour {équipe}." },
+    { k: "nomatchNone", lbl: "Rien de prévu au calendrier", vars: "{équipe}", def: "📅 Aucun événement au calendrier pour {équipe}." },
     { k: "next", lbl: "Prochaine partie d'une équipe", vars: "{équipe} {date} {adversaire} {aréna}", def: "📅 {équipe} — prochaine partie : {date} contre {adversaire} · {aréna}" },
     { k: "start", lbl: "Avant le match (bouton du bandeau)", vars: "{temps} {équipe}", def: "La partie commence dans {temps}, Go {équipe} Go !" },
     { k: "go", lbl: "Le match commence", vars: "{équipe}", def: "C'est parti ! Go {équipe} Go !" },
     { k: "event", lbl: "Entraînement ou activité aujourd'hui", vars: "{événement} {heure} {lieu}", def: "📅 {événement} aujourd'hui à {heure} · {lieu}" },
+    { k: "eventNext", lbl: "Prochain entraînement ou activité", vars: "{événement} {date} {lieu}", def: "📅 {événement} : {date} · {lieu}" },
     { k: "good", lbl: "Pendant le match, avant le premier but", vars: "", def: "🏒 Bon match !" },
     { k: "goal", lbl: "But", vars: "{équipe} {buteur} {passes} {temps} {période}", def: "🚨 But des {équipe} marqué par {buteur}{passes}, à {temps} {période}" },
     { k: "live", lbl: "Autre partie en cours dans l'organisation", vars: "{catégorie} {équipe}", def: "🔴 Présentement en cours dans {catégorie} : l'équipe {équipe} — sélectionnez-la juste ici ⬆⬆⬆" }
@@ -2808,26 +2822,25 @@ document.addEventListener("DOMContentLoaded", function(){
       const left0 = g0 && g0.at ? g0.at - now() : null;
       if(left0 != null && left0 <= AUTO_CD_MS && left0 > -3600000){ autoCdOn = true; messages.push("📣 " + fillAnn(tplStart())); }
     }
-    // Entraînement ou activité de l'équipe aujourd'hui (s'il n'y a pas de partie)
-    if(!hasGame(state) && !archiveKey && !editEntry && !autoCdOn && !bt){
-      const kE = boardTeam || boardTeams(currentCat)[0], td = todayStr(), nowHM = pad2(new Date().getHours()) + ":" + pad2(new Date().getMinutes());
-      const todays = [];
-      Object.keys(obj(teamPractices[kE])).forEach(id => { const x = teamPractices[kE][id]; if(x && x.date === td) todays.push({ type: "practice", title: "", time: x.time, end: x.end, place: x.place, arena: x.arena }); });
-      Object.keys(teamEvents).forEach(id => { const e = teamEvents[id]; if(e && e.team === kE && e.date === td) todays.push({ type: e.type, title: e.title, time: e.start, end: e.end, place: e.place, arena: e.arena, address: e.address }); });
-      todays.filter(x => { const endT = x.end || (x.time ? pad2(Math.min(23, Number(x.time.slice(0, 2)) + 2)) + x.time.slice(2) : "23:59"); return nowHM <= endT; })
-            .sort((x, y) => String(x.time).localeCompare(String(y.time)))
-            .forEach(x => { const T = typeOf(evtTypes, x.type);
-              const m = autoFill("event", { "événement": T.label + (x.title ? " (" + x.title + ")" : ""), heure: x.time ? hhmm(x.time) : "", "lieu": x.place ? x.place + (x.address ? " (" + x.address + ")" : arenaAddr({ place: x.place, arena: x.arena })) : "" });
-              messages.push(m.replace(/ aujourd'hui à\s*(?=·|$)/, " aujourd'hui ").trim()); });
-    }
+    // Pas de partie en cours : le prochain événement (entraînement, activité) et la prochaine partie, le plus proche d'abord
     if(!hasGame(state) && !archiveKey && !editEntry){
-      // Aucun match : on invite au prochain (ce message remplace l'annonce « prochaine partie » de cette équipe)
       const k = boardTeam || boardTeams(currentCat)[0], tp = k && presets[k], g = nextGameOf(tp || null);
       skipNext = tp || "cat";
       const who = tp ? tp.name : String(currentCat).toUpperCase();
-      // Un message d'avant-match est déjà affiché (compte à rebours automatique ou message de l'administrateur) : pas de « Aucun match présentement »
-      if(!autoCdOn && !bt) messages.push(g ? autoFill("nomatch", { "équipe": who, date: calWhen(g), adversaire: tp ? (g.a === tp.name ? g.b : g.a) : calTitle(g), "aréna": g.place ? g.place + arenaAddr(g) : "" })
-                      : autoFill("nomatchNone", { "équipe": who }));
+      if(!autoCdOn && !bt){
+        const items = [], ev = k ? nextEventOf(k) : null;
+        if(ev){
+          const T = typeOf(evtTypes, ev.type), lieu = ev.place ? ev.place + (ev.address ? " (" + ev.address + ")" : arenaAddr({ place: ev.place, arena: ev.arena })) : "";
+          const what = T.label + (ev.title ? " (" + ev.title + ")" : "");
+          const m = ev.date === todayStr()
+            ? autoFill("event", { "événement": what, heure: ev.time ? hhmm(ev.time) : "", "lieu": lieu }).replace(/ aujourd'hui à\s*(?=·|$)/, " aujourd'hui ").trim()
+            : autoFill("eventNext", { "événement": what, date: calWhen({ date: ev.date, time: ev.time }), "lieu": lieu });
+          items.push({ at: ev.at, m: m });
+        }
+        if(g) items.push({ at: g.at, m: autoFill("nomatch", { "équipe": who, date: calWhen(g), adversaire: tp ? (g.a === tp.name ? g.b : g.a) : calTitle(g), "aréna": g.place ? g.place + arenaAddr(g) : "" }) });
+        if(items.length) items.sort((x, y) => x.at - y.at).forEach(x => messages.push(x.m));
+        else messages.push(autoFill("nomatchNone", { "équipe": who }));
+      }
     }
     if(gl) messages.push(gl);                // pendant le match : « Bon match ! » puis le dernier but
     if(bt) messages.push("📣 " + bt);
@@ -3960,7 +3973,7 @@ document.addEventListener("DOMContentLoaded", function(){
   /* ============ Gestion du calendrier ============ */
   // Parties prévues d'une catégorie : …/<catégorie>/calendar/<id> = { date, time, a (local), b (visiteur), aKey, bKey, place,
   // scoreA, scoreB, end ("", "OT" prolongation, "TB" tirs de barrage), histKey (partie marquée sur le tableau) }
-  const pad2 = n => (n < 10 ? "0" : "") + n;
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
   const isNum = v => typeof v === "number" && isFinite(v);
   function calEntries(val){
     return Object.keys(val || {}).map(id => {
