@@ -1,0 +1,16 @@
+name: Copier une catégorie
+on:
+  workflow_dispatch:
+    inputs:
+      org: { description: "Organisation", required: true, default: "ohmtro" }
+      src: { description: "Catégorie à copier", required: true }
+      dst: { description: "Nouvelle catégorie", required: true }
+jobs:
+  copie:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node .github/scripts/copy-category.mjs
+        env: { ORG: "${{ inputs.org }}", SRC: "${{ inputs.src }}", DST: "${{ inputs.dst }}" }
