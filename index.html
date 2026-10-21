@@ -45,12 +45,20 @@ button:disabled{cursor:not-allowed;opacity:.4}
 :focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .wrap{max-width:34rem;margin:0 auto;padding:.75rem .75rem 2.5rem}
 
-.top{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-bottom:.6rem;flex-wrap:nowrap;width:100%;}
-.brand{display:flex;align-items:center;gap:.3rem;flex-wrap:nowrap;min-width:0;flex:1 1 auto;overflow:hidden;}
+.top{display:flex;align-items:center;justify-content:space-between;gap:.3rem;margin-bottom:.6rem;flex-wrap:nowrap;width:100%;}
+.brand{display:flex;align-items:center;gap:.25rem;flex-wrap:nowrap;min-width:0;flex:1 1 auto;overflow:hidden;}
 .brand img{height:1.8rem;width:auto;object-fit:contain;flex-shrink:0;}
-.select-top{font-size:clamp(0.75rem, 2.6vw, 0.85rem);font-weight:700;padding:.2rem .3rem;border-radius:6px;border:1px solid var(--line);background:#FFFFFF !important;color:#0F2236 !important;-webkit-text-fill-color:#0F2236 !important;flex-shrink:0;}
-#orgSelectTop{flex-shrink:1;min-width:0;}
-.theme-btn{flex:none;width:2rem;height:2rem;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:.95rem;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.select-top{font-size:clamp(0.7rem, 3.1vw, 0.85rem);font-weight:700;padding:.2rem .3rem;border-radius:6px;border:1px solid var(--line);background:#FFFFFF !important;color:#0F2236 !important;-webkit-text-fill-color:#0F2236 !important;flex-shrink:0;}
+#orgSelectTop{flex-shrink:3;min-width:4.6rem;}
+/* Listes du haut : chacune prend la largeur de son texte ; si la place manque, l'organisation cède d'abord, puis l'équipe */
+.select-top{field-sizing:content;max-width:none;text-overflow:ellipsis;padding:.2rem .15rem .2rem .3rem}
+#catSelectTop{flex-shrink:0}
+.sr{position:absolute !important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.status{position:relative;cursor:pointer;min-height:2rem;padding-left:.15rem}
+.status::before{width:.6rem !important;height:.6rem !important}
+.status[data-s="live"]::before{animation:stPulse 1.6s ease-in-out infinite}
+@keyframes stPulse{50%{opacity:.35}}
+.theme-btn{flex:none;width:1.9rem;height:1.9rem;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:.95rem;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .status{font-size:clamp(0.65rem, 2.2vw, 0.75rem);color:var(--muted);display:flex;align-items:center;gap:.25rem;text-align:right;white-space:nowrap;flex-shrink:0;margin-left:auto;}
 .status::before{content:"";width:.45rem;height:.45rem;border-radius:50%;background:var(--muted);flex:none}
 .status[data-s="live"]::before{background:var(--ok)}
@@ -508,7 +516,7 @@ body:not(.role-viewer) .g-who{display:none}
 .actions.single{grid-template-columns:1fr}
 
 /* --- Tableaux par équipe --- */
-#teamSelectTop{flex-shrink:1;min-width:3.5rem;max-width:8rem;text-overflow:ellipsis}
+#teamSelectTop{flex-shrink:1;min-width:4rem}
 .check-row{display:flex;gap:.5rem;align-items:flex-start;margin-top:.8rem;font-size:.9rem;font-weight:600;cursor:pointer}
 .check-row input{width:1.2rem;height:1.2rem;margin-top:.1rem;flex:none}
 .check-row small{display:block;font-weight:400;font-size:.78rem;color:var(--muted);margin-top:.15rem}
@@ -1887,7 +1895,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610202238";
+  var BUILD = "202610202309";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2293,16 +2301,23 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function updateStatusDisplay(){
     const st = $("status");
-    if(!connected){ st.textContent = "Hors ligne"; st.dataset.s = "offline"; return; }
+    if(!connected){ st.textContent = ""; st.appendChild(el("span", "sr", "Hors ligne")); st.dataset.full = "Hors ligne"; st.title = "Hors ligne"; st.dataset.s = "offline"; return; }
     const connText = onlineCount > 1 ? " (" + onlineCount + ")" : "";
     // « En direct » (voyant vert) seulement quand une partie est en cours sur ce tableau
     const live = isLive(state) && !editEntry && !archiveKey;
     $("ambBox").hidden = !live;                                   // console d'ambiance : seulement pendant le match en cours
     $("annBox").hidden = !!(editEntry || archiveKey);             // messages : aussi avant la partie
     const txt = (live ? "En direct" : "Aucune partie") + (currentRole !== "viewer" ? " - " + roleLabel() : "") + connText;
-    if(st.textContent !== txt) st.textContent = txt;
+    // Barre du haut compacte : un voyant (et le rôle si connecté) ; le texte complet reste lu par les lecteurs d'écran et s'affiche au toucher
+    if(st.dataset.full !== txt){
+      st.dataset.full = txt; st.textContent = "";
+      st.appendChild(el("span", "sr", txt));
+      if(currentRole !== "viewer"){ const v = el("span", null, roleLabel()); v.setAttribute("aria-hidden", "true"); st.appendChild(v); }
+      st.title = txt;
+    }
     st.dataset.s = live ? "live" : "idle";
   }
+  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + (onlineCount > 1 ? "\n(nombre entre parenthèses : appareils qui regardent cette page)" : ""), "info"); });
   function applyInv(){
     document.documentElement.classList.toggle("inv", invOn());
     $("btnSwapSides").setAttribute("aria-pressed", String(invOn()));
