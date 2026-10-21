@@ -327,7 +327,8 @@ dialog .ctx{margin:.1rem 0 1.2rem;color:var(--muted);font-size:.9rem}
 .field-group{margin-top:1rem}
 .field-group label{display:block;font-size:.85rem;font-weight:600;margin-bottom:.4rem}
 
-.sheet-in input[type="text"], .sheet-in input[type="number"], .sheet-in input[type="email"], .sheet-in input[type="password"], .sheet-in select, .sheet-in input[type="url"], .sheet-in textarea {
+.sheet-in input[type="text"], .sheet-in input[type="number"], .sheet-in input[type="email"], .sheet-in input[type="password"], .sheet-in select, .sheet-in input[type="url"], .sheet-in textarea, .sheet-in input[type="date"], .sheet-in input[type="time"] {
+  color-scheme: light;
   background: #FFFFFF !important;
   color: #0F2236 !important;
   -webkit-text-fill-color: #0F2236 !important;
@@ -1895,7 +1896,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610202309";
+  var BUILD = "202610202312";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
