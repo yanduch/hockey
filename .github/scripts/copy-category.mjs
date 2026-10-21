@@ -6,14 +6,14 @@ process.on("unhandledRejection", e => { console.log("::error title=Copie::" + St
 process.on("uncaughtException", e => { console.log("::error title=Copie::" + String(e && e.message || e)); process.exit(1); });
 const [ORG, SRC, DST] = [process.env.ORG, process.env.SRC, process.env.DST].map(s => String(s || "").trim().toLowerCase());
 const note = t => console.log("::notice title=Copie::" + String(t).replace(/\n/g, "%0A"));
-const get = async p => { const r = await fetch(DB + "/" + p + ".json"); if (!r.ok) throw new Error("lecture " + p + " : " + r.status); return r.json(); };
+const get = async (p, q) => { const r = await fetch(DB + "/" + p + ".json" + (q || "")); if (!r.ok) throw new Error("lecture " + p + " : " + r.status); return r.json(); };
 const put = async (p, v) => { const r = await fetch(DB + "/" + p + ".json", { method: "PUT", body: JSON.stringify(v) }); if (!r.ok) throw new Error("écriture " + p + " : " + r.status + " " + await r.text()); };
 if (!/^[a-z0-9_]+$/.test(ORG + SRC + DST) || SRC === DST) throw new Error("Paramètres invalides");
 
 const cats = (await get(ORG + "/categories")) || [];
 const list = Array.isArray(cats) ? cats.filter(Boolean) : Object.values(cats);
 if (!list.includes(SRC)) throw new Error("La catégorie " + SRC + " n'existe pas (" + list.join(", ") + ")");
-if (list.includes(DST) || (await get(ORG + "/" + DST + "?shallow=true"))) throw new Error("La catégorie " + DST + " existe déjà : rien n'est fait");
+if (list.includes(DST) || (await get(ORG + "/" + DST, "?shallow=true"))) throw new Error("La catégorie " + DST + " existe déjà : rien n'est fait");
 
 // Équipes de la catégorie : nouvelles clés (aigles_m15a -> aigles_m15atest)
 const presets = (await get(ORG + "/teams_presets")) || {};
