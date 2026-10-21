@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
+<meta name="build" content="202610211349">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -9,7 +10,8 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://ohmtro-26e56-default-rtdb.firebaseio.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
 
 <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -401,6 +403,10 @@ body:not(.role-admin) .admin-only{display:none !important}
 /* Console d'ambiance (administrateur) et sons */
 .gest-btns{display:flex;flex-direction:column;gap:.6rem}
 .gest-btns > [hidden], .gest-btns > [style*="display: none"]{display:none}
+/* Chargement : seulement l'en-tête et le bandeau, jusqu'à ce que la partie (ou son absence) soit connue — pas d'écran trompeur */
+html.booting .wrap > :not(.top):not(.ticker-wrap){display:none !important}
+html.booting .wrap::after{content:"Chargement…";display:block;text-align:center;padding:3rem 0;color:var(--muted);font-weight:600;animation:bootPulse 1.2s ease-in-out infinite}
+@keyframes bootPulse{50%{opacity:.4}}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -933,7 +939,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   <button type="button" class="btn-stop-game" id="btnStopGame" style="display:none;">🛑 ARRÊTER LA PARTIE</button>
 
 
-  <section class="amb staff-only" id="ambBox">
+  <section class="amb staff-only" id="ambBox" hidden>
     <h2>🎛️ Console d'ambiance</h2>
     <div class="amb-grid">
       <button type="button" data-fx="charge"><b>📯</b>Charge!</button>
@@ -2016,7 +2022,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610211335";
+  var BUILD = "202610211349";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2024,8 +2030,9 @@ document.addEventListener("DOMContentLoaded", function(){
     function check(){
       if(!/^\d{12}$/.test(BUILD) || asked || Date.now() - last < 60000 || !/^https?:/.test(location.protocol)) return;
       last = Date.now();
-      fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store" }).then(r => r.ok ? r.text() : "").then(t => {
-        const m = /var BUILD = "(\d{12})"/.exec(t || "");
+      // Seulement le début de la page (le numéro de version est dans l'en-tête) : peu de données sur un cellulaire
+      fetch(location.pathname + "?v=" + Date.now(), { cache: "no-store", headers: { Range: "bytes=0-1023" } }).then(r => r.ok ? r.text() : "").then(t => {
+        const m = /<meta name="build" content="(\d{12})"/.exec(t || "") || /var BUILD = "(\d{12})"/.exec(t || "");
         if(!m || Number(m[1]) <= Number(BUILD) || asked) return;
         asked = true;
         const staff = /role-(admin|marqueur|gerant)/.test(document.body.className);
@@ -2144,7 +2151,11 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   /* ============ Firebase ============ */
+  // Fin du chargement : la page s'affiche une fois la partie connue (au plus 4 s d'attente)
+  function bootDone(){ document.documentElement.classList.remove("booting"); }
+  setTimeout(bootDone, 4000);
   if(typeof firebase === "undefined"){
+    bootDone();
     $("status").textContent = "Hors ligne (Firebase indisponible)";
     return;
   }
@@ -2621,8 +2632,8 @@ document.addEventListener("DOMContentLoaded", function(){
     // Écho de notre propre écriture : l'écran est déjà à jour, inutile de tout redessiner
     if(raw && lastLocal && raw.updatedAt === lastLocal && state.updatedAt === lastLocal) return;
     const s = raw ? sanitize(raw) : blank();
-    if(archiveKey){ liveState = s; return; }
-    state = s; syncStateWithPresets(); render();
+    if(archiveKey){ liveState = s; bootDone(); return; }
+    state = s; syncStateWithPresets(); render(); bootDone();
   }
 
   // Une fois les équipes connues : choisit le bon tableau (par équipe ou par catégorie)
