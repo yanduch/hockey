@@ -1887,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610180838";
+  var BUILD = "202610202238";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6086,10 +6086,11 @@ document.addEventListener("DOMContentLoaded", function(){
     shareItems = [{ value: "cur", label: "Cette page", url: shareLink(currentCat, tk), name: (tk && presets[tk] ? presets[tk].name : orgName) + " · " + String(currentCat).toUpperCase() }];
     (categoriesList.length ? categoriesList : [currentCat]).forEach(cat => {
       const C = String(cat).toUpperCase();
-      shareItems.push({ value: "c:" + cat, label: orgName + " · " + C, url: shareLink(cat, ""), name: orgName + " · " + C });
-      Object.keys(presets).filter(k => presets[k] && presets[k].own && presets[k].name && presets[k].category === cat)
-        .sort((x, y) => String(presets[x].name).localeCompare(String(presets[y].name), "fr"))
-        .forEach(k => shareItems.push({ value: "t:" + k, label: "   " + presets[k].name + " (" + C + ")", url: shareLink(cat, k), name: presets[k].name + " · " + C }));
+      const own = Object.keys(presets).filter(k => presets[k] && presets[k].own && presets[k].name && presets[k].category === cat)
+        .sort((x, y) => String(presets[x].name).localeCompare(String(presets[y].name), "fr", { numeric: true }));
+      // Une catégorie avec ses équipes : un choix par équipe (le lien de la catégorie seule ouvrirait de toute façon la 1re équipe)
+      if(!own.length) shareItems.push({ value: "c:" + cat, label: C + " · toute la catégorie", url: shareLink(cat, ""), name: orgName + " · " + C });
+      own.forEach(k => shareItems.push({ value: "t:" + k, label: presets[k].name + " · " + C, url: shareLink(cat, k), name: presets[k].name + " · " + C }));
     });
     fillSelect($("shareTarget"), shareItems, "cur");
   }
@@ -6111,10 +6112,20 @@ document.addEventListener("DOMContentLoaded", function(){
   on("shareSave", "click", () => {
     // Image à imprimer ou à publier : le code, le nom de l'équipe et l'adresse
     const it = shareCur(), q = document.createElement("canvas"); QR.draw(q, it.url, 12);
-    const W = q.width, out = document.createElement("canvas"); out.width = W; out.height = W + 110;
+    const W = q.width, out = document.createElement("canvas"), max = W - 40;
+    // L'adresse complète, coupée sur plusieurs lignes (aux « ? » et « & ») pour ne jamais être tronquée
+    const meas = out.getContext("2d"); meas.font = "20px Arial, sans-serif";
+    const parts = it.url.replace(/^https?:\/\//, "").split(/(?=[?&])/), lines = [""];
+    parts.forEach(pc => {
+      const cur = lines[lines.length - 1];
+      if(!cur || meas.measureText(cur + pc).width <= max) lines[lines.length - 1] = cur + pc; else lines.push(pc);
+    });
+    const fin = []; lines.forEach(l => { let s = l; while(meas.measureText(s).width > max){ let n = s.length; while(n > 1 && meas.measureText(s.slice(0, n)).width > max) n--; fin.push(s.slice(0, n)); s = s.slice(n); } fin.push(s); });
+    let nameSize = 34; meas.font = "bold 34px Arial, sans-serif"; while(nameSize > 18 && meas.measureText(it.name).width > max){ nameSize -= 2; meas.font = "bold " + nameSize + "px Arial, sans-serif"; }
+    out.width = W; out.height = W + 60 + fin.length * 28 + 20;
     const c = out.getContext("2d"); c.fillStyle = "#FFF"; c.fillRect(0, 0, out.width, out.height); c.drawImage(q, 0, 0);
-    c.fillStyle = "#0F2236"; c.textAlign = "center"; c.font = "bold 34px Arial, sans-serif"; c.fillText(it.name, W / 2, W + 30);
-    c.font = "20px Arial, sans-serif"; c.fillStyle = "#586A7B"; c.fillText(it.url.replace(/^https?:\/\//, "").slice(0, 70), W / 2, W + 75);
+    c.fillStyle = "#0F2236"; c.textAlign = "center"; c.font = "bold " + nameSize + "px Arial, sans-serif"; c.fillText(it.name, W / 2, W + 30);
+    c.font = "20px Arial, sans-serif"; c.fillStyle = "#586A7B"; fin.forEach((l, i) => c.fillText(l, W / 2, W + 72 + i * 28));
     const a = document.createElement("a"); a.href = out.toDataURL("image/png"); a.download = "QR " + it.name.replace(/[^\wÀ-ÿ -]+/g, "").trim() + ".png";
     document.body.appendChild(a); a.click(); a.remove();
   });
