@@ -365,9 +365,14 @@ dialog .ctx{margin:.1rem 0 1.2rem;color:var(--muted);font-size:.9rem}
 .preset-box{background:var(--ice);padding:.6rem;border-radius:10px;margin-bottom:.8rem;border:1px solid var(--line)}
 .preset-box label{display:block;font-size:.8rem;font-weight:600;margin-bottom:.3rem}
 .preset-box select{width:100%;padding:.4rem;border-radius:6px;border:1px solid var(--line);background:var(--surface)}
-.roster-grid{display:grid;gap:.5rem;max-height:30vh;overflow-y:auto;margin-bottom:.8rem}
-.roster-row{display:grid;grid-template-columns:2.5rem 1fr 4rem auto;gap:.3rem;align-items:center}
-.staff-row{display:grid;grid-template-columns:1fr 6rem auto;gap:.3rem;align-items:center}
+.roster-grid{display:grid;gap:.5rem;max-height:30vh;overflow-y:auto;overflow-x:hidden;margin-bottom:.8rem;padding-right:2px}
+.roster-row{display:grid;grid-template-columns:2.7rem minmax(0,1fr) 3.6rem 2rem;gap:.3rem;align-items:center}
+.staff-row{display:grid;grid-template-columns:minmax(0,1fr) 6.2rem 2rem;gap:.3rem;align-items:center}
+.roster-row > *, .staff-row > *{min-width:0;width:100%;box-sizing:border-box}
+.roster-row .row-del, .staff-row .row-del{padding:.2rem 0;text-align:center}
+.roster-sort{display:flex;align-items:center;gap:.3rem;margin:0 0 .35rem;font-size:.75rem;color:var(--muted)}
+.roster-sort button.on{background:var(--blue);color:var(--on-team,#FFF);border-color:var(--blue)}
+.roster-sort button{padding:.2rem .55rem;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font-size:.75rem;font-weight:700}
 .roster-row input, .roster-row select, .staff-row input, .staff-row select{padding:.3rem;border:1px solid var(--line);border-radius:6px;background:var(--ice);color:#0F2236 !important;}
 
 .presence-list{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;max-height:25vh;overflow-y:auto;background:var(--surface);padding:.5rem;border-radius:8px;border:1px solid var(--line);margin-top:.4rem;}
@@ -394,8 +399,14 @@ dialog .ctx{margin:.1rem 0 1.2rem;color:var(--muted);font-size:.9rem}
 .empty{font-size:.85rem;color:var(--muted);list-style:none;margin:0;padding:.2rem 0}
 body:not(.role-admin) .admin-only{display:none !important}
 /* Console d'ambiance (administrateur) et sons */
+.gest-btns{display:flex;flex-direction:column;gap:.6rem}
+.gest-btns > [hidden], .gest-btns > [style*="display: none"]{display:none}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
+.amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
+.amb h2.amb-toggle::after{content:"▼";font-size:.7rem;color:var(--muted)}
+.amb h2.amb-toggle.collapsed::after{content:"►"}
+.amb h2.amb-toggle:not(.collapsed){margin-bottom:.6rem}
 .amb label{display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .3rem}
 .amb input{width:100%;padding:.55rem .6rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 #ambBox .talk{width:100%;min-height:2.6rem;margin:.45rem 0 0;flex-direction:row;gap:.5rem;font-size:.9rem;border-radius:10px;padding:.3rem .6rem}
@@ -842,6 +853,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <button type="button" id="btnScopeAll">Cumulatif</button>
       </div>
       <p class="ctx" id="rosterHint" style="margin:.2rem 0 0;"></p>
+      <div class="roster-sort" style="margin-top:.4rem">Trier : <button type="button" data-vsort="no"># Numéro</button><button type="button" data-vsort="name">Nom</button><button type="button" data-vsort="pos">Position</button></div>
     </div>
 
     <div class="roster-container" id="rosterContainer">
@@ -913,7 +925,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </section>
 
   <section class="amb admin-only" id="annBox">
-    <h2>📣 Message à tout le monde</h2>
+    <h2 class="amb-toggle collapsed" id="annToggle" role="button" tabindex="0" aria-expanded="false">📣 Message à tout le monde</h2>
+    <div id="annBody" hidden>
     <input type="text" id="annText" maxlength="120" placeholder="Ex. : Bravo aux bénévoles !" autocomplete="off">
     <div class="ann-mode" role="radiogroup" aria-label="Affichage">
       <label><input type="radio" name="annMode" value="pop" checked><span>💬 Fenêtre 5 s</span></label>
@@ -923,6 +936,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <div class="amb-row"><button type="button" class="act-1" id="annSend">📣 Afficher</button><button type="button" class="act-2" id="annSave">💾 Enregistrer</button></div>
     <div class="amb-msgs" id="annList"></div>
     <button type="button" class="act-2" id="annManage" style="width:100%;margin-top:.5rem;">✏️ Gérer les messages enregistrés</button>
+    </div>
   </section>
 
   <button type="button" class="btn-reset-board marqueur-only" id="btnTeamMessages">📢 Messages de l'équipe</button>
@@ -1042,10 +1056,12 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <h2>Gestion</h2>
     <p class="ctx">Messages, organisations (avec leurs catégories et leurs équipes), paramètres et sécurité.</p>
 
-    <button type="button" class="act-1" id="btnOpenMessagesManage" style="width:100%;min-height:2.8rem;margin-top:0;font-weight:600;background:#1F7A4D;color:#FFF;">📢 Gestion des messages</button>
-    <button type="button" class="act-1" id="btnOpenHistoryManage" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#2E63C6;color:#FFF;">🗂️ Gestion de l'historique</button>
-    <button type="button" class="act-1" id="btnOpenCalendar" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#B5651D;color:#FFF;">📅 Gestion calendrier</button>
-    <button type="button" class="act-1 admin-only" id="btnOpenOrgManage" style="width:100%;min-height:2.8rem;margin-top:.6rem;font-weight:600;background:#8E44AD;color:#FFF;"><span class="org-admin-only">🏢 Organisation, catégories et équipes</span><span class="team-admin-only">👥 Fiche et alignement de l'équipe</span></button>
+    <div class="gest-btns">
+    <button type="button" class="act-1 admin-only" id="btnOpenOrgManage" style="width:100%;min-height:2.8rem;font-weight:600;background:#8E44AD;color:#FFF;"><span class="org-admin-only">🏢 Organisation, catégories et équipes</span><span class="team-admin-only">👥 Fiche et alignement de l'équipe</span></button>
+    <button type="button" class="act-1" id="btnOpenCalendar" style="width:100%;min-height:2.8rem;font-weight:600;background:#B5651D;color:#FFF;">📅 Gestion calendrier</button>
+    <button type="button" class="act-1" id="btnOpenMessagesManage" style="width:100%;min-height:2.8rem;font-weight:600;background:#1F7A4D;color:#FFF;">📢 Gestion des messages</button>
+    <button type="button" class="act-1" id="btnOpenHistoryManage" style="width:100%;min-height:2.8rem;font-weight:600;background:#2E63C6;color:#FFF;">🗂️ Gestion de l'historique</button>
+    </div>
 
     <div class="field-group admin-only org-admin-only" style="margin-top:1.2rem;">
       <label>Temps de période par défaut (minutes) :</label>
@@ -1141,6 +1157,11 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <div class="preset-box" id="msgAutoBox" style="margin-top:1rem;">
       <label style="font-weight:700;">3. Messages automatiques :</label>
       <small style="display:block;margin:.1rem 0 .5rem;color:var(--muted);font-size:.78rem;">Ces messages s'affichent seuls selon la situation. Les mots entre accolades, comme {équipe}, sont remplacés automatiquement : gardez-les tels quels. Toucher ↺ remet le message d'origine.</small>
+      <div class="auto-item" style="margin-bottom:.7rem;">
+        <div class="auto-lbl"><label for="autoCdHours">Compte à rebours automatique au bandeau :</label></div>
+        <select id="autoCdHours" style="width:100%;padding:.4rem;border:1px solid var(--line);border-radius:6px;background:#FFF;color:#0F2236;"></select>
+        <p class="auto-vars" style="margin-top:.2rem">Le message « Avant le match » s'affiche seul ce nombre d'heures avant l'heure prévue au calendrier.</p>
+      </div>
       <div id="msgAutoList" class="auto-list"></div>
     </div>
 
@@ -1544,6 +1565,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <small>Le numéro peut être avant ou après le nom. Les personnes sous « GARDIENS » deviennent des gardiens (G). Sous « PERSONNEL », le rôle est reconnu (chef, adjoint, gérant).</small>
     </details>
     <label style="display:block;font-size:.8rem;margin-bottom:.2rem;font-weight:600;">Joueurs :</label>
+    <div class="roster-sort">Trier : <button type="button" data-rsort="no"># Numéro</button><button type="button" data-rsort="name">Nom</button><button type="button" data-rsort="pos">Position</button></div>
     <div class="roster-grid" id="rosterForm"></div>
     <button type="button" class="act-2" id="addPlayerBtn" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">+ Ajouter un joueur</button>
 
@@ -1896,7 +1918,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610202312";
+  var BUILD = "202610210514";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2554,7 +2576,8 @@ document.addEventListener("DOMContentLoaded", function(){
     sub(dbConfig, snap => {
       const cfg = snap.val() || {};
       adminPerms = normPerms(cfg.adminPerms); updatePermUI();
-      autoMsg = (cfg.autoMsg && typeof cfg.autoMsg === "object") ? cfg.autoMsg : {}; try{ updateTickerDisplay(); }catch(e){}
+      autoMsg = (cfg.autoMsg && typeof cfg.autoMsg === "object") ? cfg.autoMsg : {};
+      AUTO_CD_MS = cdHoursOk(cfg.autoCdHours) * 3600000; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
       cfgRegStart = (cfg.regStart && typeof cfg.regStart === "object") ? cfg.regStart : {}; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
@@ -2657,6 +2680,7 @@ document.addEventListener("DOMContentLoaded", function(){
     return autoFill("next", { "équipe": name, date: calWhen(c), adversaire: opp, "aréna": c.place ? c.place + arenaAddr(c) : "" });
   }
   var AUTO_CD_MS = 8 * 3600000, autoCdOn = false;
+  const cdHoursOk = v => { v = parseInt(v, 10); return v >= 4 && v <= 12 ? v : 8; };
   setInterval(() => { try{ updateTickerDisplay(); }catch(e){} }, 60000);   // l'heure avance : début du compte à rebours, étapes
   let tickerSig = null, tickerMsg = [], lastWidth = window.innerWidth, resizeTimer = null;
   const TICKER_SPEED = 55;             // pixels par seconde
@@ -3026,6 +3050,8 @@ document.addEventListener("DOMContentLoaded", function(){
     msgSelectedTeamKey = ""; msgTempTeams = {}; msgDirtyTeams = {};
     msgFill("msgOrgList", msgsOf(org), ORG_PH, !isAdmin());
     autoFillForm(orgKey === currentOrg ? autoMsg : {});
+    fillSelect($("autoCdHours"), [4,5,6,7,8,9,10,11,12].map(h => ({ value: String(h), label: h + " heures avant la partie" + (h === 8 ? " (par défaut)" : "") })), String(orgKey === currentOrg ? AUTO_CD_MS / 3600000 : 8));
+    if(orgKey !== currentOrg) ref(orgKey + "/config/autoCdHours").once("value").then(s => { if(token === msgToken) $("autoCdHours").value = String(cdHoursOk(s.val())); });
     if(orgKey !== currentOrg) ref(orgKey + "/config/autoMsg").once("value").then(s => { if(token === msgToken) autoFillForm(s.val() || {}); });
     msgCatKey = orgKey === currentOrg ? currentCat : "";
     const lockCat = !isAdmin() || isTeamAdmin();
@@ -3096,6 +3122,9 @@ document.addEventListener("DOMContentLoaded", function(){
       const org = organizationsList.find(o => o.id === msgSelectedOrgKey);
       if(org){ const msgs = msgRead("msgOrgList"); org.msgs = msgs; org.msg = msgs[0] || ""; dbOrgs.set(organizationsList); }
       autoSave(msgSelectedOrgKey);
+      const hh = cdHoursOk($("autoCdHours").value);
+      if(hh === 8) ref(msgSelectedOrgKey + "/config/autoCdHours").remove(); else ref(msgSelectedOrgKey + "/config/autoCdHours").set(hh);
+      if(msgSelectedOrgKey === currentOrg) AUTO_CD_MS = hh * 3600000;
     }
     stashTeamMsgs();
     Object.keys(msgDirtyTeams).forEach(k => {
@@ -3357,6 +3386,21 @@ document.addEventListener("DOMContentLoaded", function(){
     $("staffForm").appendChild(row);
   }
   on("addPlayerBtn", "click", () => addRosterRow("","","A"));
+  // Tri des joueurs : numéro, nom ou position (attaquants, défenseurs, gardiens)
+  const POS_ORD = { A: 0, D: 1, G: 2 };
+  function cmpPlayers(by){
+    const num = x => { const n = parseInt(x.no, 10); return isNaN(n) ? 1e9 : n; }, nm = (x, y) => String(x.name || "").localeCompare(String(y.name || ""), "fr", { sensitivity: "base", numeric: true });
+    if(by === "name") return (x, y) => nm(x, y) || num(x) - num(y);
+    if(by === "pos") return (x, y) => ((POS_ORD[x.pos] != null ? POS_ORD[x.pos] : 3) - (POS_ORD[y.pos] != null ? POS_ORD[y.pos] : 3)) || num(x) - num(y) || nm(x, y);
+    return (x, y) => num(x) - num(y) || nm(x, y);
+  }
+  document.querySelectorAll("[data-rsort]").forEach(b => b.addEventListener("click", () => {
+    const box = $("rosterForm"), rows = Array.prototype.slice.call(box.querySelectorAll(".roster-row"));
+    const data = rows.map(r => ({ r: r, no: r.querySelector(".r-no").value.trim(), name: r.querySelector(".r-name").value.trim(), pos: r.querySelector(".r-pos").value }));
+    const cmp = cmpPlayers(b.dataset.rsort);
+    data.sort((x, y) => { const ex = !x.no && !x.name, ey = !y.no && !y.name; return ex - ey || cmp(x, y); }).forEach(d => box.appendChild(d.r));
+    document.querySelectorAll("[data-rsort]").forEach(x => x.classList.toggle("on", x === b));
+  }));
   // Coller une liste (ex. copiée de Spordle) : « C. MESSIER 2 », « 2 C. Messier », sections GARDIENS / JOUEURS / PERSONNEL
   on("pasteRosterBtn", "click", () => {
     const lines = $("pasteRoster").value.split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);
@@ -5068,12 +5112,20 @@ document.addEventListener("DOMContentLoaded", function(){
   on("btnScopeMatch", "click", () => setScope("match"));
   on("btnScopeAll", "click", () => setScope("all"));
 
+  var viewSort = "no"; try{ viewSort = localStorage.getItem("hk_vsort") || "no"; }catch(e){}
+  const paintVSort = () => document.querySelectorAll("[data-vsort]").forEach(x => x.classList.toggle("on", x.dataset.vsort === viewSort));
+  document.querySelectorAll("[data-vsort]").forEach(b => b.addEventListener("click", () => {
+    viewSort = b.dataset.vsort; try{ localStorage.setItem("hk_vsort", viewSort); }catch(e){}
+    paintVSort(); renderRosters();
+  }));
+  paintVSort();
   function renderRosterList(id, list, ctx){
     const side = ctx.side || "k", scope = ctx.side ? rosterScope : "all";
     const ul = $(id); ul.textContent = "";
     if(!list || !list.length){ ul.appendChild(el("li", "empty", "Aucun joueur")); return; }
     const frag = document.createDocumentFragment();
-    list.forEach((p, idx) => {
+    const cmpV = cmpPlayers(viewSort), order = list.map((p, i) => i).sort((x, y) => cmpV(list[x], list[y]) || x - y);
+    order.forEach(idx => { const p = list[idx];
       const pId = pidOf(p, idx), cardId = side + ":" + pId, isCardOpen = openCardId === cardId;
       const li = el("li", "roster-item" + (isCardOpen ? " active" : "")), nameSpan = el("span");
       if(p.no){ nameSpan.appendChild(el("b", null, "#" + p.no)); nameSpan.appendChild(document.createTextNode(" ")); }
@@ -5888,6 +5940,12 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     return t.replace(/\{équipe\}/g, team);
   }
+  function annToggle(){
+    const open = $("annBody").hidden; $("annBody").hidden = !open;
+    $("annToggle").classList.toggle("collapsed", !open); $("annToggle").setAttribute("aria-expanded", String(open));
+  }
+  on("annToggle", "click", annToggle);
+  on("annToggle", "keydown", e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); annToggle(); } });
   function annPush(t){
     if(!isAdmin() || editEntry || archiveKey) return;
     if(annMode() === "band"){
