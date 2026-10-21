@@ -2,6 +2,8 @@
 // vers une nouvelle catégorie. Refuse d'écraser une catégorie qui existe déjà.
 // Les comptes (mots de passe) ne sont pas copiés.
 const DB = "https://ohmtro-26e56-default-rtdb.firebaseio.com";
+process.on("unhandledRejection", e => { console.log("::error title=Copie::" + String(e && e.message || e)); process.exit(1); });
+process.on("uncaughtException", e => { console.log("::error title=Copie::" + String(e && e.message || e)); process.exit(1); });
 const [ORG, SRC, DST] = [process.env.ORG, process.env.SRC, process.env.DST].map(s => String(s || "").trim().toLowerCase());
 const note = t => console.log("::notice title=Copie::" + String(t).replace(/\n/g, "%0A"));
 const get = async p => { const r = await fetch(DB + "/" + p + ".json"); if (!r.ok) throw new Error("lecture " + p + " : " + r.status); return r.json(); };
