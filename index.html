@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610211349">
+<meta name="build" content="202610211440">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -696,6 +696,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 .cal-item.evt{border-left-color:#8E44AD}
 .evt-type-row{display:grid;grid-template-columns:3rem minmax(0,1fr) 2rem;gap:.3rem;align-items:center}
 .evt-type-row input{min-width:0;width:100%;box-sizing:border-box;padding:.4rem;border:1px solid var(--line);border-radius:6px}
+#calSpordle.synced{background:#1F7A4D;border-color:#1F7A4D;color:#FFF;font-weight:700}
+.ics-tag.same{background:var(--crease);color:var(--muted)}
 .cal-group{list-style:none;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:.5rem 0 0}
 .cal-item{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:.5rem .7rem}
 .cal-item.todo{border-left-color:var(--warn)}
@@ -1218,6 +1220,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <button type="button" class="act-2 org-admin-only evt-pick-edit" id="evtTypesEdit">✏️ Modifier la liste des types</button>
     </div>
     <button type="button" class="act-2" id="calSpordle" style="width:100%;min-height:2.4rem;margin-bottom:.5rem;font-size:.88rem;">🔄 Synchroniser avec Spordle</button>
+    <small id="calSpordleNote" hidden style="display:block;margin:-.2rem 0 .6rem;color:var(--muted);font-size:.76rem;text-align:center;"></small>
     <button type="button" class="act-2 super-only" id="calImport" style="width:100%;min-height:2.4rem;margin-bottom:.8rem;font-size:.88rem;">📥 Importer un horaire (.ics)</button>
     <input type="file" id="calIcsFile" accept=".ics,text/calendar" hidden>
     <ul class="cal-list" id="calList"></ul>
@@ -2022,7 +2025,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610211349";
+  var BUILD = "202610211440";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2110,13 +2113,14 @@ document.addEventListener("DOMContentLoaded", function(){
   /* Boîtes de message de l'application (remplacent alert et confirm du navigateur) */
   let noticeTimer = null, askResolve = null;
   function raise(d){ if(d.open) d.close(); d.showModal(); }     // repasse la boîte au premier plan
-  function notify(text, kind){                                   // kind : "ok" (se ferme seule), "info", "error"
+  function notify(text, kind){                                   // kind : "ok" (se ferme seule), "done" (réussi, reste jusqu'à OK), "info", "error"
     kind = kind || "ok";
+    const sticky = kind === "done"; if(sticky) kind = "ok";
     const d = $("noticeBox"); d.dataset.kind = kind;
     $("noticeIcon").textContent = kind === "error" ? "!" : (kind === "info" ? "i" : "✓");
     $("noticeText").textContent = text;
     clearTimeout(noticeTimer); raise(d);
-    if(kind === "ok") noticeTimer = setTimeout(() => closeDlg("noticeBox"), 2200);
+    if(kind === "ok" && !sticky) noticeTimer = setTimeout(() => closeDlg("noticeBox"), 2200);
   }
   function ask(text, opts){                                      // renvoie une promesse : true si confirmé
     opts = opts || {};
@@ -4075,7 +4079,21 @@ document.addEventListener("DOMContentLoaded", function(){
     fillSelect(sel, items, prev || (calHere() && boardTeam && calPresets[boardTeam] ? calPresets[boardTeam].name : null), "Toutes les équipes");
     if(isTeamAdmin() && calPresets[assignedTeam]){ sel.value = calPresets[assignedTeam].name; sel.disabled = true; } else sel.disabled = false;   // administrateur d'équipe : ses parties
   }
+  // Bouton Spordle : montre si la catégorie est déjà synchronisée (et quand)
+  function calSpordleBtn(){
+    const b = $("calSpordle"), s = (calOrg === currentOrg && calCat) ? calSynced() : [];
+    b.classList.toggle("synced", !!s.length);
+    b.textContent = s.length ? "✅ Synchronisé avec Spordle (" + s.join(", ") + ") · mettre à jour" : "🔄 Synchroniser avec Spordle";
+    const note = $("calSpordleNote"); note.textContent = ""; note.hidden = !s.length;
+    if(s.length) ref(calOrg + "/" + calCat + "/icsSync").once("value").then(v => {
+      const all = obj(v.val()), oks = Object.keys(all).map(k => Number(all[k] && all[k].ok) || 0).filter(Boolean);
+      if(oks.length){ const m = Math.round((now() - Math.max.apply(null, oks)) / 60000);
+        note.textContent = "Dernière mise à jour : " + (m < 1 ? "à l'instant" : m < 60 ? "il y a " + m + " min" : m < 1440 ? "il y a " + Math.round(m / 60) + " h" : "il y a " + Math.round(m / 1440) + " j") + ". Elle se fait seule, au plus une fois l'heure."; }
+      else note.textContent = "Pas encore de mise à jour réussie.";
+    }, () => {});
+  }
   function calRender(loading){
+    try{ calSpordleBtn(); }catch(e){}
     const list = $("calList"); list.textContent = "";
     if(loading === true){ list.appendChild(el("li", "empty", "Chargement…")); return; }
     const team = $("calTeamFilter").value, today = todayStr();
@@ -4439,7 +4457,14 @@ document.addEventListener("DOMContentLoaded", function(){
     return hit2 ? hit2.id : "";
   }
   let icsGames = [], icsNames = [], icsMap = {}, icsSaved = {};
-  on("calImport", "click", () => { if(isSuper() && calCat) $("calIcsFile").click(); });
+  const calSynced = () => Object.keys(calPresets).filter(k => calPresets[k] && calPresets[k].icsUrl && (!calPresets[k].category || calPresets[k].category === calCat)).map(k => calPresets[k].name);
+  on("calImport", "click", () => {
+    if(!isSuper() || !calCat) return;
+    const s = calSynced();
+    if(!s.length){ $("calIcsFile").click(); return; }
+    ask("Le calendrier de " + s.join(", ") + " est déjà synchronisé avec Spordle : ses parties se mettent à jour toutes seules.\n\nImporter un fichier .ics quand même ? (Utile seulement pour les autres équipes de la catégorie.)", { ok: "Importer quand même" })
+      .then(ok => { if(ok) $("calIcsFile").click(); });
+  });
   on("calIcsFile", "change", () => {
     const f = $("calIcsFile").files[0]; $("calIcsFile").value = ""; if(!f || !isSuper()) return;
     const rd = new FileReader();
@@ -4478,10 +4503,16 @@ document.addEventListener("DOMContentLoaded", function(){
     icsRenderGames();
     swapDlg("calendarSheet", "calImportSheet");
   }
+  // Une partie déjà au calendrier n'est « mise à jour » que si quelque chose change vraiment (date, heure, équipes, aréna)
+  function icsChanged(g, old){
+    const A = icsTeamOf(g.a), B = icsTeamOf(g.b), aid = icsArena(g) || "";
+    return String(old.date) !== g.date || String(old.time || "") !== String(g.time || "") || old.a !== A.name || old.b !== B.name ||
+           String(old.aKey || "") !== A.key || String(old.bKey || "") !== B.key || (aid ? String(old.arena || "") !== aid : (!!g.arenaName && !old.arena && old.place !== g.arenaName));
+  }
   function icsRenderGames(){
     const list = $("icsGames"); list.textContent = "";
     const have = {}; calMgr.forEach(c => { have[c.id] = c; });
-    let nNew = 0, nUpd = 0;
+    let nNew = 0, nUpd = 0, nSame = 0;
     icsGames.slice().sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time)).forEach(g => {
       const A = icsTeamOf(g.a), B = icsTeamOf(g.b), aid = icsArena(g), old = have[icsId(g)];
       const li = el("li", "cal-item"), box = el("div", "cal-main");
@@ -4489,11 +4520,12 @@ document.addEventListener("DOMContentLoaded", function(){
       const line = el("div", "cal-teams"); line.appendChild(el("strong", null, B.name + " @ " + A.name)); box.appendChild(line);
       if(g.arenaName && !aid) box.appendChild(el("div", "cal-note", "Nouvelle aréna ajoutée à la liste" + (g.city ? " (" + g.city + ")" : "")));
       li.appendChild(box);
-      li.appendChild(el("span", "ics-tag" + (old ? " upd" : ""), old ? "Mise à jour" : "Nouvelle"));
-      if(old) nUpd++; else nNew++;
+      const ch = old && icsChanged(g, old);
+      li.appendChild(el("span", "ics-tag" + (old ? (ch ? " upd" : " same") : ""), old ? (ch ? "Modifiée" : "Inchangée") : "Nouvelle"));
+      if(!old) nNew++; else if(ch) nUpd++; else nSame++;
       list.appendChild(li);
     });
-    $("icsCount").textContent = icsGames.length + " partie" + (icsGames.length > 1 ? "s" : "") + " : " + nNew + " nouvelle" + (nNew > 1 ? "s" : "") + ", " + nUpd + " mise" + (nUpd > 1 ? "s" : "") + " à jour";
+    $("icsCount").textContent = icsGames.length + " partie" + (icsGames.length > 1 ? "s" : "") + " : " + nNew + " nouvelle" + (nNew > 1 ? "s" : "") + ", " + nUpd + " modifiée" + (nUpd > 1 ? "s" : "") + ", " + nSame + " inchangée" + (nSame > 1 ? "s" : "");
   }
   const pwdOrgLabelOf = k => { const o = organizationsList.find(x => x.id === k); return o ? o.name : String(k).toUpperCase(); };
   on("icsCancel", "click", () => swapDlg("calImportSheet", "calendarSheet"));
@@ -4504,9 +4536,10 @@ document.addEventListener("DOMContentLoaded", function(){
       if(m.key === "__other" && !String(m.other || "").trim()){ notify("Écrivez un nom pour l'équipe « " + icsNames[i] + " ».", "info"); return; }
     }
     const have = {}; calMgr.forEach(c => { have[c.id] = c; });
-    const base = calOrg + "/" + calCat; let added = 0, updated = 0;
+    const base = calOrg + "/" + calCat; let added = 0, updated = 0, same = 0;
     icsGames.forEach(g => {
       const A = icsTeamOf(g.a), B = icsTeamOf(g.b), id = icsId(g) || uid(), old = have[id];
+      if(old && !icsChanged(g, old)){ same++; return; }
       let aid = icsArena(g);
       if(!aid && g.arenaName) aid = addArena(g.arenaName, g.city, g.address);
       const entry = { date: g.date, time: g.time, a: A.name, b: B.name, aKey: A.key, bKey: B.key,
@@ -4522,7 +4555,7 @@ document.addEventListener("DOMContentLoaded", function(){
     icsNames.forEach(n => { const m = icsMap[n]; map[normKey(n)] = m.key === "__other" ? "=" + icsTeamOf(n).name : m.key; });
     ref(base + "/icsTeams").set(map);
     swapDlg("calImportSheet", "calendarSheet");
-    notify("Horaire importé dans " + calCat.toUpperCase() + " : " + added + " partie" + (added > 1 ? "s" : "") + " ajoutée" + (added > 1 ? "s" : "") + ", " + updated + " mise" + (updated > 1 ? "s" : "") + " à jour.");
+    notify("Horaire importé dans " + calCat.toUpperCase() + " :\n" + added + " partie" + (added > 1 ? "s" : "") + " ajoutée" + (added > 1 ? "s" : "") + ", " + updated + " modifiée" + (updated > 1 ? "s" : "") + ", " + same + " inchangée" + (same > 1 ? "s" : "") + ".", "done");
   });
 
   /* --- Abonnement au calendrier Spordle d'une équipe (adresse .ics de l'équipe, inscrite dans sa fiche) --- */
@@ -4620,7 +4653,7 @@ document.addEventListener("DOMContentLoaded", function(){
       $("calSpordle").disabled = false;
       notify(res.map(x => presets[x.k].name + " : " + (x.e ? "lecture impossible (" + (x.e.message || x.e) + ")" :
         !x.r ? "déjà en cours" : x.r.games + " partie" + (x.r.games > 1 ? "s" : "") + " · " + x.r.added + " ajoutée" + (x.r.added > 1 ? "s" : "") + ", " + x.r.updated + " modifiée" + (x.r.updated > 1 ? "s" : "") + ", " + x.r.removed + " retirée" + (x.r.removed > 1 ? "s" : "") + " · " + x.r.practices + " pratique" + (x.r.practices > 1 ? "s" : ""))).join("\n"),
-        res.some(x => x.e) ? "error" : "ok");
+        res.some(x => x.e) ? "error" : "done");
     });
   });
 
