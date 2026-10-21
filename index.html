@@ -584,6 +584,8 @@ button.tcal-d{cursor:pointer;font-weight:800}
 .tcal-d.prac{box-shadow:inset 0 0 0 2.5px var(--tc);color:var(--ink);border-radius:50%}
 .tcal-d.also-prac::after{content:"";position:absolute;bottom:2px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--surface);box-shadow:0 0 0 1.5px var(--tc)}
 .tcal-card.prac-card .p-grid{grid-template-columns:repeat(3,1fr)!important}
+.tcal-d.evt{box-shadow:inset 0 0 0 2px var(--tc);border-radius:4px;outline:2px dashed var(--tc);outline-offset:-5px;color:var(--ink)}
+.tcal-legend i.evt{box-shadow:inset 0 0 0 2px var(--tc);border-radius:4px}
 .tcal-legend i.prac{box-shadow:inset 0 0 0 2.5px var(--tc);border-radius:50%}
 .tcal-d.sel{outline:3px solid var(--ink);outline-offset:1px}
 .tcal-d .res{position:absolute;top:-4px;right:-4px;min-width:.95rem;height:.95rem;border-radius:50%;font-size:.55rem;line-height:.95rem;font-weight:800;color:#FFF;background:#6B7785;text-align:center;box-shadow:0 0 0 1.5px var(--surface)}
@@ -670,6 +672,23 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 
 /* --- Gestion calendrier --- */
 .cal-list{list-style:none;margin:0;padding:0;display:grid;gap:.4rem;max-height:48vh;overflow-y:auto}
+.evt-pick{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:0 0 .6rem;padding:.5rem;border:1px dashed var(--line);border-radius:10px}
+.evt-pick button{min-height:2.4rem;font-size:.85rem;font-weight:700}
+.evt-pick .evt-pick-edit{grid-column:1/-1;font-weight:600;font-size:.8rem;min-height:2rem}
+#evtModeOne[hidden],#evtModeWeek[hidden]{display:none}
+.evt-days{display:flex;gap:.25rem}
+.evt-days label{flex:1;position:relative;cursor:pointer}
+.evt-days input{position:absolute;inset:0;opacity:0;margin:0;width:100%;height:100%}
+.evt-days span{display:block;text-align:center;padding:.4rem 0;border:1px solid var(--line);border-radius:8px;font-weight:700;font-size:.8rem}
+.evt-days input:checked+span{background:var(--blue);border-color:var(--blue);color:var(--on-team,#FFF)}
+.evt-count{margin:.6rem 0 .3rem;font-size:.8rem;font-weight:700}
+.evt-dates{display:flex;flex-wrap:wrap;gap:.3rem;max-height:30vh;overflow-y:auto}
+.evt-dates span{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .3rem .2rem .55rem;border:1px solid var(--line);border-radius:999px;font-size:.78rem;background:var(--surface)}
+.evt-dates span.past{opacity:.55}
+.evt-dates button{border:0;background:transparent;color:var(--red);font-weight:800;padding:0 .2rem;font-size:.85rem}
+.cal-item.evt{border-left-color:#8E44AD}
+.evt-type-row{display:grid;grid-template-columns:3rem minmax(0,1fr) 2rem;gap:.3rem;align-items:center}
+.evt-type-row input{min-width:0;width:100%;box-sizing:border-box;padding:.4rem;border:1px solid var(--line);border-radius:6px}
 .cal-group{list-style:none;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:.5rem 0 0}
 .cal-item{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:10px;padding:.5rem .7rem}
 .cal-item.todo{border-left-color:var(--warn)}
@@ -1175,7 +1194,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 <dialog id="calendarSheet">
   <div class="sheet-in">
     <h2>Gestion calendrier</h2>
-    <p class="ctx">Parties prévues de la catégorie. Inscrivez le résultat après la partie : il compte dans la fiche des équipes.</p>
+    <p class="ctx">Parties, entraînements et activités de la catégorie. Inscrivez le résultat après une partie : il compte dans la fiche des équipes.</p>
     <div class="super-only" style="margin-bottom:.5rem;">
       <label for="calOrgSelect" style="display:block;font-size:.85rem;font-weight:600;margin-bottom:.3rem;">Organisation :</label>
       <select id="calOrgSelect" class="full-input" style="background:#FFF;color:#0F2236;"></select>
@@ -1185,7 +1204,12 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <select id="calCatSelect" aria-label="Catégorie" style="flex:0 1 7rem;"></select>
       <select id="calTeamFilter" aria-label="Équipe"></select>
     </div>
-    <button type="button" class="act-1" id="calAdd" style="width:100%;min-height:2.6rem;margin-bottom:.5rem;font-size:.9rem;">➕ Ajouter une partie</button>
+    <button type="button" class="act-1" id="calAddEvt" style="width:100%;min-height:2.6rem;margin-bottom:.5rem;font-size:.9rem;" aria-expanded="false">➕ Ajouter un événement</button>
+    <div id="evtPick" class="evt-pick" hidden>
+      <button type="button" class="act-2" id="calAdd">🥅 Une partie</button>
+      <div id="evtPickTypes" style="display:contents"></div>
+      <button type="button" class="act-2 org-admin-only evt-pick-edit" id="evtTypesEdit">✏️ Modifier la liste des types</button>
+    </div>
     <button type="button" class="act-2" id="calSpordle" style="width:100%;min-height:2.4rem;margin-bottom:.5rem;font-size:.88rem;">🔄 Synchroniser avec Spordle</button>
     <button type="button" class="act-2 super-only" id="calImport" style="width:100%;min-height:2.4rem;margin-bottom:.8rem;font-size:.88rem;">📥 Importer un horaire (.ics)</button>
     <input type="file" id="calIcsFile" accept=".ics,text/calendar" hidden>
@@ -1265,6 +1289,79 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <button type="button" class="act-1" id="calSave">Enregistrer</button>
     </div>
     <button type="button" class="danger" id="calDelete" hidden>Retirer cette partie du calendrier</button>
+  </div>
+</dialog>
+
+<dialog id="evtSheet">
+  <div class="sheet-in">
+    <h2 id="evtTitle">Ajouter un événement</h2>
+    <div class="cal-grid">
+      <div><label for="evtType">Type :</label><select id="evtType" class="full-input"></select></div>
+      <div><label for="evtTeam">Équipe :</label><select id="evtTeam" class="full-input"></select></div>
+    </div>
+    <div class="field-group" style="margin-top:.7rem;">
+      <label for="evtName">Titre (facultatif) :</label>
+      <input type="text" id="evtName" class="full-input" maxlength="60" placeholder="Ex. : Entraînement sur glace, Souper d'équipe…">
+    </div>
+    <div class="cal-grid" style="margin-top:.7rem;">
+      <div><label for="evtStart">Début :</label><input type="time" id="evtStart" class="full-input"></div>
+      <div><label for="evtEnd">Fin :</label><input type="time" id="evtEnd" class="full-input"></div>
+    </div>
+    <div class="field-group" style="margin-top:.7rem;">
+      <label for="evtArena">Lieu :</label>
+      <select id="evtArena" class="full-input"></select>
+      <small id="evtArenaAddr" style="display:block;margin-top:.25rem;color:var(--muted);font-size:.78rem;"></small>
+      <div id="evtOtherPlace" class="preset-box" style="display:none;margin-top:.5rem;">
+        <input type="text" id="evtPlaceName" class="full-input" maxlength="60" placeholder="Nom du lieu (ex. : Restaurant, gymnase…)">
+        <input type="text" id="evtPlaceAddr" class="full-input" maxlength="120" placeholder="Adresse (facultatif)" style="margin-top:.3rem;">
+        <label class="check-row" style="margin-top:.4rem;"><input type="checkbox" id="evtPlaceKeep"><span>C'est une aréna : l'ajouter à la liste des arénas</span></label>
+      </div>
+    </div>
+
+    <div class="preset-box" style="margin-top:1rem;">
+      <label style="font-weight:700;">Dates :</label>
+      <div class="ph-choice" role="radiogroup" aria-label="Façon d'ajouter des dates">
+        <label><input type="radio" name="evtMode" value="one" checked><span>Une à une</span></label>
+        <label><input type="radio" name="evtMode" value="week"><span>Chaque semaine</span></label>
+      </div>
+      <div id="evtModeOne" class="inline-row" style="margin-top:.5rem;">
+        <input type="date" id="evtOneDate" class="full-input">
+        <button type="button" class="act-2" id="evtAddOne">Ajouter</button>
+      </div>
+      <div id="evtModeWeek" hidden style="margin-top:.5rem;">
+        <div class="evt-days" id="evtDays"></div>
+        <div class="cal-grid" style="margin-top:.4rem;">
+          <div><label for="evtFrom">Du :</label><input type="date" id="evtFrom" class="full-input"></div>
+          <div><label for="evtTo">Au :</label><input type="date" id="evtTo" class="full-input"></div>
+        </div>
+        <button type="button" class="act-2" id="evtAddWeek" style="width:100%;margin-top:.5rem;">Ajouter ces dates</button>
+      </div>
+      <p class="evt-count" id="evtCount"></p>
+      <div class="evt-dates" id="evtDates"></div>
+      <small style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;">Touchez ✕ pour retirer une date (congé des fêtes, aréna fermée…).</small>
+    </div>
+    <div class="field-group" style="margin-top:.7rem;">
+      <label for="evtNote">Note (facultatif) :</label>
+      <input type="text" id="evtNote" class="full-input" maxlength="120" placeholder="Ex. : Apporter le chandail blanc">
+    </div>
+    <div class="actions" style="margin-top:1.2rem;">
+      <button type="button" class="act-2" id="evtCancel">Annuler</button>
+      <button type="button" class="act-1" id="evtSave">Enregistrer</button>
+    </div>
+    <button type="button" class="danger" id="evtDelete" hidden>Supprimer cet événement (toutes ses dates)</button>
+  </div>
+</dialog>
+
+<dialog id="evtTypesSheet">
+  <div class="sheet-in">
+    <h2>Types d'événements</h2>
+    <p class="ctx">Ces choix s'affichent dans « Ajouter un événement ». Les parties ont leur propre fiche.</p>
+    <div id="evtTypesList" class="msg-list"></div>
+    <button type="button" class="msg-add" id="evtTypesAdd">➕ Ajouter un type</button>
+    <div class="actions" style="margin-top:1.2rem;">
+      <button type="button" class="act-2" id="evtTypesCancel">Annuler</button>
+      <button type="button" class="act-1" id="evtTypesSave">Enregistrer</button>
+    </div>
   </div>
 </dialog>
 
@@ -1918,7 +2015,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610210514";
+  var BUILD = "202610211200";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2086,6 +2183,18 @@ document.addEventListener("DOMContentLoaded", function(){
   let cfgPhases = {};                  // type de parties par défaut, par catégorie : "pre" (pré-saison) ou "reg" (saison)
   const PHASE_LABEL = { pre: "Pré-saison", reg: "Saison" };
   const phaseOfM = m => (m && m.phase === "reg") ? "reg" : "pre";       // une partie sans type (anciennes parties) = pré-saison
+  // Types d'événements (entraînements, activités…), modifiables par l'administrateur : …/config/eventTypes
+  var EVT_DEFAULT = { practice: { label: "Entraînement", icon: "🏒", order: 1 }, activity: { label: "Activité d'équipe", icon: "🎉", order: 2 } };
+  function normTypes(v){
+    const o = {};
+    Object.keys(EVT_DEFAULT).forEach(k => { o[k] = Object.assign({ builtin: true }, EVT_DEFAULT[k]); });
+    if(v && typeof v === "object") Object.keys(v).forEach(k => { const t = v[k];
+      if(t && t.label) o[k] = { label: String(t.label).slice(0, 30), icon: String(t.icon || "📅").slice(0, 4), order: Number(t.order) || 99, builtin: !!EVT_DEFAULT[k] }; });
+    return o;
+  }
+  const typeList = T => Object.keys(T).sort((x, y) => (T[x].order - T[y].order) || T[x].label.localeCompare(T[y].label, "fr")).map(k => Object.assign({ k: k }, T[k]));
+  const typeOf = (T, k) => T[k] || { label: "Événement", icon: "📅" };
+  var evtTypes = normTypes(null), teamEvents = {};
   var cfgRegStart = {};                // date de début de la saison régulière, par catégorie (« AAAA-MM-JJ »)
   const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth() + 1) + "-" + (d.getDate() < 10 ? "0" : "") + d.getDate(); };
   // Type d'une partie selon sa date : avec une date de début de saison, avant = pré-saison, à partir de = saison
@@ -2563,8 +2672,9 @@ document.addEventListener("DOMContentLoaded", function(){
       renderCategoriesDropdownTop();
     });
 
-    teamPractices = {};
-    sub(ref(catBase() + "/practices"), snap => { teamPractices = obj(snap.val()); try{ renderTeamCal(); }catch(e){} });
+    teamPractices = {}; teamEvents = {};
+    sub(ref(catBase() + "/practices"), snap => { teamPractices = obj(snap.val()); try{ renderTeamCal(); updateTickerDisplay(); }catch(e){} });
+    sub(ref(catBase() + "/events"), snap => { teamEvents = obj(snap.val()); try{ renderTeamCal(); updateTickerDisplay(); }catch(e){} });
     sub(ref(catBase() + "/calendar"), snap => {
       calendarList = calEntries(snap.val());
       if(historyLoaded){ renderStats(); renderStandings(); }
@@ -2580,7 +2690,8 @@ document.addEventListener("DOMContentLoaded", function(){
       AUTO_CD_MS = cdHoursOk(cfg.autoCdHours) * 3600000; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
-      cfgRegStart = (cfg.regStart && typeof cfg.regStart === "object") ? cfg.regStart : {}; if(historyLoaded) applyPhaseView(); else renderPhaseUI();
+      cfgRegStart = (cfg.regStart && typeof cfg.regStart === "object") ? cfg.regStart : {};
+      evtTypes = normTypes(cfg.eventTypes); if(historyLoaded) applyPhaseView(); else renderPhaseUI();
       const min = int(cfg.defaultPeriodMin || 20, 1, 99), mVal = String(min);
       defaultPeriodSec = min * 60;
       if(["10","12","15","18","20"].indexOf(mVal) !== -1){
@@ -2658,6 +2769,7 @@ document.addEventListener("DOMContentLoaded", function(){
     { k: "next", lbl: "Prochaine partie d'une équipe", vars: "{équipe} {date} {adversaire} {aréna}", def: "📅 {équipe} — prochaine partie : {date} contre {adversaire} · {aréna}" },
     { k: "start", lbl: "Avant le match (bouton du bandeau)", vars: "{temps} {équipe}", def: "La partie commence dans {temps}, Go {équipe} Go !" },
     { k: "go", lbl: "Le match commence", vars: "{équipe}", def: "C'est parti ! Go {équipe} Go !" },
+    { k: "event", lbl: "Entraînement ou activité aujourd'hui", vars: "{événement} {heure} {lieu}", def: "📅 {événement} aujourd'hui à {heure} · {lieu}" },
     { k: "good", lbl: "Pendant le match, avant le premier but", vars: "", def: "🏒 Bon match !" },
     { k: "goal", lbl: "But", vars: "{équipe} {buteur} {passes} {temps} {période}", def: "🚨 But des {équipe} marqué par {buteur}{passes}, à {temps} {période}" },
     { k: "live", lbl: "Autre partie en cours dans l'organisation", vars: "{catégorie} {équipe}", def: "🔴 Présentement en cours dans {catégorie} : l'équipe {équipe} — sélectionnez-la juste ici ⬆⬆⬆" }
@@ -2695,6 +2807,18 @@ document.addEventListener("DOMContentLoaded", function(){
       const k0 = boardTeam || boardTeams(currentCat)[0], g0 = nextGameOf(k0 ? presets[k0] : null) || (state.calId ? calendarList.filter(c => c.id === state.calId)[0] : null);
       const left0 = g0 && g0.at ? g0.at - now() : null;
       if(left0 != null && left0 <= AUTO_CD_MS && left0 > -3600000){ autoCdOn = true; messages.push("📣 " + fillAnn(tplStart())); }
+    }
+    // Entraînement ou activité de l'équipe aujourd'hui (s'il n'y a pas de partie)
+    if(!hasGame(state) && !archiveKey && !editEntry && !autoCdOn && !bt){
+      const kE = boardTeam || boardTeams(currentCat)[0], td = todayStr(), nowHM = pad2(new Date().getHours()) + ":" + pad2(new Date().getMinutes());
+      const todays = [];
+      Object.keys(obj(teamPractices[kE])).forEach(id => { const x = teamPractices[kE][id]; if(x && x.date === td) todays.push({ type: "practice", title: "", time: x.time, end: x.end, place: x.place, arena: x.arena }); });
+      Object.keys(teamEvents).forEach(id => { const e = teamEvents[id]; if(e && e.team === kE && e.date === td) todays.push({ type: e.type, title: e.title, time: e.start, end: e.end, place: e.place, arena: e.arena, address: e.address }); });
+      todays.filter(x => { const endT = x.end || (x.time ? pad2(Math.min(23, Number(x.time.slice(0, 2)) + 2)) + x.time.slice(2) : "23:59"); return nowHM <= endT; })
+            .sort((x, y) => String(x.time).localeCompare(String(y.time)))
+            .forEach(x => { const T = typeOf(evtTypes, x.type);
+              const m = autoFill("event", { "événement": T.label + (x.title ? " (" + x.title + ")" : ""), heure: x.time ? hhmm(x.time) : "", "lieu": x.place ? x.place + (x.address ? " (" + x.address + ")" : arenaAddr({ place: x.place, arena: x.arena })) : "" });
+              messages.push(m.replace(/ aujourd'hui à\s*(?=·|$)/, " aujourd'hui ").trim()); });
     }
     if(!hasGame(state) && !archiveKey && !editEntry){
       // Aucun match : on invite au prochain (ce message remplace l'annonce « prochaine partie » de cette équipe)
@@ -3868,12 +3992,15 @@ document.addEventListener("DOMContentLoaded", function(){
 
   // Le super administrateur choisit l'organisation, puis la catégorie ; l'administrateur choisit la catégorie de son organisation
   let calOrg = "", calCat = "", calPresets = {}, calRef = null, calMgr = [], calEditId = null, calToken = 0;
+  let calEvRef = null, calEvents = {}, calTypes = normTypes(null);
+  const onCalEv = snap => { calEvents = obj(snap.val()); calFillTeamFilter(); calRender(); };
   const calHere = () => calOrg === currentOrg && calCat === currentCat;   // calendrier du tableau affiché
   const onCal = snap => { calMgr = calEntries(snap.val()); calFillTeamFilter(); calRender(); };
-  function calStop(){ if(calRef){ calRef.off("value", onCal); calRef = null; } }
+  function calStop(){ if(calRef){ calRef.off("value", onCal); calRef = null; } if(calEvRef){ calEvRef.off("value", onCalEv); calEvRef = null; } }
   function calWatch(cat){
-    calStop(); calCat = cat; calMgr = []; calRender(true);
+    calStop(); calCat = cat; calMgr = []; calEvents = {}; calRender(true);
     calRef = ref(calOrg + "/" + cat + "/calendar"); calRef.on("value", onCal);
+    calEvRef = ref(calOrg + "/" + cat + "/events"); calEvRef.on("value", onCalEv);
   }
   // Équipes enregistrées d'une catégorie (celles de l'organisation d'abord)
   function calTeams(cat){
@@ -3893,6 +4020,9 @@ document.addEventListener("DOMContentLoaded", function(){
   function calLoadOrg(org, wantCat){
     const token = ++calToken;
     calStop(); calOrg = org; calCat = ""; calMgr = [];
+    $("evtPick").hidden = true; $("calAddEvt").setAttribute("aria-expanded", "false");
+    calTypes = org === currentOrg ? evtTypes : normTypes(null); fillEvtPick();
+    if(org !== currentOrg) ref(org + "/config/eventTypes").once("value").then(s => { if(token === calToken){ calTypes = normTypes(s.val()); fillEvtPick(); } });
     fillSelect($("calCatSelect"), [], null, "Chargement…"); calRender(true);
     const done = (cats, pres) => {
       if(token !== calToken) return;
@@ -3930,8 +4060,13 @@ document.addEventListener("DOMContentLoaded", function(){
       ["À venir", rows.filter(c => !c.played && c.date >= today).sort((x, y) => x.at - y.at)],
       ["Résultats", rows.filter(c => c.played).sort((x, y) => y.at - x.at)]
     ];
-    if(!rows.length){ list.appendChild(el("li", "empty", "Aucune partie au calendrier. Touchez « Ajouter une partie ».")); return; }
+    const series = calSeries(team);
+    if(!rows.length && !series.length){ list.appendChild(el("li", "empty", "Rien au calendrier. Touchez « Ajouter un événement ».")); return; }
     const frag = document.createDocumentFragment();
+    if(series.length){
+      frag.appendChild(el("li", "cal-group", "Entraînements et activités (" + series.length + ")"));
+      series.forEach(s => frag.appendChild(calSeriesRow(s, today)));
+    }
     groups.forEach(g => {
       if(!g[1].length) return;
       frag.appendChild(el("li", "cal-group", g[0] + " (" + g[1].length + ")"));
@@ -3957,6 +4092,171 @@ document.addEventListener("DOMContentLoaded", function(){
     list.appendChild(frag);
   }
 
+  // Événements regroupés par série (un entraînement chaque mercredi = une série)
+  function calSeries(teamName){
+    const by = {};
+    Object.keys(calEvents).forEach(id => { const e = calEvents[id]; if(!e || !e.date) return;
+      const s = e.series || id; (by[s] = by[s] || { id: s, items: [] }).items.push(Object.assign({ id: id }, e)); });
+    const today = todayStr();
+    return Object.keys(by).map(k => { const s = by[k]; s.items.sort((x, y) => (x.date + (x.start || "")).localeCompare(y.date + (y.start || ""))); s.first = s.items[0];
+      s.next = s.items.filter(x => x.date >= today)[0] || null; return s; })
+      .filter(s => !teamName || (calPresets[s.first.team] && calPresets[s.first.team].name === teamName))
+      .sort((x, y) => ((x.next ? 0 : 1) - (y.next ? 0 : 1)) || String((x.next || x.first).date).localeCompare(String((y.next || y.first).date)));
+  }
+  const WD_PL = ["dimanches", "lundis", "mardis", "mercredis", "jeudis", "vendredis", "samedis"];
+  const dowOf = d => { const p = String(d).split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).getDay(); };
+  function hhmm(t){ return t ? String(t).replace(":", " h ") : ""; }
+  function calSeriesRow(s, today){
+    const e = s.first, T = typeOf(calTypes, e.type), li = el("li", "cal-item evt" + (s.next ? "" : " played")), box = el("div", "cal-main");
+    const days = {}; s.items.forEach(x => { days[dowOf(x.date)] = true; }); const dk = Object.keys(days);
+    const when = s.items.length > 1 && dk.length <= 2 ? "Les " + dk.map(d => WD_PL[d]).join(" et ") : calWhen({ date: (s.next || e).date });
+    box.appendChild(el("div", "cal-when", when + (e.start ? " · " + hhmm(e.start) + (e.end ? " à " + hhmm(e.end) : "") : "") + (e.place ? " · " + e.place : "")));
+    const line = el("div", "cal-teams"); line.appendChild(el("strong", null, T.icon + " " + T.label + (e.title ? " : " + e.title : "")));
+    box.appendChild(line);
+    const tn = calPresets[e.team] ? calPresets[e.team].name : "";
+    box.appendChild(el("div", "cal-note", (tn ? tn + " · " : "") + s.items.length + " date" + (s.items.length > 1 ? "s" : "") + (s.next ? " · prochaine : " + calWhen({ date: s.next.date }) : " · terminé")));
+    li.appendChild(box);
+    li.appendChild(btn("btn-edit", "✏️ Modifier", () => evtOpen(s, e.type)));
+    return li;
+  }
+
+  /* --- Ajouter un événement : choix du type --- */
+  on("calAddEvt", "click", () => { const p = $("evtPick"); p.hidden = !p.hidden; $("calAddEvt").setAttribute("aria-expanded", String(!p.hidden)); });
+  function fillEvtPick(){
+    const box = $("evtPickTypes"); box.textContent = "";
+    typeList(calTypes).forEach(t => box.appendChild(btn("act-2", t.icon + " " + t.label, () => { $("evtPick").hidden = true; evtOpen(null, t.k); })));
+  }
+
+  /* --- Fiche d'un événement (une ou plusieurs dates) --- */
+  let evtSeriesId = null, evtDatesSet = {}, evtOld = [];
+  (function(){
+    const box = $("evtDays");
+    ["D", "L", "M", "M", "J", "V", "S"].forEach((d, i) => { const l = el("label"), c = el("input"); c.type = "checkbox"; c.value = String(i); c.setAttribute("aria-label", WD_PL[i]); l.appendChild(c); l.appendChild(el("span", null, d)); box.appendChild(l); });
+  })();
+  document.querySelectorAll("input[name=evtMode]").forEach(r => r.addEventListener("change", () => { const w = r.value === "week" && r.checked; if(!r.checked) return; $("evtModeOne").hidden = w; $("evtModeWeek").hidden = !w; }));
+  function fillEvtArena(selected, otherName){
+    const sel = $("evtArena"); sel.textContent = "";
+    const none = el("option", null, "-- Aucun --"); none.value = ""; sel.appendChild(none);
+    arenaList().forEach(a => { const m = /\(([^)]+)\)/.exec(a.city || ""), area = m ? m[1] : (a.city || ""); const o = el("option", null, a.name + (area ? " · " + area : "")); o.value = a.id; sel.appendChild(o); });
+    const ot = el("option", null, "📍 Autre lieu…"); ot.value = "__other"; sel.appendChild(ot);
+    sel.value = selected && arenas[selected] ? selected : (otherName ? "__other" : "");
+    evtArenaChanged();
+  }
+  function evtArenaChanged(){
+    const id = $("evtArena").value, a = arenas[id];
+    $("evtOtherPlace").style.display = id === "__other" ? "" : "none";
+    $("evtArenaAddr").textContent = a ? [a.address, a.city].filter(Boolean).join(", ") : "";
+  }
+  on("evtArena", "change", evtArenaChanged);
+  function evtRenderDates(){
+    const box = $("evtDates"), today = todayStr(), ds = Object.keys(evtDatesSet).sort(); box.textContent = "";
+    ds.forEach(d => { const s = el("span", d < today ? "past" : null, calWhen({ date: d }));
+      const x = el("button", null, "✕"); x.type = "button"; x.setAttribute("aria-label", "Retirer le " + calWhen({ date: d }));
+      x.addEventListener("click", () => { delete evtDatesSet[d]; evtRenderDates(); }); s.appendChild(x); box.appendChild(s); });
+    setText("evtCount", ds.length ? ds.length + " date" + (ds.length > 1 ? "s" : "") : "Aucune date pour l'instant");
+  }
+  function evtOpen(s, typeKey){
+    if(!isAdmin() || !calCat) return;
+    const e = s ? s.first : null;
+    evtSeriesId = s ? s.id : null; evtOld = s ? s.items.map(x => x.id) : []; evtDatesSet = {};
+    if(s) s.items.forEach(x => { evtDatesSet[x.date] = true; });
+    const T = typeList(calTypes);
+    fillSelect($("evtType"), T.map(t => ({ value: t.k, label: t.icon + " " + t.label })), (e && e.type) || typeKey || (T[0] && T[0].k));
+    const own = calTeams(calCat).filter(k => calPresets[k].own), keys = own.length ? own : calTeams(calCat);
+    fillSelect($("evtTeam"), keys.map(k => ({ value: k, label: calPresets[k].name })), e ? e.team : (calHere() && boardTeam && calPresets[boardTeam] ? boardTeam : keys[0]));
+    if(isTeamAdmin() && calPresets[assignedTeam]){ $("evtTeam").value = assignedTeam; $("evtTeam").disabled = true; } else $("evtTeam").disabled = false;
+    $("evtName").value = e ? e.title || "" : ""; $("evtNote").value = e ? e.note || "" : "";
+    $("evtStart").value = e ? e.start || "" : ""; $("evtEnd").value = e ? e.end || "" : "";
+    fillEvtArena(e ? e.arena : "", e && !e.arena ? e.place : "");
+    $("evtPlaceName").value = e && !e.arena ? e.place || "" : ""; $("evtPlaceAddr").value = e && !e.arena ? e.address || "" : ""; $("evtPlaceKeep").checked = false;
+    const sy = seasonOf(Date.now());
+    $("evtOneDate").value = todayStr(); $("evtFrom").value = todayStr(); $("evtTo").value = (sy + 1) + "-04-30";
+    document.querySelectorAll("#evtDays input").forEach(c => { c.checked = false; });
+    if(s){ const dw = {}; s.items.forEach(x => { dw[dowOf(x.date)] = true; }); document.querySelectorAll("#evtDays input").forEach(c => { c.checked = !!dw[c.value]; }); }
+    document.querySelector("input[name=evtMode][value=" + (s && s.items.length > 1 ? "week" : "one") + "]").checked = true;
+    $("evtModeOne").hidden = !!(s && s.items.length > 1); $("evtModeWeek").hidden = !(s && s.items.length > 1);
+    $("evtTitle").textContent = (s ? "Modifier : " : "Ajouter : ") + typeOf(calTypes, $("evtType").value).label;
+    $("evtDelete").hidden = !s;
+    evtRenderDates();
+    swapDlg("calendarSheet", "evtSheet");
+  }
+  on("evtType", "change", () => { $("evtTitle").textContent = (evtSeriesId ? "Modifier : " : "Ajouter : ") + typeOf(calTypes, $("evtType").value).label; });
+  on("evtAddOne", "click", () => { const d = $("evtOneDate").value; if(/^\d{4}-\d\d-\d\d$/.test(d)){ evtDatesSet[d] = true; evtRenderDates(); } });
+  on("evtAddWeek", "click", () => {
+    const from = $("evtFrom").value, to = $("evtTo").value, days = {};
+    document.querySelectorAll("#evtDays input:checked").forEach(c => { days[c.value] = true; });
+    if(!Object.keys(days).length){ notify("Cochez au moins un jour de la semaine.", "info"); return; }
+    if(!from || !to || to < from){ notify("Choisissez une date de début et une date de fin.", "info"); return; }
+    const p = from.split("-").map(Number), d = new Date(p[0], p[1] - 1, p[2]); let n = 0;
+    for(let i = 0; i < 400 && n < 200; i++){
+      const ds = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); if(ds > to) break;
+      if(days[d.getDay()]){ evtDatesSet[ds] = true; n++; }
+      d.setDate(d.getDate() + 1);
+    }
+    evtRenderDates();
+    notify(n + " date" + (n > 1 ? "s" : "") + " ajoutée" + (n > 1 ? "s" : "") + ". Retirez au besoin celles où il n'y a pas d'activité.", "ok");
+  });
+  on("evtCancel", "click", () => swapDlg("evtSheet", "calendarSheet"));
+  on("evtSave", "click", () => {
+    if(!isAdmin()) return;
+    const dates = Object.keys(evtDatesSet).sort(), team = $("evtTeam").value, type = $("evtType").value;
+    if(!team){ notify("Choisissez l'équipe.", "info"); return; }
+    if(!dates.length){ notify("Ajoutez au moins une date.", "info"); return; }
+    const st = $("evtStart").value, en = $("evtEnd").value;
+    if(st && en && en <= st){ notify("L'heure de fin doit être après l'heure de début.", "info"); return; }
+    let aid = $("evtArena").value, place = "", address = "";
+    if(aid === "__other"){
+      place = $("evtPlaceName").value.trim(); address = $("evtPlaceAddr").value.trim(); aid = "";
+      if(!place){ notify("Écrivez le nom du lieu.", "info"); return; }
+      if($("evtPlaceKeep").checked){ aid = addArena(place, "", address); place = arenas[aid].name; address = ""; }
+    } else if(aid && arenas[aid]) place = arenas[aid].name;
+    const sid = evtSeriesId || ("e" + uid()), base = calOrg + "/" + calCat + "/events/";
+    const entry = { series: sid, type: type, team: team, start: st || "", end: en || "", title: $("evtName").value.trim().slice(0, 60),
+                    place: place, arena: aid || "", address: address, note: $("evtNote").value.trim().slice(0, 120) };
+    const keep = {};
+    dates.forEach(d => { const id = sid + "_" + d.replace(/-/g, ""); keep[id] = true; ref(base + id).set(Object.assign({ date: d }, entry)); });
+    evtOld.forEach(id => { if(!keep[id]) ref(base + id).remove(); });
+    swapDlg("evtSheet", "calendarSheet");
+    notify(typeOf(calTypes, type).label + " enregistré : " + dates.length + " date" + (dates.length > 1 ? "s" : "") + ".", "ok");
+  });
+  on("evtDelete", "click", () => {
+    if(!isAdmin() || !evtSeriesId) return;
+    ask("Supprimer cet événement et ses " + evtOld.length + " date" + (evtOld.length > 1 ? "s" : "") + " ?", { ok: "Supprimer" }).then(ok => {
+      if(!ok) return;
+      evtOld.forEach(id => ref(calOrg + "/" + calCat + "/events/" + id).remove());
+      swapDlg("evtSheet", "calendarSheet"); notify("Événement supprimé.", "ok");
+    });
+  });
+
+  /* --- Liste des types d'événements (administrateur d'organisation) --- */
+  function evtTypeRow(k, t){
+    const row = el("div", "evt-type-row"), ic = el("input"), lb = el("input");
+    row.dataset.k = k; ic.value = t.icon || "📅"; ic.maxLength = 4; ic.setAttribute("aria-label", "Icône");
+    lb.value = t.label || ""; lb.maxLength = 30; lb.placeholder = "Ex. : Photo d'équipe"; lb.setAttribute("aria-label", "Nom du type");
+    row.appendChild(ic); row.appendChild(lb);
+    if(EVT_DEFAULT[k]) row.appendChild(el("span")); else row.appendChild(delBtn(row));
+    $("evtTypesList").appendChild(row); return lb;
+  }
+  on("evtTypesEdit", "click", () => {
+    if(!isAdmin() || isTeamAdmin()) return;
+    $("evtPick").hidden = true; $("evtTypesList").textContent = "";
+    typeList(calTypes).forEach(t => evtTypeRow(t.k, t));
+    swapDlg("calendarSheet", "evtTypesSheet");
+  });
+  on("evtTypesAdd", "click", () => evtTypeRow("t" + uid(), { icon: "📅", label: "" }).focus());
+  on("evtTypesCancel", "click", () => swapDlg("evtTypesSheet", "calendarSheet"));
+  on("evtTypesSave", "click", () => {
+    if(!isAdmin() || isTeamAdmin()) return;
+    const out = {}; let i = 0;
+    $("evtTypesList").querySelectorAll(".evt-type-row").forEach(r => { const ins = r.querySelectorAll("input"), lb = ins[1].value.trim();
+      if(!lb){ if(EVT_DEFAULT[r.dataset.k]) out[r.dataset.k] = { label: EVT_DEFAULT[r.dataset.k].label, icon: EVT_DEFAULT[r.dataset.k].icon, order: ++i }; return; }
+      out[r.dataset.k] = { label: lb.slice(0, 30), icon: (ins[0].value.trim() || "📅").slice(0, 4), order: ++i }; });
+    ref(calOrg + "/config/eventTypes").set(out);
+    calTypes = normTypes(out); if(calOrg === currentOrg) evtTypes = calTypes;
+    fillEvtPick(); calRender();
+    swapDlg("evtTypesSheet", "calendarSheet"); notify("Types d'événements enregistrés.", "ok");
+  });
+
   /* --- Fiche d'une partie du calendrier --- */
   function calFillTeamSelect(side, key, name){
     const sel = $(side === "a" ? "calTeamA" : "calTeamB"), keys = calTeams(calCat);
@@ -3975,7 +4275,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   ["a","b"].forEach(s => on("calTeam" + s.toUpperCase(), "change", () => calToggleOther(s)));
 
-  on("calAdd", "click", () => calOpenEdit(null));
+  on("calAdd", "click", () => { $("evtPick").hidden = true; calOpenEdit(null); });
   function calOpenEdit(c){
     if(!isAdmin()) return;
     calEditId = c ? c.id : null;
@@ -4503,7 +4803,11 @@ document.addEventListener("DOMContentLoaded", function(){
                               .sort((x, y) => x.c.at - y.c.at);
     const byDay = {}; games.forEach(g => (byDay[g.c.date] = byDay[g.c.date] || []).push(g));
     const pr = obj(teamPractices[key]), pracDay = {};
-    Object.keys(pr).forEach(id => { const x = pr[id]; if(x && x.date) (pracDay[x.date] = pracDay[x.date] || []).push(x); });
+    let hasPrac = false, hasEvt = false;
+    Object.keys(pr).forEach(id => { const x = pr[id]; if(x && x.date){ hasPrac = true; (pracDay[x.date] = pracDay[x.date] || []).push(Object.assign({ kind: "practice" }, x)); } });
+    Object.keys(teamEvents).forEach(id => { const e = teamEvents[id]; if(!e || !e.date || e.team !== key) return;
+      const prac = e.type === "practice"; if(prac) hasPrac = true; else hasEvt = true;
+      (pracDay[e.date] = pracDay[e.date] || []).push({ kind: prac ? "practice" : "evt", type: e.type, title: e.title, date: e.date, time: e.start || "", end: e.end || "", place: e.place, arena: e.arena, address: e.address, note: e.note }); });
     Object.keys(pracDay).forEach(dd => pracDay[dd].sort((x, y) => String(x.time).localeCompare(String(y.time))));
     const pad = n => (n < 10 ? "0" : "") + n, now = new Date(), today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
     // Mois montrés : de septembre à mars au minimum, élargis aux mois où l'équipe joue (saison de juillet à juin)
@@ -4534,9 +4838,9 @@ document.addEventListener("DOMContentLoaded", function(){
         const ds = y + "-" + pad(m + 1) + "-" + pad(d), list = byDay[ds], pl2 = pracDay[ds];
         let cell;
         if(list || pl2){
-          cell = el("button", "tcal-d " + (list ? (list[0].home ? "home" : "away") : "prac") + (list && pl2 ? " also-prac" : "")); cell.type = "button";
+          cell = el("button", "tcal-d " + (list ? (list[0].home ? "home" : "away") : (pl2.some(x => x.kind === "practice") ? "prac" : "evt")) + (list && pl2 ? " also-prac" : "")); cell.type = "button";
           cell.appendChild(el("span", null, String(d)));
-          cell.setAttribute("aria-label", d + " : " + (list || []).map(x => (x.home ? "à domicile contre " + x.c.b : "visiteur chez " + x.c.a)).concat(pl2 ? ["pratique"] : []).join(", "));
+          cell.setAttribute("aria-label", d + " : " + (list || []).map(x => (x.home ? "à domicile contre " + x.c.b : "visiteur chez " + x.c.a)).concat((pl2 || []).map(x => x.kind === "practice" ? "entraînement" : typeOf(evtTypes, x.type).label.toLowerCase())).join(", "));
           const pl = (list || []).filter(x => x.c.played)[0];
           if(pl){
             const me = Number(pl.home ? pl.c.scoreA : pl.c.scoreB), op = Number(pl.home ? pl.c.scoreB : pl.c.scoreA);
@@ -4556,12 +4860,12 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!games.length && !Object.keys(pracDay).length) grid.insertBefore(el("p", "tcal-empty", "Aucune partie au calendrier pour cette équipe pour l'instant."), grid.firstChild);
     const lg = $("teamCalLegend"); lg.textContent = "";
     const item = (cls, txt, sym, bg) => { const s = el("span"), i = el("i", cls, sym || ""); if(bg) i.style.background = bg; s.appendChild(i); s.appendChild(document.createTextNode(txt)); lg.appendChild(s); };
-    item("home", "À domicile (local)"); item("away", "À l'étranger (visiteur)"); if(Object.keys(pr).length) item("prac", "Pratique"); item("today", "Aujourd'hui");
+    item("home", "À domicile (local)"); item("away", "À l'étranger (visiteur)"); if(hasPrac) item("prac", typeOf(evtTypes, "practice").label); if(hasEvt) item("evt", "Activité / autre"); item("today", "Aujourd'hui");
     item("dot", "Victoire", "V", "#1E9E5A"); item("dot", "Défaite", "D", "#D2453A"); item("dot", "Défaite en prolongation", "DP", "#D2453A"); item("dot", "Nulle", "N", "#6B7785");
   }
   function teamPracCard(x, p){
-    const card = el("div", "player-card-inline tcal-card prac-card"), h = el("h4");
-    h.appendChild(el("span", null, "Pratique · " + p.name));
+    const card = el("div", "player-card-inline tcal-card prac-card"), h = el("h4"), T = typeOf(evtTypes, x.kind === "practice" && !x.type ? "practice" : x.type);
+    h.appendChild(el("span", null, T.icon + " " + T.label + (x.title ? " : " + x.title : "") + " · " + p.name));
     const cl = el("span", null, "✕"); cl.style.cursor = "pointer"; cl.addEventListener("click", () => { teamCalSel = ""; renderTeamCal(); }); h.appendChild(cl);
     card.appendChild(h);
     const gr = el("div", "p-grid"), stat = (l, v) => { const s = el("div", "p-stat"); s.appendChild(el("span", "p-lbl", l)); s.appendChild(el("span", "p-val", v)); gr.appendChild(s); };
@@ -4569,7 +4873,8 @@ document.addEventListener("DOMContentLoaded", function(){
     stat("DATE", dt.toLocaleDateString("fr-CA", { day: "numeric", month: "short" }));
     stat("DÉBUT", hh(x.time)); stat("FIN", hh(x.end));
     card.appendChild(gr);
-    card.appendChild(el("p", "p-note", "📅 " + calWhen({ date: x.date, time: x.time }) + (x.place ? " · 📍 " + x.place + arenaAddr({ place: x.place, arena: x.arena }) : "")));
+    card.appendChild(el("p", "p-note", "📅 " + calWhen({ date: x.date, time: x.time }) + (x.place ? " · 📍 " + x.place + (x.address ? " (" + x.address + ")" : arenaAddr({ place: x.place, arena: x.arena })) : "")));
+    if(x.note) card.appendChild(el("p", "p-note", "📝 " + x.note));
     return card;
   }
   function teamCalCard(x, p){
