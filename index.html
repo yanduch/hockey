@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610211440">
+<meta name="build" content="202610212154">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2025,7 +2025,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610211440";
+  var BUILD = "202610212154";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2765,12 +2765,13 @@ document.addEventListener("DOMContentLoaded", function(){
   /* ============ Bandeau défilant ============ */
   // Prochaine partie au calendrier d'une équipe (ou de la catégorie si p est vide) : la plus proche à partir d'aujourd'hui.
   // Celle du jour reste annoncée jusqu'à ce qu'elle soit lancée sur un tableau ; les dates passées ne sont plus annoncées.
-  function nextGameOf(p){
+  function nextGameOf(p){ return nextGamesOf(p)[0] || null; }
+  function nextGamesOf(p){
     const key = p ? Object.keys(presets).filter(k => presets[k] === p)[0] : null, n = new Date();
     const today = n.getFullYear() + "-" + (n.getMonth() < 9 ? "0" : "") + (n.getMonth() + 1) + "-" + (n.getDate() < 10 ? "0" : "") + n.getDate();
     return calendarList.filter(c => !c.played && !c.histKey && !c.started && c.id !== state.calId && c.date >= today &&
                                     (!p || (key && (c.aKey === key || c.bKey === key)) || c.a === p.name || c.b === p.name))
-                       .sort((x, y) => x.at - y.at)[0] || null;
+                       .sort((x, y) => x.at - y.at);
   }
   // Prochain entraînement ou activité d'une équipe (pratiques Spordle comprises), pas encore terminé
   function nextEventOf(key){
@@ -2794,6 +2795,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // ----- Messages automatiques : modèles modifiables dans Gestion des messages (par organisation) -----
   var AUTO_MSGS = [
     { k: "nomatch", lbl: "Aucun match, prochaine partie connue", vars: "{équipe} {date} {adversaire} {aréna}", def: "🏒 Aucun match présentement pour {équipe}, soyez là le {date} contre {adversaire} · {aréna} !" },
+    { k: "nomatch2", lbl: "Partie suivante rapprochée (moins de 3 jours)", vars: "{équipe} {date} {adversaire} {aréna}", def: "🏒 Puis, le {date} contre {adversaire} · {aréna} !" },
     { k: "nomatchNone", lbl: "Rien de prévu au calendrier", vars: "{équipe}", def: "📅 Aucun événement au calendrier pour {équipe}." },
     { k: "next", lbl: "Prochaine partie d'une équipe", vars: "{équipe} {date} {adversaire} {aréna}", def: "📅 {équipe} — prochaine partie : {date} contre {adversaire} · {aréna}" },
     { k: "start", lbl: "Avant le match (bouton du bandeau)", vars: "{temps} {équipe}", def: "La partie commence dans {temps}, Go {équipe} Go !" },
@@ -2816,10 +2818,10 @@ document.addEventListener("DOMContentLoaded", function(){
     return t;
   }
   function nextGameText(c, name){
-    const where = c.place ? " · " + c.place + arenaAddr(c) : "";
+    const where = c.place ? " · " + c.place : "";
     if(!name) return "📅 Prochaine partie : " + calWhen(c) + " — " + calTitle(c) + where;
     const opp = c.a === name ? c.b : c.a;
-    return autoFill("next", { "équipe": name, date: calWhen(c), adversaire: opp, "aréna": c.place ? c.place + arenaAddr(c) : "" });
+    return autoFill("next", { "équipe": name, date: calWhen(c), adversaire: opp, "aréna": c.place || "" });
   }
   var AUTO_CD_MS = 8 * 3600000, autoCdOn = false;
   const cdHoursOk = v => { v = parseInt(v, 10); return v >= 4 && v <= 12 ? v : 8; };
@@ -2846,14 +2848,20 @@ document.addEventListener("DOMContentLoaded", function(){
       if(!autoCdOn && !bt){
         const items = [], ev = k ? nextEventOf(k) : null;
         if(ev){
-          const T = typeOf(evtTypes, ev.type), lieu = ev.place ? ev.place + (ev.address ? " (" + ev.address + ")" : arenaAddr({ place: ev.place, arena: ev.arena })) : "";
+          const T = typeOf(evtTypes, ev.type), lieu = ev.place || "";             // au bandeau : le nom du lieu seulement, sans l'adresse
           const what = T.label + (ev.title ? " (" + ev.title + ")" : "");
           const m = ev.date === todayStr()
             ? autoFill("event", { "événement": what, heure: ev.time ? hhmm(ev.time) : "", "lieu": lieu }).replace(/ aujourd'hui à\s*(?=·|$)/, " aujourd'hui ").trim()
             : autoFill("eventNext", { "événement": what, date: calWhen({ date: ev.date, time: ev.time }), "lieu": lieu });
           items.push({ at: ev.at, m: m });
         }
-        if(g) items.push({ at: g.at, m: autoFill("nomatch", { "équipe": who, date: calWhen(g), adversaire: tp ? (g.a === tp.name ? g.b : g.a) : calTitle(g), "aréna": g.place ? g.place + arenaAddr(g) : "" }) });
+        if(g){
+          const opp = c => tp ? (c.a === tp.name ? c.b : c.a) : calTitle(c);
+          items.push({ at: g.at, m: autoFill("nomatch", { "équipe": who, date: calWhen(g), adversaire: opp(g), "aréna": g.place || "" }) });
+          // Partie suivante rapprochée (moins de 3 jours après) : annoncée aussi, juste après
+          const g2 = nextGamesOf(tp || null).filter(c => c !== g && c.at > g.at && c.at - g.at < 3 * 86400000)[0];
+          if(g2) items.push({ at: g2.at + 1, m: autoFill("nomatch2", { "équipe": who, date: calWhen(g2), adversaire: opp(g2), "aréna": g2.place || "" }) });
+        }
         if(items.length) items.sort((x, y) => x.at - y.at).forEach(x => messages.push(x.m));
         else messages.push(autoFill("nomatchNone", { "équipe": who }));
       }
