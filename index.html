@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610212200">
+<meta name="build" content="202610212204">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1298,6 +1298,10 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <button type="button" class="act-2" id="calCancel">Annuler</button>
       <button type="button" class="act-1" id="calSave">Enregistrer</button>
     </div>
+    <div id="calStartedBox" class="preset-box" hidden style="margin-top:1rem;">
+      <small style="display:block;color:var(--muted);font-size:.8rem;margin-bottom:.4rem;">Cette partie est marquée « Lancée sur le tableau » (par exemple après un essai). Une partie lancée n'est plus annoncée au bandeau une fois son heure passée.</small>
+      <button type="button" class="act-2" id="calUnstart" style="width:100%;">↩️ Retirer la mention « Lancée » (redevient à venir)</button>
+    </div>
     <button type="button" class="danger" id="calDelete" hidden>Retirer cette partie du calendrier</button>
   </div>
 </dialog>
@@ -2025,7 +2029,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610212200";
+  var BUILD = "202610212204";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -4349,6 +4353,7 @@ document.addEventListener("DOMContentLoaded", function(){
     calPhaseTouched = !!(c && c.phase);
     $("calDelete").hidden = !c;
     $("calLinkedNote").hidden = !(c && c.histKey);
+    $("calStartedBox").hidden = !(c && c.started && !c.histKey && !c.played);
     swapDlg("calendarSheet", "calEditSheet");
   }
   const calName = side => {
@@ -4357,6 +4362,12 @@ document.addEventListener("DOMContentLoaded", function(){
     return { key: v, name: v && calPresets[v] ? calPresets[v].name : "" };
   };
   on("calCancel", "click", () => swapDlg("calEditSheet", "calendarSheet"));
+  on("calUnstart", "click", () => {
+    if(!isAdmin() || !calEditId) return;
+    ref(calOrg + "/" + calCat + "/calendar/" + calEditId + "/started").remove();
+    $("calStartedBox").hidden = true;
+    notify("La partie redevient « à venir » : elle est de nouveau annoncée au bandeau.", "ok");
+  });
   on("calSave", "click", () => {
     if(!isAdmin()) return;
     const date = $("calDate").value, time = $("calTime").value, A = calName("a"), B = calName("b");
