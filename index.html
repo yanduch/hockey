@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610212154">
+<meta name="build" content="202610212200">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2025,7 +2025,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610212154";
+  var BUILD = "202610212200";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2769,7 +2769,9 @@ document.addEventListener("DOMContentLoaded", function(){
   function nextGamesOf(p){
     const key = p ? Object.keys(presets).filter(k => presets[k] === p)[0] : null, n = new Date();
     const today = n.getFullYear() + "-" + (n.getMonth() < 9 ? "0" : "") + (n.getMonth() + 1) + "-" + (n.getDate() < 10 ? "0" : "") + n.getDate();
-    return calendarList.filter(c => !c.played && !c.histKey && !c.started && c.id !== state.calId && c.date >= today &&
+    // Une partie « lancée » n'est retirée que si son heure est passée (une partie lancée d'avance pour essayer reste annoncée)
+    const t = now();
+    return calendarList.filter(c => !c.played && !c.histKey && !(c.started && c.at <= t) && !(c.id === state.calId && hasGame(state)) && c.date >= today &&
                                     (!p || (key && (c.aKey === key || c.bKey === key)) || c.a === p.name || c.b === p.name))
                        .sort((x, y) => x.at - y.at);
   }
@@ -5116,6 +5118,8 @@ document.addEventListener("DOMContentLoaded", function(){
         { title: "Réinitialiser l'affichage", ok: "Réinitialiser", danger: !state.histKey }).then(ok => {
       if(!ok || !canEdit() || editEntry) return;
       const wasLinked = isLinked();
+      // Partie du calendrier lancée puis effacée sans être enregistrée : elle redevient « à venir »
+      if(state.calId && !state.histKey) ref(catBase() + "/calendar/" + state.calId + "/started").remove();
       state = blank(); openCardId = null; delete $("statsTeamSelect").dataset.userTouched;
       setScope("all");                                         // Alignements : retour sur « Tout (Saison) »
       if(boardTeam){                                           // tableau d'équipe : on quitte une éventuelle confrontation
