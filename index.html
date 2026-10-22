@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610212204">
+<meta name="build" content="202610212221">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -407,6 +407,19 @@ body:not(.role-admin) .admin-only{display:none !important}
 html.booting .wrap > :not(.top):not(.ticker-wrap){display:none !important}
 html.booting .wrap::after{content:"Chargement…";display:block;text-align:center;padding:3rem 0;color:var(--muted);font-weight:600;animation:bootPulse 1.2s ease-in-out infinite}
 @keyframes bootPulse{50%{opacity:.4}}
+/* Punitions en cours : numéro et temps qui reste, sous le pointage de l'équipe punie */
+.pen-box{display:flex;flex-wrap:wrap;justify-content:center;gap:.25rem;margin-top:.3rem;min-height:0}
+.pen-box:empty{display:none}
+.pen-chip{display:inline-flex;align-items:center;gap:.25rem;padding:.1rem .45rem;border-radius:999px;background:#D2453A;color:#FFF;font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.4}
+.pen-chip.paused{background:#8A5A00}
+.pen-chip.paused::after{content:"⏸";font-size:.65rem}
+.btn-pen-pause{font-size:.75rem;font-weight:800;padding:.35rem .55rem;border-radius:8px;border:1px solid #D2453A;background:transparent;color:#D2453A}
+.btn-pen-pause.on,.pm-penp.on{background:#D2453A;color:#FFF;animation:penBlink 1s ease-in-out infinite}
+@keyframes penBlink{50%{opacity:.6}}
+#playMode .pm-x.pm-penp{width:auto;min-width:2.6rem;padding:0 .6rem;border-radius:1.3rem;display:inline-flex;align-items:center;gap:.3rem;border-color:#D2453A;color:#FF8A92;font-size:1rem}
+#playMode .pm-x.pm-penp.on{color:#FFF}
+.pm-penp small{font-size:.85rem;font-weight:800;font-variant-numeric:tabular-nums}
+#playMode .pm-time{flex-wrap:wrap;justify-content:center;gap:.5rem}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -766,6 +779,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       </div>
       <span class="score" id="scoreA">0</span>
       <p class="shots"><b id="shotsA">0</b><span id="lblShotsA">lancer</span></p>
+      <div class="pen-box" id="penA" aria-live="polite"></div>
     </div>
     
     <div class="center">
@@ -775,6 +789,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <button type="button" class="btn-timer-toggle" id="btnTimerToggle">▶</button>
         <button type="button" class="btn-timer-reset" id="btnTimerReset" hidden>🔄</button>
         <button type="button" class="btn-play-mode" id="btnPlayMode">En jeu</button>
+        <button type="button" class="btn-pen-pause" id="btnPenPause" hidden title="Arrêt de jeu : suspend le temps des punitions (le chrono continue)">⏸ Pun.</button>
       </div>
       <button type="button" class="btn-score-mode" id="btnScoreMode">Mode pointage</button>
     </div>
@@ -787,6 +802,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       </div>
       <span class="score" id="scoreB">0</span>
       <p class="shots"><b id="shotsB">0</b><span id="lblShotsB">lancer</span></p>
+      <div class="pen-box" id="penB" aria-live="polite"></div>
     </div>
   </section>
 
@@ -1054,12 +1070,12 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <div><button type="button" class="pm-shot l" data-pm="shot" data-team="a" style="width:100%"><span>+1 LANCER</span><span class="pm-count" id="pmShotsA">0 Lancer</span></button></div>
   </div>
   <div class="pm-mid">
-    <div class="pm-team v"><small>VISITEUR</small><b id="pmNameB">Visiteur</b></div>
-    <div class="pm-team l"><small>LOCAL</small><b id="pmNameA">Local</b></div>
+    <div class="pm-team v"><small>VISITEUR</small><b id="pmNameB">Visiteur</b><div class="pen-box" id="pmPenB"></div></div>
+    <div class="pm-team l"><small>LOCAL</small><b id="pmNameA">Local</b><div class="pen-box" id="pmPenA"></div></div>
     <button type="button" class="pm-pause" id="pmToggle"><span class="pm-play"><span class="ic" id="pmIcon">❚❚</span><span id="pmLabel">Pause</span></span><span class="pm-per" id="pmPeriod">PÉRIODE 1</span></button>
   </div>
   <div class="pm-clock">
-    <div class="pm-time"><span id="pmTime" title="Toucher pour ajuster le temps">20:00</span><button type="button" class="pm-x" id="pmClose" aria-label="Revenir au mode normal" title="Revenir au mode normal">✕</button><button type="button" class="pm-x" id="pmSwap" aria-label="Changer les équipes de côté" title="Changer les équipes de côté">⇄</button></div>
+    <div class="pm-time"><span id="pmTime" title="Toucher pour ajuster le temps">20:00</span><button type="button" class="pm-x" id="pmClose" aria-label="Revenir au mode normal" title="Revenir au mode normal">✕</button><button type="button" class="pm-x" id="pmSwap" aria-label="Changer les équipes de côté" title="Changer les équipes de côté">⇄</button><button type="button" class="pm-x pm-penp" id="pmPenPause" hidden title="Arrêt de jeu : suspend le temps des punitions (le chrono continue)">❚❚<small id="pmPenLeft"></small></button></div>
   </div>
   <div class="pm-row">
     <button type="button" class="pm-goal v" data-pm="goal" data-team="b" id="pmGoalB">BUT - 0</button>
@@ -2029,7 +2045,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610212204";
+  var BUILD = "202610212221";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2302,6 +2318,7 @@ document.addEventListener("DOMContentLoaded", function(){
       id: "",
       periodSec: 0,                      // durée d'une période pour cette partie (0 = durée par défaut de l'organisation)
       stopOnGoal: [false, false, false], // arrêt du chronomètre sur but, par période
+      penPause: { acc: 0, since: -1 },   // temps des punitions suspendu (périodes à temps continu), en secondes de match
       playedAt: 0,
       phase: "",                         // "pre" = pré-saison, "reg" = saison
       calId: "",                         // partie du calendrier jouée sur ce tableau                       // date de la partie dans l'historique (ne change pas quand on la corrige)
@@ -2336,6 +2353,7 @@ document.addEventListener("DOMContentLoaded", function(){
     s.phase = d.phase === "reg" ? "reg" : (d.phase === "pre" ? "pre" : "");
     s.periodSec = int(d.periodSec, 0, 5940);
     s.stopOnGoal = [0, 1, 2].map(i => !!(Array.isArray(d.stopOnGoal) ? d.stopOnGoal[i] : (d.stopOnGoal && d.stopOnGoal[i])));
+    if(d.penPause && typeof d.penPause === "object") s.penPause = { acc: Math.max(0, Number(d.penPause.acc) || 0), since: Number.isFinite(Number(d.penPause.since)) ? Number(d.penPause.since) : -1 };
     const last = s.events[s.events.length - 1];
     // Anciennes parties (sans le champ « finished ») : terminées si le dernier événement est la fin du match
     s.finished = (typeof d.finished === "boolean") ? d.finished
@@ -4711,7 +4729,66 @@ document.addEventListener("DOMContentLoaded", function(){
     const t = state.timer; if(!t.running) return t.sec;
     return Math.max(0, t.sec - Math.floor((now() - t.lastUpdate) / 1000));
   }
-  function paintTimer(){ setText("timerDisplay", state.finished ? "FINAL" : formatTime(remaining())); }
+  function paintTimer(){ setText("timerDisplay", state.finished ? "FINAL" : formatTime(remaining())); try{ paintPens(); }catch(e){} }
+
+  /* ============ Punitions : temps qui reste ============ */
+  // Temps de match écoulé (en secondes) à partir de la période et du chrono (qui descend)
+  const mmss = t => { const m = /^(\d+):(\d\d)$/.exec(String(t || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : 0; };
+  const gameSec = (period, clock) => { const P = perSec(state); return period * P + (P - clock); };
+  const gNow = () => gameSec(state.period, remaining());
+  const pausedAt = g => { const pp = state.penPause || { acc: 0, since: -1 }; return pp.acc + (pp.since >= 0 ? Math.max(0, g - pp.since) : 0); };
+  const penShort = e => Number(e.min || 2) !== 10;          // l'inconduite (10 min) ne met pas l'équipe en désavantage numérique
+  // Punitions encore à purger : un but en avantage numérique met fin à une punition mineure (la moitié d'une double mineure)
+  function activePens(){
+    if(!hasGame(state) || state.finished || archiveKey) return { a: [], b: [] };
+    const evs = state.events.map((e, i) => ({ e: e, i: i, g: gameSec(e.period, mmss(e.time)) }))
+                            .filter(x => x.e.type === "pen" || x.e.type === "goal").sort((x, y) => x.g - y.g || x.i - y.i);
+    const pens = [];
+    const served = (p, g, pacc) => (g - p.g) - (pacc - p.pacc);
+    evs.forEach(x => {
+      if(x.e.type === "pen"){ pens.push({ e: x.e, team: x.e.team, g: x.g, pacc: Number(x.e.pacc) || 0, dur: Number(x.e.min || 2) * 60 }); return; }
+      const T = x.e.team, O = T === "a" ? "b" : "a", gp = Number(x.e.pacc) || 0;
+      const act = t => pens.filter(p => p.team === t && penShort(p.e) && p.g <= x.g && served(p, x.g, gp) < p.dur);
+      const oA = act(O); if(oA.length <= act(T).length) return;
+      const minors = oA.filter(p => Number(p.e.min || 2) === 2 || Number(p.e.min) === 4).sort((p, q) => (p.dur - served(p, x.g, gp)) - (q.dur - served(q, x.g, gp)));
+      const p = minors[0]; if(!p) return;
+      const s = served(p, x.g, gp);
+      p.dur = (Number(p.e.min) === 4 && s < 120) ? s + 120 : s;              // double mineure : il reste 2 min ; mineure : terminée
+    });
+    const g = gNow(), pa = pausedAt(g), out = { a: [], b: [] };
+    pens.forEach(p => { const left = Math.ceil(p.dur - served(p, g, pa)); if(left > 0 && p.g <= g) out[p.team].push({ e: p.e, left: left }); });
+    ["a", "b"].forEach(t => out[t].sort((x, y) => x.left - y.left));
+    return out;
+  }
+  const penPeriodContinuous = () => state.period < 3 ? !state.stopOnGoal[state.period] : !state.stopOnGoal[2];
+  let penSig = "";
+  function paintPens(){
+    const ap = activePens(), paused = !!(state.penPause && state.penPause.since >= 0);
+    const label = (t, x) => { const pl = x.e.player ? playerLabel(state.rosters[t] || [], x.e.player) : ""; const no = (pl.match(/^#?(\d+)/) || [])[1];
+      return (no ? "#" + no : (pl ? pl.split(" ")[0] : "Banc")) + " " + formatTime(x.left); };
+    const sig = JSON.stringify([ap.a.map(x => label("a", x)), ap.b.map(x => label("b", x)), paused, canEdit(), state.period, state.stopOnGoal]);
+    if(sig === penSig) return; penSig = sig;
+    [["a", "penA", "pmPenA"], ["b", "penB", "pmPenB"]].forEach(r => [r[1], r[2]].forEach(id => {
+      const box = $(id); if(!box) return; box.textContent = "";
+      ap[r[0]].forEach(x => { const c = el("span", "pen-chip" + (paused ? " paused" : ""), label(r[0], x)); c.title = (x.e.min || 2) + " min" + (x.e.reason ? " · " + x.e.reason : ""); box.appendChild(c); });
+    }));
+    const any = ap.a.length + ap.b.length > 0, can = canEdit() && any && penPeriodContinuous() && !state.finished;
+    const first = ap.a.concat(ap.b).sort((x, y) => x.left - y.left)[0];
+    [$("btnPenPause"), $("pmPenPause")].forEach(b => { if(!b) return; b.hidden = !(can || (paused && canEdit())); b.classList.toggle("on", paused);
+      b.setAttribute("aria-pressed", String(paused)); b.title = paused ? "Reprendre le temps des punitions" : "Arrêt de jeu : suspend le temps des punitions (le chrono continue)"; });
+    $("btnPenPause").textContent = paused ? "▶ Pun." : "⏸ Pun.";
+    $("pmPenPause").firstChild.textContent = paused ? "▶ PUN" : "❚❚ PUN";
+    setText("pmPenLeft", first ? formatTime(first.left) : "");
+  }
+  function togglePenPause(){
+    if(!canEdit() || !hasGame(state)) return;
+    const pp = state.penPause || (state.penPause = { acc: 0, since: -1 }), g = gNow();
+    if(pp.since >= 0){ pp.acc += Math.max(0, g - pp.since); pp.since = -1; }
+    else { if(!penPeriodContinuous()) return; pp.since = g; }
+    penSig = ""; commit();
+  }
+  on("btnPenPause", "click", togglePenPause);
+  on("pmPenPause", "click", togglePenPause);
 
   setInterval(() => {
     // Seuls les marqueurs / admins font avancer le match ; les spectateurs ne font qu'afficher
@@ -6021,7 +6098,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(curPen && canEdit()){
       const min = Number($("penMin").value) || 2, reason = $("penReason").value;
       if(curPen.isNew){
-        state.events.push({ id: curPen.id, type: "pen", team: curPen.team, period: curPen.period, time: curPen.time, player: curPen.player, min: min, reason: reason, t: now() });
+        state.events.push({ id: curPen.id, type: "pen", team: curPen.team, period: curPen.period, time: curPen.time, player: curPen.player, min: min, reason: reason, t: now(), pacc: pausedAt(gameSec(curPen.period, mmss(curPen.time))) });
       } else {
         const ev = findEvent(curPen.id);
         if(ev){ ev.player = curPen.player; ev.min = min; ev.reason = reason; }
@@ -6064,7 +6141,7 @@ document.addEventListener("DOMContentLoaded", function(){
       }
     } else if(act === "goal"){
       // Le temps est pris au moment où l'on touche « But » ; le but n'est inscrit qu'à l'enregistrement
-      const g = { id: uid(), type: "goal", team: t, period: p, time: curTime, scorer: "", a1: "", a2: "", t: now() };
+      const g = { id: uid(), type: "goal", team: t, period: p, time: curTime, scorer: "", a1: "", a2: "", t: now(), pacc: pausedAt(gameSec(p, mmss(curTime))) };
       if(net) g.g = net;
       // Arrêt du temps sur but (périodes cochées au lancement) : le chrono s'arrête au moment où l'on touche « But »
       let stopped = null;
