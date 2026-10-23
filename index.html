@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610231524">
+<meta name="build" content="202610231630">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2099,7 +2099,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610231524";
+  var BUILD = "202610231630";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2555,6 +2555,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function updateRoleUI(){
     document.body.className = (isGerant() ? "role-marqueur role-gerant" : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
+    if(isSuper() && !superForgot){ superForgot = true; try{ statForgetMe(); }catch(e){ superForgot = false; } }
     $("btnLogin").textContent = (currentRole !== "viewer") ? "🔓 Déconnexion (" + roleLabel() + ")" : "🔒 Connexion";
     updateStatusDisplay(); applyInv(); updatePermUI();
   }
@@ -5441,13 +5442,13 @@ document.addEventListener("DOMContentLoaded", function(){
     setText("btnTimerToggle", state.timer.running ? "⏸" : "▶");
 
     // Partie terminée (ou jamais commencée) : on peut en lancer une nouvelle
-    const canStartNew = !started || state.finished;
+    const canStartNew = !started || state.finished || simOn;      // pendant une simulation, un vrai match peut toujours être lancé
     $("btnStopGame").style.display = canStartNew ? "none" : "block";
     $("newGame").style.display = canStartNew ? "block" : "none";
     // Disponible seulement une fois la partie terminée ET la sauvegarde décidée (enregistrée ou refusée)
-    $("resetBoard").style.display = (state.finished && state.closed && started) ? "block" : "none";
+    $("resetBoard").style.display = (state.finished && state.closed && started && !simOn) ? "block" : "none";
     // Partie terminée mais question de sauvegarde restée sans réponse (fenêtre fermée, autre appareil) : on peut la rouvrir
-    $("askSave").style.display = (state.finished && !state.closed && started) ? "block" : "none";
+    $("askSave").style.display = (state.finished && !state.closed && started && !simOn) ? "block" : "none";
 
     const segBtns = $("seg").children;
     for(let i = 0; i < segBtns.length; i++) segBtns[i].setAttribute("aria-pressed", String(Number(segBtns[i].dataset.p) === state.period));
@@ -6374,12 +6375,14 @@ document.addEventListener("DOMContentLoaded", function(){
         o.connect(g); g.connect(lp); o.start(t0); lfo.start(t0); o.stop(t0 + 3.7); lfo.stop(t0 + 3.7);
       });
     },
-    endbuzzer(){                                                  // sirène de fin de période : klaxon d'aréna, sec et puissant
-      const out = master(.16), t0 = actx.currentTime + .03, lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600; lp.connect(out);
-      [196, 233, 294].forEach(f => {
-        const o = actx.createOscillator(), g = actx.createGain(); o.type = "square"; o.frequency.value = f;
-        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(1, t0 + .02); g.gain.setValueAtTime(1, t0 + 2.2); g.gain.linearRampToValueAtTime(0, t0 + 2.35);
-        o.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 2.4);
+    endbuzzer(){                                                  // sirène de fin de période : monte et descend (deux cycles)
+      const out = master(.18), t0 = actx.currentTime + .03, lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3200; lp.connect(out);
+      [[1, "sawtooth", .55], [1.005, "square", .35]].forEach(v => {
+        const o = actx.createOscillator(), g = actx.createGain(); o.type = v[1];
+        o.frequency.setValueAtTime(420 * v[0], t0);
+        for(let c = 0; c < 2; c++){ const b = t0 + c * 1.6; o.frequency.linearRampToValueAtTime(980 * v[0], b + .8); o.frequency.linearRampToValueAtTime(420 * v[0], b + 1.6); }
+        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v[2], t0 + .06); g.gain.setValueAtTime(v[2], t0 + 3.05); g.gain.linearRampToValueAtTime(0, t0 + 3.25);
+        o.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 3.3);
       });
     },
     drum(){ const out = master(.5), t0 = actx.currentTime + .03; for(let i = 0; i < 44; i++) burst(t0 + i * .055, .06, 2200, .8, .15 + i / 44 * .6, out); burst(t0 + 2.5, 1.6, 5000, .4, 1, out); burst(t0 + 2.5, .4, 120, 1, 1, out); },
@@ -6777,16 +6780,25 @@ document.addEventListener("DOMContentLoaded", function(){
   // …/<org>/stats/days/<AAAA-MM-JJ>/<appareil> = { n: ouvertures, s: 1 si personne connectée }
   // …/<org>/stats/games/<partie>/v/<appareil> = 1 ; …/meta = { cat, a, b, date }
   // L'appareil est un numéro au hasard gardé sur l'appareil : rien de personnel.
-  var visitorId = "";
+  var visitorId = "", superForgot = false;
   try{ visitorId = localStorage.getItem("hk_vid") || ""; if(!visitorId){ visitorId = "v" + uid(); localStorage.setItem("hk_vid", visitorId); } }catch(e){ visitorId = "v" + uid(); }
   var visCounted = {}, gameCounted = {};
+  const noStat = () => { try{ return localStorage.getItem("hk_nostat") === "1"; }catch(e){ return false; } };
+  // Appareil du super administrateur : jamais compté (ni avant ni après sa connexion)
+  function statForgetMe(){
+    try{ localStorage.setItem("hk_nostat", "1"); }catch(e){}
+    Object.keys(visCounted).forEach(o => ref(o + "/stats/days/" + todayStr() + "/" + visitorId).remove());
+    Object.keys(gameCounted).forEach(k => { const i = k.indexOf("|"); ref(k.slice(0, i) + "/stats/games/" + cleanKey(k.slice(i + 1)) + "/v/" + visitorId).remove(); });
+  }
   function statVisit(){
-    if(!currentOrg || visCounted[currentOrg]) return;
+    if(isSuper()){ statForgetMe(); return; }
+    if(noStat() || !currentOrg || visCounted[currentOrg]) return;
     visCounted[currentOrg] = true;
     const r = ref(currentOrg + "/stats/days/" + todayStr() + "/" + visitorId);
     r.once("value").then(s => { const v = obj(s.val()); r.set({ n: (Number(v.n) || 0) + 1, s: (v.s || isStaff()) ? 1 : 0 }); }, () => {});
   }
   function statGame(){
+    if(noStat() || isSuper()) return;
     if(simOn || editEntry || archiveKey || !state.id || !hasGame(state)) return;
     const k = currentOrg + "|" + state.id; if(gameCounted[k]) return; gameCounted[k] = true;
     const base = currentOrg + "/stats/games/" + cleanKey(state.id);
@@ -6912,6 +6924,12 @@ document.addEventListener("DOMContentLoaded", function(){
     try{ simOffBar(); }catch(e){}
   }
   on("simStop", "click", () => simStop(true));
+  // Personne connectée : toucher Gestion, Commencer une partie ou une commande du tableau arrête la simulation et donne accès au vrai tableau
+  document.addEventListener("click", e => {
+    if(!simOn || !isStaff()) return;
+    const t = e.target.closest && e.target.closest("#newGame, #btnManageSettings, #btnGerant, #btnTeamMessages, #annToggle, #pad, .timer-ctrls, #seg, #timerDisplay, #btnPlayMode");
+    if(t) simStop(true);
+  }, true);
   function simTick(){
     if(!simOn) return;
     const s = state, t = remaining(), time = formatTime(t), per = s.period, ot = per === 3;
