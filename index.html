@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610212221">
+<meta name="build" content="202610231228">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -420,6 +420,11 @@ html.booting .wrap::after{content:"Chargement…";display:block;text-align:cente
 #playMode .pm-x.pm-penp.on{color:#FFF}
 .pm-penp small{font-size:.85rem;font-weight:800;font-variant-numeric:tabular-nums}
 #playMode .pm-time{flex-wrap:wrap;justify-content:center;gap:.5rem}
+.sim-bar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .5rem;padding:.45rem .7rem;border-radius:10px;background:repeating-linear-gradient(135deg,#F0B35A 0 10px,#E8A43F 10px 20px);color:#2A1A00;font-size:.82rem;font-weight:700}
+.sim-bar button{flex:none;border:0;border-radius:8px;padding:.3rem .6rem;background:#2A1A00;color:#FFF;font-weight:700;font-size:.78rem}
+.sim-bar[hidden]{display:none}
+.sim-teams{display:grid;gap:.1rem;margin:.2rem 0 .4rem .2rem}
+html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -770,6 +775,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <button type="button" id="archiveBack">Retour au direct</button>
   </div>
 
+  <div class="sim-bar" id="simBar" hidden><span>🎮 <b>SIMULATION DE PARTIE</b> · ce n'est pas un vrai match</span><button type="button" id="simStop">Arrêter</button></div>
   <section class="board" aria-label="Pointage">
     <div class="side a">
       <span class="side-tag">Local</span>
@@ -1462,6 +1468,21 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <label class="check-row"><input type="checkbox" id="showCSV"><span>📊 Exporter CSV</span></label>
     </div>
 
+    <div class="super-only" id="odSim">
+    <h3 class="sheet-sub">Simulation de match</h3>
+    <p class="ctx" style="margin-top:0;">Quand aucun vrai match n'est en cours, la page présente une partie simulée (périodes de 3 minutes, buts, lancers, punitions), clairement identifiée. Rien n'est enregistré : ni historique, ni classement, ni statistiques.</p>
+    <label class="check-row"><input type="checkbox" id="simOnChk"><span>Activer la simulation</span></label>
+    <div id="simOpts">
+      <div class="ph-choice" role="radiogroup" aria-label="Équipes" style="margin:.4rem 0;">
+        <label><input type="radio" name="simScope" value="all"><span>Toutes les équipes</span></label>
+        <label><input type="radio" name="simScope" value="some"><span>Équipes choisies</span></label>
+      </div>
+      <div id="simTeams" class="sim-teams"></div>
+      <label class="check-row"><input type="checkbox" id="simViewers"><span>Montrer aux visiteurs (non connectés)</span></label>
+      <label class="check-row"><input type="checkbox" id="simStaff"><span>Montrer aux personnes connectées (marqueurs, gérants, administrateurs)</span></label>
+    </div>
+    </div>
+
     <div id="odCats">
     <h3 class="sheet-sub">Catégories</h3>
     <div class="inline-row">
@@ -2045,7 +2066,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610212221";
+  var BUILD = "202610231228";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2294,7 +2315,8 @@ document.addEventListener("DOMContentLoaded", function(){
   const sides = () => invOn() ? ["a","b"] : ["b","a"];       // de gauche à droite : visiteur puis local, sauf inversion
   const roleLabel = () => isSuper() ? "SA" : isTeamAdmin() ? "ADMIN ÉQ." : isGerant() ? "GÉRANT(E)" : currentRole.toUpperCase();
   // Le ou la gérant(e) peut corriger une partie passée (si permis) : seulement pendant cette correction
-  const canEdit = () => isStaff() && !archiveKey;
+  var simOn = false;                   // simulation de match en cours (sur cet appareil seulement, rien n'est enregistré)
+  const canEdit = () => isStaff() && !archiveKey && !simOn;
   let editEntry = null;                // partie de l'historique en cours de modification : { key, m, at }
   const now = () => Date.now() + serverOffset;      // heure du serveur : même chrono sur tous les appareils
 
@@ -2470,14 +2492,15 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   function updateStatusDisplay(){
+    if(simOn && !simAllowed()){ simStop(false); return; }       // ex. : connexion d'un marqueur pendant la simulation
     const st = $("status");
     if(!connected){ st.textContent = ""; st.appendChild(el("span", "sr", "Hors ligne")); st.dataset.full = "Hors ligne"; st.title = "Hors ligne"; st.dataset.s = "offline"; return; }
     const connText = onlineCount > 1 ? " (" + onlineCount + ")" : "";
     // « En direct » (voyant vert) seulement quand une partie est en cours sur ce tableau
     const live = isLive(state) && !editEntry && !archiveKey;
-    $("ambBox").hidden = !live;                                   // console d'ambiance : seulement pendant le match en cours
+    $("ambBox").hidden = !live || simOn;                                   // console d'ambiance : seulement pendant le match en cours
     $("annBox").hidden = !!(editEntry || archiveKey);             // messages : aussi avant la partie
-    const txt = (live ? "En direct" : "Aucune partie") + (currentRole !== "viewer" ? " - " + roleLabel() : "") + connText;
+    const txt = (simOn ? "Simulation" : live ? "En direct" : "Aucune partie") + (currentRole !== "viewer" ? " - " + roleLabel() : "") + connText;
     // Barre du haut compacte : un voyant (et le rôle si connecté) ; le texte complet reste lu par les lecteurs d'écran et s'affiche au toucher
     if(st.dataset.full !== txt){
       st.dataset.full = txt; st.textContent = "";
@@ -2485,7 +2508,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(currentRole !== "viewer"){ const v = el("span", null, roleLabel()); v.setAttribute("aria-hidden", "true"); st.appendChild(v); }
       st.title = txt;
     }
-    st.dataset.s = live ? "live" : "idle";
+    st.dataset.s = live && !simOn ? "live" : "idle";
   }
   on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + (onlineCount > 1 ? "\n(nombre entre parenthèses : appareils qui regardent cette page)" : ""), "info"); });
   function applyInv(){
@@ -2613,6 +2636,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
 
   function attachBoard(teamKey, nav){
+    if(simOn) simStop(false);
     detachBoard();
     boardTeam = teamKey || "";
     store.set(sessionStorage, "ohmtro_team", boardTeam);
@@ -2659,7 +2683,9 @@ document.addEventListener("DOMContentLoaded", function(){
     if(raw && lastLocal && raw.updatedAt === lastLocal && state.updatedAt === lastLocal) return;
     const s = raw ? sanitize(raw) : blank();
     if(archiveKey){ liveState = s; bootDone(); return; }
+    if(simOn){ if(hasGame(s)){ simStop(false); } else { simReal = s; bootDone(); return; } }   // un vrai match remplace la simulation
     state = s; syncStateWithPresets(); render(); bootDone();
+    simMaybe();
   }
 
   // Une fois les équipes connues : choisit le bon tableau (par équipe ou par catégorie)
@@ -2725,6 +2751,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const cfg = snap.val() || {};
       adminPerms = normPerms(cfg.adminPerms); updatePermUI();
       autoMsg = (cfg.autoMsg && typeof cfg.autoMsg === "object") ? cfg.autoMsg : {};
+      simCfg = normSim(cfg.sim); try{ if(simOn && !simAllowed()) simStop(true); else simMaybe(); }catch(e){}
       AUTO_CD_MS = cdHoursOk(cfg.autoCdHours) * 3600000; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
@@ -2754,6 +2781,7 @@ document.addEventListener("DOMContentLoaded", function(){
       presets = (v && typeof v === "object") ? v : {};
       presetsRev++; indexPresets(); try{ renderStandings(); }catch(e){}
       setTimeout(() => { try{ spordleAuto(); }catch(e){} }, 1500);
+      setTimeout(() => { try{ simMaybe(); }catch(e){} }, 700);
       try{ checkMarqueurScope(); }catch(e){}
       if(resolveBoard()) return;         // changement de tableau : l'affichage est refait par attachBoard
       syncStateWithPresets(); render();
@@ -2890,6 +2918,7 @@ document.addEventListener("DOMContentLoaded", function(){
         else messages.push(autoFill("nomatchNone", { "équipe": who }));
       }
     }
+    if(simOn) messages.unshift("🎮 SIMULATION DE PARTIE — ce n'est pas un vrai match");
     if(gl) messages.push(gl);                // pendant le match : « Bon match ! » puis le dernier but
     if(bt) messages.push("📣 " + bt);
     // D'abord l'annonce des autres parties en cours dans l'organisation, puis les messages habituels
@@ -3394,6 +3423,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const show = p => { $("permOrgName").checked = p.orgName; $("permCategories").checked = p.categories; $("permTeams").checked = p.teams; };
       show(orgKey === currentOrg ? adminPerms : normPerms(null));
       if(orgKey !== currentOrg) ref(orgKey + "/config/adminPerms").once("value").then(s => { if(orgKey === manageOrgKey) show(normPerms(s.val())); });
+      simLoadForm(orgKey);
       const showX = x => { $("showPDF").checked = x.pdf; $("showCSV").checked = x.csv; };
       showX(orgKey === currentOrg ? exportCfg : normExports(null));
       if(orgKey !== currentOrg) ref(orgKey + "/config/exports").once("value").then(s => { if(orgKey === manageOrgKey) showX(normExports(s.val())); });
@@ -6357,6 +6387,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Sirène automatique pour tous : quand l'équipe choisie en haut marque un but
   var hornTrack = { key: "", n: 0 };
   function goalHornCheck(){
+    if(simOn) return;
     try{
       const top = boardTeam || ($("teamSelectTop") ? $("teamSelectTop").value : "") || "";   // équipe choisie en haut
       if(archiveKey || editEntry || !top || !state.id){ hornTrack = { key: "", n: 0 }; return; }
@@ -6367,7 +6398,7 @@ document.addEventListener("DOMContentLoaded", function(){
       hornTrack = { key: key, n: n };
     }catch(e){}
   }
-  const ambLive = () => isStaff() && isLive(state) && !editEntry && !archiveKey;
+  const ambLive = () => isStaff() && isLive(state) && !editEntry && !archiveKey && !simOn;
   function sendFx(t, text){ if(t === "msg" ? !(isAdmin() && !editEntry && !archiveKey) : !ambLive()) return; unlock(); const v = { id: uid(), t: t, text: text || "", at: Date.now() }; ambTargets().forEach(p => ref(p + "/fx").set(v)); }
   document.querySelectorAll("[data-fx]").forEach(b => b.addEventListener("click", () => sendFx(b.dataset.fx)));
   // Message : fenêtre de 5 s ou bandeau (seulement pour la partie en cours ou à venir de ce tableau)
@@ -6667,6 +6698,126 @@ document.addEventListener("DOMContentLoaded", function(){
     const a = document.createElement("a"); a.href = out.toDataURL("image/png"); a.download = "QR " + it.name.replace(/[^\wÀ-ÿ -]+/g, "").trim() + ".png";
     document.body.appendChild(a); a.click(); a.remove();
   });
+
+  /* ============ Simulation de match (démonstration) ============ */
+  // Activée par le super administrateur (…/config/sim). Elle tourne seulement sur l'appareil qui regarde : aucune écriture,
+  // rien dans l'historique ni dans les statistiques enregistrées. Un vrai match la remplace aussitôt.
+  var simCfg = { on: false, scope: "all", teams: {}, viewers: true, staff: false }, simReal = null, simTimer = null, simRestart = null;
+  function normSim(v){ v = v && typeof v === "object" ? v : {};
+    return { on: !!v.on, scope: v.scope === "some" ? "some" : "all", teams: (v.teams && typeof v.teams === "object") ? v.teams : {}, viewers: v.viewers !== false, staff: !!v.staff }; }
+  const simKey = () => boardTeam || boardTeams(currentCat)[0] || "";
+  function simAllowed(){
+    if(!simCfg) return false;
+    const k = simKey();
+    if(!simCfg.on || !k || !presets[k] || archiveKey || editEntry) return false;
+    if(simCfg.scope === "some" && !simCfg.teams[k]) return false;
+    if(currentRole === "viewer" ? !simCfg.viewers : !simCfg.staff) return false;
+    let stopped = ""; try{ stopped = sessionStorage.getItem("hk_sim_off") || ""; }catch(e){}
+    return stopped !== currentOrg + "|" + currentCat + "|" + k;
+  }
+  function simMaybe(){ if(!simOn && presetsLoaded && !hasGame(state) && simAllowed()) simStart(); }
+  const SIM_FIRST = ["Léo","Noah","William","Thomas","Félix","Jacob","Nathan","Olivier","Logan","Zack","Éli","Mathis","Antoine","Liam","Charles","Émile","Samuel","Raphaël"];
+  const SIM_LAST = ["Tremblay","Gagnon","Roy","Côté","Bouchard","Gauthier","Morin","Lavoie","Fortin","Gagné","Ouellet","Pelletier","Bélanger","Lévesque","Bergeron","Leblanc","Paquette","Girard"];
+  const SIM_TEAMS = ["Comètes","Requins","Loups","Faucons","Tigres","Ours polaires","Éclairs","Mustangs","Carcajous","Hiboux"];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function simRoster(){
+    const nos = {}, r = [];
+    while(r.length < 15){ const n = 2 + Math.floor(Math.random() * 97); if(nos[n] || n === 30 || n === 31) continue; nos[n] = 1; r.push({ no: String(n), name: pick(SIM_FIRST).charAt(0) + ". " + pick(SIM_LAST), pos: r.length < 9 ? "A" : "D" }); }
+    r.push({ no: "30", name: pick(SIM_FIRST).charAt(0) + ". " + pick(SIM_LAST), pos: "G" }); r.push({ no: "31", name: pick(SIM_FIRST).charAt(0) + ". " + pick(SIM_LAST), pos: "G" });
+    return r;
+  }
+  function simStart(){
+    const k = simKey(), me = presets[k]; if(!me) return;
+    clearTimeout(simRestart); simReal = state; simOn = true;
+    document.documentElement.classList.add("sim-on"); $("simBar").hidden = false;
+    const others = Object.keys(presets).filter(x => x !== k && presets[x] && presets[x].name && presets[x].category === currentCat);
+    const ok = others.length && Math.random() < .7 ? others[Math.floor(Math.random() * others.length)] : "";
+    const opp = ok ? presets[ok] : { name: pick(SIM_TEAMS), color: "#F2707A", roster: [] };
+    const home = Math.random() < .5, mine = home ? "a" : "b", theirs = home ? "b" : "a";
+    const s = blank();
+    s.id = "sim"; s.periodSec = 180; s.stopOnGoal = [true, true, true];
+    s.names[mine] = me.name; s.names[theirs] = opp.name + (ok ? "" : " (inventée)");
+    s.colors[mine] = hex(me.color, DEF_A); s.colors[theirs] = hex(opp.color, DEF_B);
+    s.logos[mine] = me.logo || ""; s.logos[theirs] = opp.logo || "";
+    const rMe = toArr(me.roster).map(normPlayer), rOp = toArr(opp.roster).map(normPlayer);
+    s.rosters[mine] = rMe.filter(x => x.pos !== "G").length >= 5 ? rMe : simRoster();
+    s.rosters[theirs] = rOp.filter(x => x.pos !== "G").length >= 5 ? rOp : simRoster();
+    ["a", "b"].forEach(t => { const gi = s.rosters[t].findIndex(x => x.pos === "G"); if(gi >= 0) s.goalies[t] = pidOf(s.rosters[t][gi], gi); });
+    s.timer = { sec: 180, running: true, lastUpdate: now() };
+    state = s; openCardId = null; render(); updateTickerDisplay();
+    clearInterval(simTimer); simTimer = setInterval(simTick, 1000);
+  }
+  function simStop(byUser){
+    clearInterval(simTimer); clearTimeout(simRestart); simTimer = null;
+    if(!simOn) return;
+    simOn = false; document.documentElement.classList.remove("sim-on"); $("simBar").hidden = true;
+    if(byUser){ try{ sessionStorage.setItem("hk_sim_off", currentOrg + "|" + currentCat + "|" + simKey()); }catch(e){} }
+    state = simReal || blank(); simReal = null; openCardId = null; render(); updateTickerDisplay();
+  }
+  on("simStop", "click", () => simStop(true));
+  function simTick(){
+    if(!simOn) return;
+    const s = state, t = remaining(), time = formatTime(t), per = s.period, ot = per === 3;
+    const skaters = side => s.rosters[side].map((p, i) => ({ p: p, id: pidOf(p, i) })).filter(x => x.p.pos !== "G");
+    if(!s.finished){
+      ["a", "b"].forEach(side => {
+        if(Math.random() < .085){
+          s.shots[side][per]++;
+          if(Math.random() < .11){
+            const sk = skaters(side), sc = pick(sk), a = sk.filter(x => x !== sc);
+            const a1 = Math.random() < .65 ? pick(a) : null, a2 = a1 && Math.random() < .45 ? pick(a.filter(x => x !== a1)) : null;
+            s.events.push({ id: uid(), type: "goal", team: side, period: per, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: a2 ? a2.id : "", t: now() });
+            if(ot){ simEnd(); return; }
+          }
+        }
+        if(Math.random() < .004){
+          const sk = skaters(side);
+          s.events.push({ id: uid(), type: "pen", team: side, period: per, time: time, player: pick(sk).id, min: Math.random() < .1 ? 5 : 2,
+                          reason: pick(["Accrochage", "Obstruction", "Retenue", "Bâton élevé", "Rudesse", "Trébucher"]), t: now() });
+        }
+      });
+      if(!s.finished && t <= 0){
+        if(per < 2){ s.period++; s.timer = { sec: 180, running: true, lastUpdate: now() }; }
+        else if(per === 2 && goalsOf("a") === goalsOf("b")){ s.period = 3; s.timer = { sec: 180, running: true, lastUpdate: now() }; }
+        else { simEnd(); return; }
+      }
+    }
+    render(); updateTickerDisplay();
+  }
+  function simEnd(){
+    const s = state; s.timer = { sec: 0, running: false, lastUpdate: now() }; s.finished = true; s.closed = true;
+    s.events.push({ id: uid(), type: "sys", team: "sys", period: s.period, time: "00:00", text: END_TEXT, t: now() });
+    clearInterval(simTimer); simTimer = null; render(); updateTickerDisplay();
+    simRestart = setTimeout(() => { if(!simOn) return; simStop(false); simMaybe(); }, 45000);   // une autre simulation 45 s plus tard
+  }
+  // Réglages (super administrateur), dans la fiche de l'organisation
+  function simFillForm(orgKey, v, pres){
+    $("simOnChk").checked = v.on; $("simViewers").checked = v.viewers; $("simStaff").checked = v.staff;
+    document.querySelectorAll("input[name=simScope]").forEach(r => { r.checked = r.value === v.scope; });
+    $("simOpts").style.opacity = v.on ? "" : ".5";
+    const box = $("simTeams"); box.textContent = ""; box.hidden = v.scope !== "some";
+    const own = Object.keys(pres || {}).filter(k => pres[k] && pres[k].own && pres[k].name)
+      .sort((x, y) => (String(pres[x].category) + pres[x].name).localeCompare(String(pres[y].category) + pres[y].name, "fr", { numeric: true }));
+    if(!own.length) box.appendChild(el("small", null, "Aucune équipe de l'organisation."));
+    own.forEach(k => { const l = el("label", "check-row"), c = el("input"); c.type = "checkbox"; c.value = k; c.checked = !!v.teams[k];
+      l.appendChild(c); l.appendChild(el("span", null, pres[k].name + " · " + String(pres[k].category || "").toUpperCase())); box.appendChild(l); });
+  }
+  function simLoadForm(orgKey){
+    if(orgKey === currentOrg) simFillForm(orgKey, simCfg, presets);
+    else Promise.all([ref(orgKey + "/config/sim").once("value"), ref(orgKey + "/teams_presets").once("value")]).then(r => { if(orgKey === manageOrgKey) simFillForm(orgKey, normSim(r[0].val()), r[1].val() || {}); });
+  }
+  function simSave(){
+    if(!isSuper()) return;
+    const teams = {}; $("simTeams").querySelectorAll("input:checked").forEach(c => { teams[c.value] = true; });
+    const sc = document.querySelector("input[name=simScope]:checked");
+    const v = { on: $("simOnChk").checked, scope: sc ? sc.value : "all", teams: teams, viewers: $("simViewers").checked, staff: $("simStaff").checked };
+    ref(manageOrgKey + "/config/sim").set(v);
+    $("simOpts").style.opacity = v.on ? "" : ".5"; $("simTeams").hidden = v.scope !== "some";
+    if(manageOrgKey === currentOrg){ simCfg = normSim(v); if(simOn && !simAllowed()) simStop(false); else simMaybe(); }
+  }
+  ["simOnChk", "simViewers", "simStaff"].forEach(id => on(id, "change", simSave));
+  document.querySelectorAll("input[name=simScope]").forEach(r => r.addEventListener("change", simSave));
+  on("simTeams", "change", simSave);
 
   /* ============ Mode sombre / clair (choix de chaque appareil) ============ */
   const isDark = () => { const t = document.documentElement.getAttribute("data-theme"); return t ? t === "dark" : !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches); };
