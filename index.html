@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610231228">
+<meta name="build" content="202610231249">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -421,6 +421,10 @@ html.booting .wrap::after{content:"Chargement…";display:block;text-align:cente
 .pm-penp small{font-size:.85rem;font-weight:800;font-variant-numeric:tabular-nums}
 #playMode .pm-time{flex-wrap:wrap;justify-content:center;gap:.5rem}
 .sim-bar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .5rem;padding:.45rem .7rem;border-radius:10px;background:repeating-linear-gradient(135deg,#F0B35A 0 10px,#E8A43F 10px 20px);color:#2A1A00;font-size:.82rem;font-weight:700}
+.sim-bar.off{background:var(--surface);border:1px dashed #F0B35A;color:var(--ink);justify-content:center}
+.sim-bar.off #simBarTxt{display:none}
+.sim-bar.off button{background:#F0B35A;color:#2A1A00}
+.roster-item .pts-badge{margin-left:auto;margin-right:.4rem;font-size:.7rem;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums}
 .sim-bar button{flex:none;border:0;border-radius:8px;padding:.3rem .6rem;background:#2A1A00;color:#FFF;font-weight:700;font-size:.78rem}
 .sim-bar[hidden]{display:none}
 .sim-teams{display:grid;gap:.1rem;margin:.2rem 0 .4rem .2rem}
@@ -775,7 +779,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <button type="button" id="archiveBack">Retour au direct</button>
   </div>
 
-  <div class="sim-bar" id="simBar" hidden><span>🎮 <b>SIMULATION DE PARTIE</b> · ce n'est pas un vrai match</span><button type="button" id="simStop">Arrêter</button></div>
+  <div class="sim-bar" id="simBar" hidden><span id="simBarTxt">🎮 <b>SIMULATION DE PARTIE</b> · ce n'est pas un vrai match</span><button type="button" id="simStop">Arrêter</button><button type="button" id="simRelaunch" hidden>🎮 Relancer la simulation</button></div>
   <section class="board" aria-label="Pointage">
     <div class="side a">
       <span class="side-tag">Local</span>
@@ -903,7 +907,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <button type="button" id="btnScopeAll">Cumulatif</button>
       </div>
       <p class="ctx" id="rosterHint" style="margin:.2rem 0 0;"></p>
-      <div class="roster-sort" style="margin-top:.4rem">Trier : <button type="button" data-vsort="no"># Numéro</button><button type="button" data-vsort="name">Nom</button><button type="button" data-vsort="pos">Position</button></div>
+      <div class="roster-sort" style="margin-top:.4rem">Trier : <button type="button" data-vsort="pts">⭐ Points</button><button type="button" data-vsort="no"># Numéro</button><button type="button" data-vsort="name">Nom</button><button type="button" data-vsort="pos">Position</button></div>
     </div>
 
     <div class="roster-container" id="rosterContainer">
@@ -2066,7 +2070,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610231228";
+  var BUILD = "202610231249";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2751,7 +2755,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const cfg = snap.val() || {};
       adminPerms = normPerms(cfg.adminPerms); updatePermUI();
       autoMsg = (cfg.autoMsg && typeof cfg.autoMsg === "object") ? cfg.autoMsg : {};
-      simCfg = normSim(cfg.sim); try{ if(simOn && !simAllowed()) simStop(true); else simMaybe(); }catch(e){}
+      simCfg = normSim(cfg.sim); try{ if(simOn && !simAllowed()) simStop(false); else simMaybe(); }catch(e){}
       AUTO_CD_MS = cdHoursOk(cfg.autoCdHours) * 3600000; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
@@ -5606,7 +5610,7 @@ document.addEventListener("DOMContentLoaded", function(){
   on("btnScopeMatch", "click", () => setScope("match"));
   on("btnScopeAll", "click", () => setScope("all"));
 
-  var viewSort = "no"; try{ viewSort = localStorage.getItem("hk_vsort") || "no"; }catch(e){}
+  var viewSort = "pts"; try{ viewSort = localStorage.getItem("hk_vsort") || "pts"; }catch(e){}
   const paintVSort = () => document.querySelectorAll("[data-vsort]").forEach(x => x.classList.toggle("on", x.dataset.vsort === viewSort));
   document.querySelectorAll("[data-vsort]").forEach(b => b.addEventListener("click", () => {
     viewSort = b.dataset.vsort; try{ localStorage.setItem("hk_vsort", viewSort); }catch(e){}
@@ -5618,13 +5622,25 @@ document.addEventListener("DOMContentLoaded", function(){
     const ul = $(id); ul.textContent = "";
     if(!list || !list.length){ ul.appendChild(el("li", "empty", "Aucun joueur")); return; }
     const frag = document.createDocumentFragment();
-    const cmpV = cmpPlayers(viewSort), order = list.map((p, i) => i).sort((x, y) => cmpV(list[x], list[y]) || x - y);
+    // Tri « Points » : gardiens d'abord, puis les marqueurs (buts + passes) — pendant le match ou pour la saison
+    let ptsOf = null;
+    if(viewSort === "pts"){
+      ptsOf = {};
+      list.forEach((p, i) => { if(p.pos !== "G"){ const st = playerStats(ctx, pidOf(p, i), scope); ptsOf[i] = { p: st.b + st.a, b: st.b, a: st.a }; } });
+    }
+    const cmpN = cmpPlayers("no"), cmpV = cmpPlayers(viewSort === "pts" ? "no" : viewSort);
+    const order = list.map((p, i) => i).sort((x, y) => {
+      if(ptsOf){ const gx = list[x].pos === "G", gy = list[y].pos === "G"; if(gx !== gy) return gx ? -1 : 1; if(gx) return cmpN(list[x], list[y]);
+        const px = ptsOf[x], py = ptsOf[y]; return (py.p - px.p) || (py.b - px.b) || cmpN(list[x], list[y]) || x - y; }
+      return cmpV(list[x], list[y]) || x - y; });
     order.forEach(idx => { const p = list[idx];
       const pId = pidOf(p, idx), cardId = side + ":" + pId, isCardOpen = openCardId === cardId;
       const li = el("li", "roster-item" + (isCardOpen ? " active" : "")), nameSpan = el("span");
       if(p.no){ nameSpan.appendChild(el("b", null, "#" + p.no)); nameSpan.appendChild(document.createTextNode(" ")); }
       nameSpan.appendChild(document.createTextNode(p.name));
-      li.appendChild(nameSpan); li.appendChild(el("span", "pos", p.pos));
+      li.appendChild(nameSpan);
+      if(ptsOf && ptsOf[idx] && ptsOf[idx].p > 0) li.appendChild(el("span", "pts-badge", ptsOf[idx].p + " PTS (" + ptsOf[idx].b + "B " + ptsOf[idx].a + "A)"));
+      li.appendChild(el("span", "pos", p.pos));
       li.addEventListener("click", () => { openCardId = isCardOpen ? null : cardId; renderRosters(); });
       frag.appendChild(li);
 
@@ -6702,20 +6718,30 @@ document.addEventListener("DOMContentLoaded", function(){
   /* ============ Simulation de match (démonstration) ============ */
   // Activée par le super administrateur (…/config/sim). Elle tourne seulement sur l'appareil qui regarde : aucune écriture,
   // rien dans l'historique ni dans les statistiques enregistrées. Un vrai match la remplace aussitôt.
-  var simCfg = { on: false, scope: "all", teams: {}, viewers: true, staff: false }, simReal = null, simTimer = null, simRestart = null;
+  var simCfg = { on: false, scope: "all", teams: {}, viewers: true, staff: false }, simReal = null, simTimer = null, simRestart = null, simFirstAt = null, simMine = "";
+  // Sirène de but de la simulation : quand notre équipe marque (si le son est activé sur l'appareil)
+  function simHorn(side){ try{ if(side === simMine && ready()) SFX.goalhorn(); }catch(e){} }
   function normSim(v){ v = v && typeof v === "object" ? v : {};
     return { on: !!v.on, scope: v.scope === "some" ? "some" : "all", teams: (v.teams && typeof v.teams === "object") ? v.teams : {}, viewers: v.viewers !== false, staff: !!v.staff }; }
   const simKey = () => boardTeam || boardTeams(currentCat)[0] || "";
-  function simAllowed(){
+  function simBase(){
     if(!simCfg) return false;
     const k = simKey();
     if(!simCfg.on || !k || !presets[k] || archiveKey || editEntry) return false;
     if(simCfg.scope === "some" && !simCfg.teams[k]) return false;
     if(currentRole === "viewer" ? !simCfg.viewers : !simCfg.staff) return false;
-    let stopped = ""; try{ stopped = sessionStorage.getItem("hk_sim_off") || ""; }catch(e){}
-    return stopped !== currentOrg + "|" + currentCat + "|" + k;
+    return true;
   }
-  function simMaybe(){ if(!simOn && presetsLoaded && !hasGame(state) && simAllowed()) simStart(); }
+  function simAllowed(){ return simBase() && !simUserOff(); }
+  function simUserOff(){ let s = ""; try{ s = sessionStorage.getItem("hk_sim_off") || ""; }catch(e){} return s === currentOrg + "|" + currentCat + "|" + simKey(); }
+  // Arrêtée par la personne : un bouton permet de la relancer (tant qu'aucun vrai match n'est en cours)
+  function simOffBar(){
+    const show = !simOn && presetsLoaded && !hasGame(state) && simUserOff() && simBase();
+    if(simOn) return;
+    $("simBar").hidden = !show; $("simBar").classList.toggle("off", show); $("simStop").hidden = show; $("simRelaunch").hidden = !show;
+  }
+  function simMaybe(){ if(!simOn && presetsLoaded && !hasGame(state) && simAllowed()) simStart(); else try{ simOffBar(); }catch(e){} }
+  on("simRelaunch", "click", () => { try{ sessionStorage.removeItem("hk_sim_off"); }catch(e){} simMaybe(); });
   const SIM_FIRST = ["Léo","Noah","William","Thomas","Félix","Jacob","Nathan","Olivier","Logan","Zack","Éli","Mathis","Antoine","Liam","Charles","Émile","Samuel","Raphaël"];
   const SIM_LAST = ["Tremblay","Gagnon","Roy","Côté","Bouchard","Gauthier","Morin","Lavoie","Fortin","Gagné","Ouellet","Pelletier","Bélanger","Lévesque","Bergeron","Leblanc","Paquette","Girard"];
   const SIM_TEAMS = ["Comètes","Requins","Loups","Faucons","Tigres","Ours polaires","Éclairs","Mustangs","Carcajous","Hiboux"];
@@ -6734,6 +6760,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const ok = others.length && Math.random() < .7 ? others[Math.floor(Math.random() * others.length)] : "";
     const opp = ok ? presets[ok] : { name: pick(SIM_TEAMS), color: "#F2707A", roster: [] };
     const home = Math.random() < .5, mine = home ? "a" : "b", theirs = home ? "b" : "a";
+    simMine = mine;
     const s = blank();
     s.id = "sim"; s.periodSec = 180; s.stopOnGoal = [true, true, true];
     s.names[mine] = me.name; s.names[theirs] = opp.name + (ok ? "" : " (inventée)");
@@ -6744,6 +6771,8 @@ document.addEventListener("DOMContentLoaded", function(){
     s.rosters[theirs] = rOp.filter(x => x.pos !== "G").length >= 5 ? rOp : simRoster();
     ["a", "b"].forEach(t => { const gi = s.rosters[t].findIndex(x => x.pos === "G"); if(gi >= 0) s.goalies[t] = pidOf(s.rosters[t][gi], gi); });
     s.timer = { sec: 180, running: true, lastUpdate: now() };
+    simFirstAt = 3 + Math.floor(Math.random() * 7);                    // le premier but tombe dans les 10 premières secondes
+    $("simBar").classList.remove("off"); $("simStop").hidden = false; $("simRelaunch").hidden = true;
     state = s; openCardId = null; render(); updateTickerDisplay();
     clearInterval(simTimer); simTimer = setInterval(simTick, 1000);
   }
@@ -6753,6 +6782,7 @@ document.addEventListener("DOMContentLoaded", function(){
     simOn = false; document.documentElement.classList.remove("sim-on"); $("simBar").hidden = true;
     if(byUser){ try{ sessionStorage.setItem("hk_sim_off", currentOrg + "|" + currentCat + "|" + simKey()); }catch(e){} }
     state = simReal || blank(); simReal = null; openCardId = null; render(); updateTickerDisplay();
+    try{ simOffBar(); }catch(e){}
   }
   on("simStop", "click", () => simStop(true));
   function simTick(){
@@ -6760,13 +6790,18 @@ document.addEventListener("DOMContentLoaded", function(){
     const s = state, t = remaining(), time = formatTime(t), per = s.period, ot = per === 3;
     const skaters = side => s.rosters[side].map((p, i) => ({ p: p, id: pidOf(p, i) })).filter(x => x.p.pos !== "G");
     if(!s.finished){
+      if(simFirstAt != null && per === 0 && 180 - t >= simFirstAt && !s.events.some(e => e.type === "goal")){
+        const side = Math.random() < .5 ? "a" : "b", sk = skaters(side), sc = pick(sk), a1 = pick(sk.filter(x => x !== sc));
+        s.shots[side][0]++; s.events.push({ id: uid(), type: "goal", team: side, period: 0, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: "", t: now() }); simHorn(side);
+        simFirstAt = null;
+      }
       ["a", "b"].forEach(side => {
         if(Math.random() < .085){
           s.shots[side][per]++;
           if(Math.random() < .11){
             const sk = skaters(side), sc = pick(sk), a = sk.filter(x => x !== sc);
             const a1 = Math.random() < .65 ? pick(a) : null, a2 = a1 && Math.random() < .45 ? pick(a.filter(x => x !== a1)) : null;
-            s.events.push({ id: uid(), type: "goal", team: side, period: per, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: a2 ? a2.id : "", t: now() });
+            s.events.push({ id: uid(), type: "goal", team: side, period: per, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: a2 ? a2.id : "", t: now() }); simHorn(side);
             if(ot){ simEnd(); return; }
           }
         }
