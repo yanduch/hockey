@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610231249">
+<meta name="build" content="202610231306">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -459,9 +459,10 @@ body.role-viewer .staff-only{display:none !important}
 .msg-row input{flex:1;padding:.45rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 .msg-row button{min-height:2.2rem;padding:.3rem .55rem;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
 #btnSound{position:fixed;right:.7rem;bottom:calc(.7rem + env(safe-area-inset-bottom,0px));width:2.5rem;height:2.5rem;border-radius:50%;border:1px solid var(--line);background:var(--surface);box-shadow:0 3px 10px rgba(0,0,0,.2);font-size:1.05rem;z-index:60;cursor:pointer}
-#audioHint{position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);background:#F9A825;color:#111;border:0;padding:.65rem 1.1rem;border-radius:999px;font-weight:800;font-size:.9rem;z-index:74;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer}
+#audioHint{pointer-events:none;animation:hintPulse 1.6s ease-in-out infinite;position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);background:#F9A825;color:#111;border:0;padding:.65rem 1.1rem;border-radius:999px;font-weight:800;font-size:.9rem;z-index:74;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer}
 #voiceTag{position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%);background:#C62828;color:#FFF;padding:.55rem 1rem;border-radius:999px;font-weight:800;font-size:.9rem;z-index:76;box-shadow:0 6px 18px rgba(0,0,0,.3)}
 #annMsg{position:fixed;left:50%;top:9rem;transform:translateX(-50%);width:min(94vw,28rem);background:var(--blue);color:#FFF;border-radius:16px;padding:1.1rem 1.2rem;box-shadow:0 12px 34px rgba(0,0,0,.35);z-index:75;text-align:center;font-size:1.25rem;font-weight:800;line-height:1.3;cursor:pointer;overflow-wrap:anywhere}
+@keyframes hintPulse{50%{transform:translateX(-50%) scale(1.04)}}
 #audioHint[hidden],#voiceTag[hidden],#annMsg[hidden],.amb[hidden]{display:none}
 .amb-wait{margin-top:.5rem;padding:.45rem .6rem;border:1px dashed var(--line);border-radius:8px;font-size:.82rem;color:var(--muted)}
 .amb-wait[hidden]{display:none}
@@ -1006,7 +1007,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 
 <button type="button" id="btnSound" aria-label="Son">🔊</button>
 <button type="button" id="scoreExit" aria-label="Quitter le mode pointage" title="Quitter le mode pointage">✕</button>
-<button type="button" id="audioHint" hidden>🔊 Touchez ici pour activer le son</button>
+<button type="button" id="audioHint" hidden>🔊 Touchez l'écran pour activer le son (sirène, annonces)</button>
 <div id="voiceTag" hidden>🎙️ Annonce en cours…</div>
 <div id="annMsg" hidden role="status" aria-live="assertive"></div>
 
@@ -2070,7 +2071,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610231249";
+  var BUILD = "202610231306";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6252,9 +6253,14 @@ document.addEventListener("DOMContentLoaded", function(){
   // Les sons sont créés par le navigateur (aucun fichier audio). Un seul son à la fois. Chacun peut couper le son chez lui.
   let actx = null, soundOn = true, bus = null;
   try { soundOn = localStorage.getItem("ohmtro_sound") !== "off"; } catch(e){}
-  function audioHint(){ $("audioHint").hidden = !(soundOn && ambWanted && !(actx && actx.state === "running")); }
+  // Invitation à activer le son : dès l'ouverture de la page (le navigateur l'exige à chaque chargement)
+  function audioHint(){ $("audioHint").hidden = !(soundOn && !(actx && actx.state === "running")); if(actx && actx.state === "running") playMissed(); }
   let ambWanted = false;                                          // un son a été envoyé alors que le son n'était pas activé ici
+  let missedHorn = 0;                                             // sirène demandée alors que le son était bloqué : rejouée dès l'activation
+  function playMissed(){ if(missedHorn && now() - missedHorn < 20000){ missedHorn = 0; setTimeout(() => { try{ SFX.goalhorn(); }catch(e){} }, 150); } else missedHorn = 0; }
+  let unlockAt = 0;                                               // moment où ce toucher a débloqué le son (le bouton 🔊 ne le coupe pas alors)
   function unlock(){
+    if(!actx || actx.state !== "running") unlockAt = Date.now();
     try {
       if(navigator.audioSession) navigator.audioSession.type = "playback";
       if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -6265,6 +6271,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   ["touchend", "click", "pointerup", "keydown"].forEach(t => document.addEventListener(t, unlock, { capture: true, passive: true }));
   const ready = () => { if(soundOn && actx && actx.state === "suspended") actx.resume().catch(() => {}); const r = !!(soundOn && actx && actx.state === "running"); if(!r && soundOn){ ambWanted = true; audioHint(); } return r; };
+  function hornNow(){ if(ready()) SFX.goalhorn(); else if(soundOn) missedHorn = now(); }
   function stopAll(){
     if(!bus || !actx) return;
     const b = bus; bus = null;
@@ -6274,6 +6281,8 @@ document.addEventListener("DOMContentLoaded", function(){
   function newBus(){ stopAll(); bus = actx.createGain(); bus.gain.value = 1; bus.connect(actx.destination); return bus; }
   function soundBtn(){ $("btnSound").textContent = soundOn ? "🔊" : "🔇"; $("btnSound").title = soundOn ? "Couper le son" : "Activer le son"; audioHint(); }
   on("btnSound", "click", () => {
+    // Son permis mais pas encore activé par le navigateur : ce toucher l'active (au lieu de le couper)
+    if(soundOn && (!(actx && actx.state === "running") || Date.now() - unlockAt < 1500)){ unlock(); soundBtn(); notify("Son activé."); return; }
     soundOn = !soundOn; try { localStorage.setItem("ohmtro_sound", soundOn ? "on" : "off"); } catch(e){}
     soundBtn(); if(soundOn){ unlock(); notify("Son activé."); } else { stopAll(); notify("Son coupé sur cet appareil."); }
   });
@@ -6410,7 +6419,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const side = state.teamKeys.a === top ? "a" : state.teamKeys.b === top ? "b" : "";
       if(!side){ hornTrack = { key: "", n: 0 }; return; }
       const key = boardBase + "|" + state.id + "|" + side, n = goalsOf(side);
-      if(hornTrack.key === key && n > hornTrack.n && isLive(state) && ready()) SFX.goalhorn();
+      if(hornTrack.key === key && n > hornTrack.n && isLive(state)) hornNow();
       hornTrack = { key: key, n: n };
     }catch(e){}
   }
@@ -6718,9 +6727,10 @@ document.addEventListener("DOMContentLoaded", function(){
   /* ============ Simulation de match (démonstration) ============ */
   // Activée par le super administrateur (…/config/sim). Elle tourne seulement sur l'appareil qui regarde : aucune écriture,
   // rien dans l'historique ni dans les statistiques enregistrées. Un vrai match la remplace aussitôt.
+  var SIM_LEN = 90;                    // une seule période de 1 min 30 s
   var simCfg = { on: false, scope: "all", teams: {}, viewers: true, staff: false }, simReal = null, simTimer = null, simRestart = null, simFirstAt = null, simMine = "";
   // Sirène de but de la simulation : quand notre équipe marque (si le son est activé sur l'appareil)
-  function simHorn(side){ try{ if(side === simMine && ready()) SFX.goalhorn(); }catch(e){} }
+  function simHorn(side){ try{ if(side === simMine) hornNow(); }catch(e){} }
   function normSim(v){ v = v && typeof v === "object" ? v : {};
     return { on: !!v.on, scope: v.scope === "some" ? "some" : "all", teams: (v.teams && typeof v.teams === "object") ? v.teams : {}, viewers: v.viewers !== false, staff: !!v.staff }; }
   const simKey = () => boardTeam || boardTeams(currentCat)[0] || "";
@@ -6762,7 +6772,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const home = Math.random() < .5, mine = home ? "a" : "b", theirs = home ? "b" : "a";
     simMine = mine;
     const s = blank();
-    s.id = "sim"; s.periodSec = 180; s.stopOnGoal = [true, true, true];
+    s.id = "sim"; s.periodSec = SIM_LEN; s.stopOnGoal = [true, true, true];
     s.names[mine] = me.name; s.names[theirs] = opp.name + (ok ? "" : " (inventée)");
     s.colors[mine] = hex(me.color, DEF_A); s.colors[theirs] = hex(opp.color, DEF_B);
     s.logos[mine] = me.logo || ""; s.logos[theirs] = opp.logo || "";
@@ -6770,7 +6780,7 @@ document.addEventListener("DOMContentLoaded", function(){
     s.rosters[mine] = rMe.filter(x => x.pos !== "G").length >= 5 ? rMe : simRoster();
     s.rosters[theirs] = rOp.filter(x => x.pos !== "G").length >= 5 ? rOp : simRoster();
     ["a", "b"].forEach(t => { const gi = s.rosters[t].findIndex(x => x.pos === "G"); if(gi >= 0) s.goalies[t] = pidOf(s.rosters[t][gi], gi); });
-    s.timer = { sec: 180, running: true, lastUpdate: now() };
+    s.timer = { sec: SIM_LEN, running: true, lastUpdate: now() };
     simFirstAt = 3 + Math.floor(Math.random() * 7);                    // le premier but tombe dans les 10 premières secondes
     $("simBar").classList.remove("off"); $("simStop").hidden = false; $("simRelaunch").hidden = true;
     state = s; openCardId = null; render(); updateTickerDisplay();
@@ -6790,7 +6800,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const s = state, t = remaining(), time = formatTime(t), per = s.period, ot = per === 3;
     const skaters = side => s.rosters[side].map((p, i) => ({ p: p, id: pidOf(p, i) })).filter(x => x.p.pos !== "G");
     if(!s.finished){
-      if(simFirstAt != null && per === 0 && 180 - t >= simFirstAt && !s.events.some(e => e.type === "goal")){
+      if(simFirstAt != null && per === 0 && SIM_LEN - t >= simFirstAt && !s.events.some(e => e.type === "goal")){
         const side = Math.random() < .5 ? "a" : "b", sk = skaters(side), sc = pick(sk), a1 = pick(sk.filter(x => x !== sc));
         s.shots[side][0]++; s.events.push({ id: uid(), type: "goal", team: side, period: 0, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: "", t: now() }); simHorn(side);
         simFirstAt = null;
@@ -6798,7 +6808,7 @@ document.addEventListener("DOMContentLoaded", function(){
       ["a", "b"].forEach(side => {
         if(Math.random() < .085){
           s.shots[side][per]++;
-          if(Math.random() < .11){
+          if(Math.random() < (side === simMine ? .14 : .08) && !(side !== simMine && t <= 15)){
             const sk = skaters(side), sc = pick(sk), a = sk.filter(x => x !== sc);
             const a1 = Math.random() < .65 ? pick(a) : null, a2 = a1 && Math.random() < .45 ? pick(a.filter(x => x !== a1)) : null;
             s.events.push({ id: uid(), type: "goal", team: side, period: per, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: a2 ? a2.id : "", t: now() }); simHorn(side);
@@ -6811,19 +6821,20 @@ document.addEventListener("DOMContentLoaded", function(){
                           reason: pick(["Accrochage", "Obstruction", "Retenue", "Bâton élevé", "Rudesse", "Trébucher"]), t: now() });
         }
       });
-      if(!s.finished && t <= 0){
-        if(per < 2){ s.period++; s.timer = { sec: 180, running: true, lastUpdate: now() }; }
-        else if(per === 2 && goalsOf("a") === goalsOf("b")){ s.period = 3; s.timer = { sec: 180, running: true, lastUpdate: now() }; }
-        else { simEnd(); return; }
+      // Notre équipe gagne toujours : dans les dernières secondes, elle marque jusqu'à prendre les devants
+      const them = simMine === "a" ? "b" : "a";
+      if(!s.finished && t <= 12 && goalsOf(simMine) <= goalsOf(them) && (t <= 2 || Math.random() < .35)){
+        const sk = skaters(simMine), sc = pick(sk), a1 = pick(sk.filter(x => x !== sc));
+        s.shots[simMine][per]++; s.events.push({ id: uid(), type: "goal", team: simMine, period: per, time: formatTime(Math.max(1, t)), scorer: sc.id, a1: a1 ? a1.id : "", a2: "", t: now() }); simHorn(simMine);
       }
+      if(!s.finished && t <= 0){ simEnd(); return; }       // une seule période
     }
     render(); updateTickerDisplay();
   }
   function simEnd(){
     const s = state; s.timer = { sec: 0, running: false, lastUpdate: now() }; s.finished = true; s.closed = true;
     s.events.push({ id: uid(), type: "sys", team: "sys", period: s.period, time: "00:00", text: END_TEXT, t: now() });
-    clearInterval(simTimer); simTimer = null; render(); updateTickerDisplay();
-    simRestart = setTimeout(() => { if(!simOn) return; simStop(false); simMaybe(); }, 45000);   // une autre simulation 45 s plus tard
+    clearInterval(simTimer); simTimer = null; render(); updateTickerDisplay();   // le résultat reste affiché, toujours identifié comme une simulation
   }
   // Réglages (super administrateur), dans la fiche de l'organisation
   function simFillForm(orgKey, v, pres){
