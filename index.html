@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610231306">
+<meta name="build" content="202610231440">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2071,7 +2071,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610231306";
+  var BUILD = "202610231440";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5389,7 +5389,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("btnTimerToggle").disabled = !game;
     document.documentElement.classList.toggle("no-game", !game);       // lancers et buts inactifs tant qu'aucune partie n'est lancée                     // pas de chronomètre tant qu'aucune partie n'est lancée
     document.documentElement.classList.toggle("no-teams", !game);
-    applyInv(); updateStatusDisplay(); goalHornCheck(); try{ bannerAtStart(); }catch(e){}
+    applyInv(); updateStatusDisplay(); goalHornCheck(); endBuzzCheck(); try{ bannerAtStart(); }catch(e){}
     if(game !== lastGameMode){                                // changement de mode : « Ce match » pendant une partie, « Tout (Saison) » sinon
       lastGameMode = game; rosterScope = game ? "match" : "all"; openCardId = null;
       $("btnScopeMatch").classList.toggle("active", game); $("btnScopeAll").classList.toggle("active", !game);
@@ -6343,6 +6343,14 @@ document.addEventListener("DOMContentLoaded", function(){
         o.connect(g); g.connect(lp); o.start(t0); lfo.start(t0); o.stop(t0 + 3.7); lfo.stop(t0 + 3.7);
       });
     },
+    endbuzzer(){                                                  // sirène de fin de période : klaxon d'aréna, sec et puissant
+      const out = master(.16), t0 = actx.currentTime + .03, lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600; lp.connect(out);
+      [196, 233, 294].forEach(f => {
+        const o = actx.createOscillator(), g = actx.createGain(); o.type = "square"; o.frequency.value = f;
+        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(1, t0 + .02); g.gain.setValueAtTime(1, t0 + 2.2); g.gain.linearRampToValueAtTime(0, t0 + 2.35);
+        o.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 2.4);
+      });
+    },
     drum(){ const out = master(.5), t0 = actx.currentTime + .03; for(let i = 0; i < 44; i++) burst(t0 + i * .055, .06, 2200, .8, .15 + i / 44 * .6, out); burst(t0 + 2.5, 1.6, 5000, .4, 1, out); burst(t0 + 2.5, .4, 120, 1, 1, out); },
     bell(extra){
       const out = master(extra ? .18 : .3, extra), t0 = actx.currentTime + .03;
@@ -6411,6 +6419,16 @@ document.addEventListener("DOMContentLoaded", function(){
   const ambTargets = () => [boardBase].concat(isLinked() && boardLink.team !== boardTeam ? [catBase() + "/boards/" + boardLink.team] : []);
   // Sirène automatique pour tous : quand l'équipe choisie en haut marque un but
   var hornTrack = { key: "", n: 0 };
+  // Sirène de fin de période et de fin de match (pour tous les appareils qui regardent la partie)
+  var endTrack = { id: "", per: 0, fin: false };
+  function endBuzzCheck(){
+    try{
+      if(archiveKey || editEntry || !hasGame(state)){ endTrack = { id: "", per: 0, fin: false }; return; }
+      const id = boardBase + "|" + (state.id || ""), per = state.period, fin = !!state.finished;
+      if(endTrack.id === id && ((per > endTrack.per && !endTrack.fin) || (fin && !endTrack.fin)) && ready()) SFX.endbuzzer();
+      endTrack = { id: id, per: per, fin: fin };
+    }catch(e){}
+  }
   function goalHornCheck(){
     if(simOn) return;
     try{
@@ -6728,7 +6746,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Activée par le super administrateur (…/config/sim). Elle tourne seulement sur l'appareil qui regarde : aucune écriture,
   // rien dans l'historique ni dans les statistiques enregistrées. Un vrai match la remplace aussitôt.
   var SIM_LEN = 90;                    // une seule période de 1 min 30 s
-  var simCfg = { on: false, scope: "all", teams: {}, viewers: true, staff: false }, simReal = null, simTimer = null, simRestart = null, simFirstAt = null, simMine = "";
+  var simCfg = { on: false, scope: "all", teams: {}, viewers: true, staff: false }, simReal = null, simTimer = null, simRestart = null, simFirstAt = null, simMine = "", simLastGoal = -99;
   // Sirène de but de la simulation : quand notre équipe marque (si le son est activé sur l'appareil)
   function simHorn(side){ try{ if(side === simMine) hornNow(); }catch(e){} }
   function normSim(v){ v = v && typeof v === "object" ? v : {};
@@ -6781,7 +6799,7 @@ document.addEventListener("DOMContentLoaded", function(){
     s.rosters[theirs] = rOp.filter(x => x.pos !== "G").length >= 5 ? rOp : simRoster();
     ["a", "b"].forEach(t => { const gi = s.rosters[t].findIndex(x => x.pos === "G"); if(gi >= 0) s.goalies[t] = pidOf(s.rosters[t][gi], gi); });
     s.timer = { sec: SIM_LEN, running: true, lastUpdate: now() };
-    simFirstAt = 3 + Math.floor(Math.random() * 7);                    // le premier but tombe dans les 10 premières secondes
+    simFirstAt = 3 + Math.floor(Math.random() * 7); simLastGoal = -99;   // le premier but (le nôtre) tombe dans les 10 premières secondes
     $("simBar").classList.remove("off"); $("simStop").hidden = false; $("simRelaunch").hidden = true;
     state = s; openCardId = null; render(); updateTickerDisplay();
     clearInterval(simTimer); simTimer = setInterval(simTick, 1000);
@@ -6800,15 +6818,17 @@ document.addEventListener("DOMContentLoaded", function(){
     const s = state, t = remaining(), time = formatTime(t), per = s.period, ot = per === 3;
     const skaters = side => s.rosters[side].map((p, i) => ({ p: p, id: pidOf(p, i) })).filter(x => x.p.pos !== "G");
     if(!s.finished){
-      if(simFirstAt != null && per === 0 && SIM_LEN - t >= simFirstAt && !s.events.some(e => e.type === "goal")){
-        const side = Math.random() < .5 ? "a" : "b", sk = skaters(side), sc = pick(sk), a1 = pick(sk.filter(x => x !== sc));
+      const el2 = SIM_LEN - t, gapOk = el2 - simLastGoal >= 15;     // au moins 15 s entre deux buts (la sirène a le temps de finir)
+      if(simFirstAt != null && per === 0 && el2 >= simFirstAt && !s.events.some(e => e.type === "goal")){
+        const side = simMine, sk = skaters(side), sc = pick(sk), a1 = pick(sk.filter(x => x !== sc));   // premier but : notre équipe
         s.shots[side][0]++; s.events.push({ id: uid(), type: "goal", team: side, period: 0, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: "", t: now() }); simHorn(side);
-        simFirstAt = null;
+        simFirstAt = null; simLastGoal = el2;
       }
       ["a", "b"].forEach(side => {
         if(Math.random() < .085){
           s.shots[side][per]++;
-          if(Math.random() < (side === simMine ? .14 : .08) && !(side !== simMine && t <= 15)){
+          if(gapOk && simFirstAt == null && simLastGoal !== el2 && Math.random() < (side === simMine ? .24 : .12) && !(side !== simMine && (t <= 32 || goalsOf(side) >= goalsOf(simMine)))){
+            simLastGoal = el2;
             const sk = skaters(side), sc = pick(sk), a = sk.filter(x => x !== sc);
             const a1 = Math.random() < .65 ? pick(a) : null, a2 = a1 && Math.random() < .45 ? pick(a.filter(x => x !== a1)) : null;
             s.events.push({ id: uid(), type: "goal", team: side, period: per, time: time, scorer: sc.id, a1: a1 ? a1.id : "", a2: a2 ? a2.id : "", t: now() }); simHorn(side);
@@ -6823,7 +6843,8 @@ document.addEventListener("DOMContentLoaded", function(){
       });
       // Notre équipe gagne toujours : dans les dernières secondes, elle marque jusqu'à prendre les devants
       const them = simMine === "a" ? "b" : "a";
-      if(!s.finished && t <= 12 && goalsOf(simMine) <= goalsOf(them) && (t <= 2 || Math.random() < .35)){
+      if(!s.finished && t <= 30 && el2 - simLastGoal >= 15 && goalsOf(simMine) <= goalsOf(them) && (t <= 16 || Math.random() < .3)){
+        simLastGoal = el2;
         const sk = skaters(simMine), sc = pick(sk), a1 = pick(sk.filter(x => x !== sc));
         s.shots[simMine][per]++; s.events.push({ id: uid(), type: "goal", team: simMine, period: per, time: formatTime(Math.max(1, t)), scorer: sc.id, a1: a1 ? a1.id : "", a2: "", t: now() }); simHorn(simMine);
       }
