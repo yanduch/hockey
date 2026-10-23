@@ -57,10 +57,10 @@ STATUS:Active
 END:VEVENT
 BEGIN:VEVENT
 UID:game-980337
-DTSTART:20261101T004500Z
-DTEND:20261101T021500Z
+DTSTART:20261101T223000Z
+DTEND:20261102T000000Z
 SUMMARY:BOUM VS AIGLES TROIS-RIVIERES-OUEST
-LOCATION:Colisée Videotron - Glace B, 6000 rue du Colisée, Trois-Rivières, G9B 0Y7
+LOCATION:Colisée Videotron - Amphithéatre, 6000 rue du Colisée, Trois-Rivières, G9B 0Y7
 DESCRIPTION:Game\nhttps://page.spordle.com/en/ligue-de-hockey-de-la-mauricie/schedule/980337
 CATEGORIES:Game
 STATUS:Active
