@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610231630">
+<meta name="build" content="202610231648">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2099,7 +2099,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610231630";
+  var BUILD = "202610231648";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6375,15 +6375,25 @@ document.addEventListener("DOMContentLoaded", function(){
         o.connect(g); g.connect(lp); o.start(t0); lfo.start(t0); o.stop(t0 + 3.7); lfo.stop(t0 + 3.7);
       });
     },
-    endbuzzer(){                                                  // sirène de fin de période : monte et descend (deux cycles)
-      const out = master(.18), t0 = actx.currentTime + .03, lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3200; lp.connect(out);
-      [[1, "sawtooth", .55], [1.005, "square", .35]].forEach(v => {
-        const o = actx.createOscillator(), g = actx.createGain(); o.type = v[1];
-        o.frequency.setValueAtTime(420 * v[0], t0);
-        for(let c = 0; c < 2; c++){ const b = t0 + c * 1.6; o.frequency.linearRampToValueAtTime(980 * v[0], b + .8); o.frequency.linearRampToValueAtTime(420 * v[0], b + 1.6); }
-        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v[2], t0 + .06); g.gain.setValueAtTime(v[2], t0 + 3.05); g.gain.linearRampToValueAtTime(0, t0 + 3.25);
-        o.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 3.3);
+    endbuzzer(){                                                  // corne de fin de période : son plat, grave et puissant, 3 s
+      const out = master(.2), t0 = actx.currentTime + .03, lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1100; lp.connect(out);
+      [98, 123.5, 146.8, 196].forEach((f, i) => {
+        const o = actx.createOscillator(), g = actx.createGain(); o.type = "sawtooth"; o.frequency.value = f * (1 + (i % 2 ? .003 : -.002));
+        g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(1, t0 + .05); g.gain.setValueAtTime(1, t0 + 2.8); g.gain.linearRampToValueAtTime(0, t0 + 3.1);
+        o.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 3.2);
       });
+    },
+    sadtrombone(){                                                // but de l'adversaire : « whomp whomp » descendant
+      const out = master(.22), t0 = actx.currentTime + .03, lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 6; lp.connect(out);
+      const notes = [[293.7, 0, .42], [277.2, .45, .42], [261.6, .9, .42], [246.9, 1.35, 1.5]];
+      notes.forEach((n, i) => {
+        const o = actx.createOscillator(), g = actx.createGain(), st = t0 + n[1], d = n[2]; o.type = "sawtooth"; o.frequency.setValueAtTime(n[0], st);
+        if(i === 3){ const lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 5.5; lg.gain.value = 7; lfo.connect(lg); lg.connect(o.frequency); lfo.start(st + .25); lfo.stop(st + d); o.frequency.linearRampToValueAtTime(n[0] * .94, st + d); }
+        g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(.9, st + .06); g.gain.setValueAtTime(.9, st + d - .12); g.gain.linearRampToValueAtTime(0, st + d);
+        o.connect(g); g.connect(lp); o.start(st); o.stop(st + d + .05);
+      });
+      // « wah » : le filtre s'ouvre et se ferme sur chaque note, comme une sourdine
+      notes.forEach(n => { const st = t0 + n[1]; lp.frequency.setValueAtTime(500, st); lp.frequency.linearRampToValueAtTime(1800, st + .12); lp.frequency.linearRampToValueAtTime(700, st + n[2]); });
     },
     drum(){ const out = master(.5), t0 = actx.currentTime + .03; for(let i = 0; i < 44; i++) burst(t0 + i * .055, .06, 2200, .8, .15 + i / 44 * .6, out); burst(t0 + 2.5, 1.6, 5000, .4, 1, out); burst(t0 + 2.5, .4, 120, 1, 1, out); },
     bell(extra){
@@ -6471,8 +6481,10 @@ document.addEventListener("DOMContentLoaded", function(){
       const side = state.teamKeys.a === top ? "a" : state.teamKeys.b === top ? "b" : "";
       if(!side){ hornTrack = { key: "", n: 0 }; return; }
       const key = boardBase + "|" + state.id + "|" + side, n = goalsOf(side);
+      const other = side === "a" ? "b" : "a", no = goalsOf(other);
       if(hornTrack.key === key && n > hornTrack.n && isLive(state)) hornNow();
-      hornTrack = { key: key, n: n };
+      else if(hornTrack.key === key && no > (hornTrack.no || 0) && isLive(state) && ready()) SFX.sadtrombone();   // but de l'adversaire
+      hornTrack = { key: key, n: n, no: no };
     }catch(e){}
   }
   const ambLive = () => isStaff() && isLive(state) && !editEntry && !archiveKey && !simOn;
@@ -6857,7 +6869,7 @@ document.addEventListener("DOMContentLoaded", function(){
   var simPlan = [];                    // les 3 buts prévus : [secondes écoulées, équipe]
   var simCfg = { on: false, scope: "all", teams: {}, viewers: true, staff: false }, simReal = null, simTimer = null, simRestart = null, simFirstAt = null, simMine = "", simLastGoal = -99;
   // Sirène de but de la simulation : quand notre équipe marque (si le son est activé sur l'appareil)
-  function simHorn(side){ try{ if(side === simMine) hornNow(); }catch(e){} }
+  function simHorn(side){ try{ if(side === simMine) hornNow(); else if(ready()) SFX.sadtrombone(); }catch(e){} }
   function normSim(v){ v = v && typeof v === "object" ? v : {};
     return { on: !!v.on, scope: v.scope === "some" ? "some" : "all", teams: (v.teams && typeof v.teams === "object") ? v.teams : {}, viewers: v.viewers !== false, staff: !!v.staff }; }
   const simKey = () => boardTeam || boardTeams(currentCat)[0] || "";
