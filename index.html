@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610231448">
+<meta name="build" content="202610231524">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -430,6 +430,12 @@ html.booting .wrap::after{content:"Chargement…";display:block;text-align:cente
 .sim-bar[hidden]{display:none}
 .sim-teams{display:grid;gap:.1rem;margin:.2rem 0 .4rem .2rem}
 html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
+.vis-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin:.2rem 0 .6rem}
+.vis-sum div{background:var(--crease);border-radius:10px;padding:.5rem;text-align:center}
+.vis-sum b{display:block;font-size:1.4rem;font-family:var(--display)}
+.vis-sum small{font-size:.68rem;color:var(--muted);font-weight:700;text-transform:uppercase}
+.vis-table td,.vis-table th{font-size:.78rem}
+.vis-table td:nth-child(2){text-align:left}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -1117,6 +1123,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <button type="button" class="act-1" id="btnOpenCalendar" style="width:100%;min-height:2.8rem;font-weight:600;background:#B5651D;color:#FFF;">📅 Gestion calendrier</button>
     <button type="button" class="act-1" id="btnOpenMessagesManage" style="width:100%;min-height:2.8rem;font-weight:600;background:#1F7A4D;color:#FFF;">📢 Gestion des messages</button>
     <button type="button" class="act-1" id="btnOpenHistoryManage" style="width:100%;min-height:2.8rem;font-weight:600;background:#2E63C6;color:#FFF;">🗂️ Gestion de l'historique</button>
+    <button type="button" class="act-1 org-admin-only" id="btnOpenVisits" style="width:100%;min-height:2.8rem;font-weight:600;background:#0E7C86;color:#FFF;">📈 Fréquentation du site</button>
     </div>
 
     <div class="field-group admin-only org-admin-only" style="margin-top:1.2rem;">
@@ -1403,6 +1410,26 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <div class="actions" style="margin-top:1.2rem;">
       <button type="button" class="act-2" id="evtTypesCancel">Annuler</button>
       <button type="button" class="act-1" id="evtTypesSave">Enregistrer</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="visitsSheet">
+  <div class="sheet-in">
+    <h2>Fréquentation du site</h2>
+    <p class="ctx">Chaque appareil est compté une fois par jour (visiteur unique), et chaque ouverture de la page compte comme une connexion. Aucune donnée personnelle n'est gardée.</p>
+    <div class="inline-row" style="margin-bottom:.6rem;">
+      <select id="visOrg" aria-label="Organisation" class="full-input"></select>
+      <select id="visDays" aria-label="Période" style="flex:0 1 8rem;"><option value="7">7 jours</option><option value="30" selected>30 jours</option><option value="90">90 jours</option><option value="365">1 an</option></select>
+    </div>
+    <div class="vis-sum" id="visSum"></div>
+    <h3 class="sheet-sub">Par match</h3>
+    <div class="stand-wrap"><table class="stand vis-table" id="visGames"></table></div>
+    <h3 class="sheet-sub">Par jour</h3>
+    <div class="stand-wrap"><table class="stand vis-table" id="visDaysTbl"></table></div>
+    <div class="actions" style="margin-top:1.2rem;">
+      <button type="button" class="act-2" id="visBack">Retour</button>
+      <button type="button" class="act-1" id="visClose">Fermer</button>
     </div>
   </div>
 </dialog>
@@ -2072,7 +2099,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610231448";
+  var BUILD = "202610231524";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2691,6 +2718,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(archiveKey){ liveState = s; bootDone(); return; }
     if(simOn){ if(hasGame(s)){ simStop(false); } else { simReal = s; bootDone(); return; } }   // un vrai match remplace la simulation
     state = s; syncStateWithPresets(); render(); bootDone();
+    try{ statVisit(); statGame(); }catch(e){}
     simMaybe();
   }
 
@@ -2787,7 +2815,7 @@ document.addEventListener("DOMContentLoaded", function(){
       presets = (v && typeof v === "object") ? v : {};
       presetsRev++; indexPresets(); try{ renderStandings(); }catch(e){}
       setTimeout(() => { try{ spordleAuto(); }catch(e){} }, 1500);
-      setTimeout(() => { try{ simMaybe(); }catch(e){} }, 700);
+      setTimeout(() => { try{ simMaybe(); statVisit(); }catch(e){} }, 700);
       try{ checkMarqueurScope(); }catch(e){}
       if(resolveBoard()) return;         // changement de tableau : l'affichage est refait par attachBoard
       syncStateWithPresets(); render();
@@ -6744,6 +6772,71 @@ document.addEventListener("DOMContentLoaded", function(){
     const a = document.createElement("a"); a.href = out.toDataURL("image/png"); a.download = "QR " + it.name.replace(/[^\wÀ-ÿ -]+/g, "").trim() + ".png";
     document.body.appendChild(a); a.click(); a.remove();
   });
+
+  /* ============ Fréquentation : visiteurs uniques par jour et par match ============ */
+  // …/<org>/stats/days/<AAAA-MM-JJ>/<appareil> = { n: ouvertures, s: 1 si personne connectée }
+  // …/<org>/stats/games/<partie>/v/<appareil> = 1 ; …/meta = { cat, a, b, date }
+  // L'appareil est un numéro au hasard gardé sur l'appareil : rien de personnel.
+  var visitorId = "";
+  try{ visitorId = localStorage.getItem("hk_vid") || ""; if(!visitorId){ visitorId = "v" + uid(); localStorage.setItem("hk_vid", visitorId); } }catch(e){ visitorId = "v" + uid(); }
+  var visCounted = {}, gameCounted = {};
+  function statVisit(){
+    if(!currentOrg || visCounted[currentOrg]) return;
+    visCounted[currentOrg] = true;
+    const r = ref(currentOrg + "/stats/days/" + todayStr() + "/" + visitorId);
+    r.once("value").then(s => { const v = obj(s.val()); r.set({ n: (Number(v.n) || 0) + 1, s: (v.s || isStaff()) ? 1 : 0 }); }, () => {});
+  }
+  function statGame(){
+    if(simOn || editEntry || archiveKey || !state.id || !hasGame(state)) return;
+    const k = currentOrg + "|" + state.id; if(gameCounted[k]) return; gameCounted[k] = true;
+    const base = currentOrg + "/stats/games/" + cleanKey(state.id);
+    ref(base + "/v/" + visitorId).set(1);
+    ref(base + "/meta").set({ cat: currentCat, a: state.names.a, b: state.names.b, date: todayStr() });
+  }
+  // Fenêtre des statistiques (administrateur d'organisation : la sienne ; super administrateur : toutes)
+  let visData = {};
+  on("btnOpenVisits", "click", () => {
+    if(!isAdmin() || isTeamAdmin()) return;
+    const items = isSuper() ? [{ value: "*", label: "Toutes les organisations" }].concat(orgItems()) : orgItems().filter(o => o.value === currentOrg);
+    fillSelect($("visOrg"), items, isSuper() ? "*" : currentOrg); $("visOrg").disabled = !isSuper();
+    swapDlg("settingsSheet", "visitsSheet"); visLoad();
+  });
+  on("visOrg", "change", visLoad); on("visDays", "change", visRender);
+  on("visBack", "click", () => swapDlg("visitsSheet", "settingsSheet"));
+  on("visClose", "click", () => closeDlg("visitsSheet"));
+  function visLoad(){
+    const v = $("visOrg").value, orgs = v === "*" ? organizationsList.map(o => o.id) : [v];
+    $("visSum").textContent = "Chargement…"; visData = {};
+    Promise.all(orgs.map(o => ref(o + "/stats").once("value").then(s => { visData[o] = obj(s.val()); }, () => { visData[o] = {}; }))).then(visRender);
+  }
+  function visRender(){
+    const nd = Number($("visDays").value) || 30, d0 = new Date(); d0.setDate(d0.getDate() - nd + 1);
+    const from = d0.getFullYear() + "-" + pad2(d0.getMonth() + 1) + "-" + pad2(d0.getDate()), all = $("visOrg").value === "*";
+    const days = {}, uniq = {}; let loads = 0;
+    Object.keys(visData).forEach(o => { const D = obj(visData[o].days);
+      Object.keys(D).forEach(day => { if(day < from) return; const row = days[day] || (days[day] = { u: {}, n: 0, s: 0 });
+        Object.keys(obj(D[day])).forEach(vid => { const x = obj(D[day][vid]); row.u[vid] = 1; uniq[vid] = 1; const n = Number(x.n) || 1; row.n += n; loads += n; if(x.s) row.s++; }); }); });
+    const sum = $("visSum"); sum.textContent = "";
+    [[Object.keys(uniq).length, "visiteurs uniques"], [loads, "connexions"], [Object.keys(days).length ? (loads / Object.keys(days).length).toFixed(1).replace(".", ",") : "0", "connexions / jour"]]
+      .forEach(c => { const b = el("div"); b.appendChild(el("b", null, String(c[0]))); b.appendChild(el("small", null, c[1])); sum.appendChild(b); });
+    // Par match
+    const gt = $("visGames"); gt.textContent = "";
+    const games = [];
+    Object.keys(visData).forEach(o => { const G = obj(visData[o].games); Object.keys(G).forEach(id => { const g = obj(G[id]), m = obj(g.meta);
+      if(m.date && m.date < from) return; games.push({ org: o, date: m.date || "", cat: String(m.cat || "").toUpperCase(), title: (m.b || "Visiteur") + " @ " + (m.a || "Local"), n: Object.keys(obj(g.v)).length }); }); });
+    games.sort((x, y) => String(y.date).localeCompare(String(x.date)));
+    const head = (tbl, cols) => { const tr = el("tr"); cols.forEach(c => tr.appendChild(el("th", null, c))); tbl.appendChild(tr); };
+    const orgName = k => { const o = organizationsList.find(x => x.id === k); return o ? o.name : k; };
+    if(!games.length){ const tr = el("tr"), td = el("td", null, "Aucun match regardé pendant cette période."); td.colSpan = 4; td.style.textAlign = "center"; tr.appendChild(td); gt.appendChild(tr); }
+    else { head(gt, ["Date", "Match", "Cat.", "Spect."]);
+      games.forEach(g => { const tr = el("tr"); [g.date ? calWhen({ date: g.date }) : "–", g.title + (all ? " · " + orgName(g.org) : ""), g.cat, String(g.n)].forEach((c, i) => tr.appendChild(el("td", i === 3 ? "pts" : null, c))); gt.appendChild(tr); }); }
+    // Par jour
+    const dt = $("visDaysTbl"); dt.textContent = "";
+    const ks = Object.keys(days).sort().reverse();
+    if(!ks.length){ const tr = el("tr"), td = el("td", null, "Aucune visite pendant cette période."); td.colSpan = 4; td.style.textAlign = "center"; tr.appendChild(td); dt.appendChild(tr); return; }
+    head(dt, ["Date", "Visiteurs uniques", "Connexions", "Dont connectés"]);
+    ks.forEach(k => { const r = days[k], tr = el("tr"); [calWhen({ date: k }), String(Object.keys(r.u).length), String(r.n), String(r.s)].forEach((c, i) => tr.appendChild(el("td", i === 1 ? "pts" : null, c))); dt.appendChild(tr); });
+  }
 
   /* ============ Simulation de match (démonstration) ============ */
   // Activée par le super administrateur (…/config/sim). Elle tourne seulement sur l'appareil qui regarde : aucune écriture,
