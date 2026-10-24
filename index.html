@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610241253">
+<meta name="build" content="202610241734">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1263,6 +1263,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <small id="calSpordleNote" hidden style="display:block;margin:-.2rem 0 .6rem;color:var(--muted);font-size:.76rem;text-align:center;"></small>
     <button type="button" class="act-2 super-only" id="calImport" style="width:100%;min-height:2.4rem;margin-bottom:.8rem;font-size:.88rem;">📥 Importer un horaire (.ics)</button>
     <input type="file" id="calIcsFile" accept=".ics,text/calendar" hidden>
+    <button type="button" class="act-2 org-admin-only" id="calMerge" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">🔀 Fusionner deux noms d'équipe (doublons)</button>
     <ul class="cal-list" id="calList"></ul>
     <div class="actions" style="margin-top:1.2rem;">
       <button type="button" class="act-2" id="calBack">Retour</button>
@@ -1403,6 +1404,21 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <button type="button" class="act-1" id="evtSave">Enregistrer</button>
     </div>
     <button type="button" class="danger" id="evtDelete" hidden>Supprimer cet événement (toutes ses dates)</button>
+  </div>
+</dialog>
+
+<dialog id="mergeSheet">
+  <div class="sheet-in">
+    <h2>Fusionner deux équipes</h2>
+    <p class="ctx">Une même équipe écrite de deux façons (ex. « Riverains » et « Riverains Bécancour ») : ses parties, son historique et ses statistiques sont regroupés sous le nom gardé. Les prochaines importations et synchronisations Spordle utiliseront aussi ce nom.</p>
+    <p class="ctx" id="mergeCat" style="font-weight:700;"></p>
+    <div class="field-group"><label for="mergeKeep">Nom à garder :</label><select id="mergeKeep" class="full-input"></select></div>
+    <div class="field-group" style="margin-top:.6rem;"><label for="mergeDrop">Nom en double (sera remplacé) :</label><select id="mergeDrop" class="full-input"></select></div>
+    <p class="ctx" id="mergeInfo" style="margin-top:.6rem;"></p>
+    <div class="actions" style="margin-top:1.2rem;">
+      <button type="button" class="act-2" id="mergeCancel">Annuler</button>
+      <button type="button" class="act-1" id="mergeGo">Fusionner</button>
+    </div>
   </div>
 </dialog>
 
@@ -2109,7 +2125,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610241253";
+  var BUILD = "202610241734";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -4610,6 +4626,8 @@ document.addEventListener("DOMContentLoaded", function(){
                        .sort((x, y) => normKey(calPresets[y].name).length - normKey(calPresets[x].name).length);
     return inside[0] || "__other";
   }
+  // Nom proposé pour une équipe non enregistrée : celui déjà utilisé au calendrier pour la même équipe, s'il y en a un
+  const icsOtherName = n => sameTeamName(n, calMgr.reduce((a, c) => a.concat([c.a, c.b]), [])) || niceName(n);
   function icsArena(g){
     const short = s => normKey(s).replace(/^(arena|centre|complexe|colisee)_/, ""), k = short(g.arenaName);
     const hit = arenaList().filter(a => short(a.name) === k)[0]; if(hit) return hit.id;
@@ -4642,7 +4660,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const names = {}; icsGames.forEach(g => { names[g.b] = true; names[g.a] = true; });
       icsNames = Object.keys(names).sort((x, y) => x.localeCompare(y, "fr", { numeric: true }));
       icsNames.forEach(n => { const v = icsGuessTeam(n, icsSaved), s = icsSaved[normKey(n)];
-        icsMap[n] = { key: v, other: (typeof s === "string" && s.charAt(0) === "=" && s.length > 1) ? s.slice(1) : niceName(n) }; });
+        icsMap[n] = { key: v, other: (typeof s === "string" && s.charAt(0) === "=" && s.length > 1) ? s.slice(1) : icsOtherName(n) }; });
       icsOpen();
     }, () => notify("Impossible de lire les associations d'équipes.", "error"));
   }
@@ -4720,6 +4738,16 @@ document.addEventListener("DOMContentLoaded", function(){
     notify("Horaire importé dans " + calCat.toUpperCase() + " :\n" + added + " partie" + (added > 1 ? "s" : "") + " ajoutée" + (added > 1 ? "s" : "") + ", " + updated + " modifiée" + (updated > 1 ? "s" : "") + ", " + same + " inchangée" + (same > 1 ? "s" : "") + ".", "done");
   });
 
+  // Deux écritures d'une même équipe : tous les mots du nom le plus court se retrouvent dans l'autre (« Patriotes » / « Patriotes UQTR »)
+  function sameTeamName(n, names){
+    const words = s => normKey(s).split("_").filter(w => w.length >= 3 && !/^\d+$/.test(w));
+    const digits = s => normKey(s).split("_").filter(w => /^\d+$/.test(w)).join(",");
+    const a = words(n), da = digits(n); if(!a.length) return "";
+    const cands = {}; names.forEach(x => { if(x && x !== "Local" && x !== "Visiteur") cands[x] = 1; });
+    const hits = Object.keys(cands).filter(x => { const b = words(x), db = digits(x); if(!b.length || (da && db && da !== db)) return false;   // « Faucons 1 » ≠ « Faucons 2 »
+      const [s, l] = b.length <= a.length ? [b, a] : [a, b]; return s.every(w => l.indexOf(w) !== -1); });
+    return hits.sort((x, y) => x.length - y.length)[0] || "";
+  }
   /* --- Abonnement au calendrier Spordle d'une équipe (adresse .ics de l'équipe, inscrite dans sa fiche) --- */
   // Lu à l'ouverture de la page, au plus une fois l'heure (pour tous les visiteurs), ou sur demande dans Gestion calendrier.
   // Les parties gardent le numéro Spordle : mises à jour sans doublon, même celles importées avant à la main.
@@ -4757,6 +4785,9 @@ document.addEventListener("DOMContentLoaded", function(){
                       keys.filter(t => { const m = normKey(presets[t].name); return m.length >= 3 && ("_" + k + "_").indexOf("_" + m + "_") !== -1; })
                           .sort((x, y) => normKey(presets[y].name).length - normKey(presets[x].name).length)[0];
           if(hit){ map[k] = hit; return { key: hit, name: presets[hit].name }; }
+          // Nom déjà utilisé au calendrier pour la même équipe (« Riverains » et « RIVERAINS BÉCANCOUR ») : on le reprend
+          const same = sameTeamName(n, Object.keys(cal).map(id => cal[id]).reduce((a, c) => c && typeof c === "object" ? a.concat([c.a, c.b]) : a, []));
+          if(same){ map[k] = "=" + same; return { key: "", name: same }; }
           const nm = niceName(n); map[k] = "=" + nm; return { key: "", name: nm };
         };
         const seen = {}; let added = 0, updated = 0, removed = 0;
@@ -4816,6 +4847,70 @@ document.addEventListener("DOMContentLoaded", function(){
       notify(res.map(x => presets[x.k].name + " : " + (x.e ? "lecture impossible (" + (x.e.message || x.e) + ")" :
         !x.r ? "déjà en cours" : x.r.games + " partie" + (x.r.games > 1 ? "s" : "") + " · " + x.r.added + " ajoutée" + (x.r.added > 1 ? "s" : "") + ", " + x.r.updated + " modifiée" + (x.r.updated > 1 ? "s" : "") + ", " + x.r.removed + " retirée" + (x.r.removed > 1 ? "s" : "") + " · " + x.r.practices + " pratique" + (x.r.practices > 1 ? "s" : ""))).join("\n"),
         res.some(x => x.e) ? "error" : "done");
+    });
+  });
+
+  /* --- Fusionner deux noms d'équipe (doublons) dans une catégorie --- */
+  let mergeHist = {}, mergeNames = {};
+  on("calMerge", "click", () => {
+    if(!isAdmin() || isTeamAdmin() || !calCat) return;
+    setText("mergeCat", pwdOrgLabelOf(calOrg) + " · " + calCat.toUpperCase()); setText("mergeInfo", "Chargement…");
+    ref(calOrg + "/" + calCat + "/history").once("value").then(s => {
+      mergeHist = obj(s.val()); mergeNames = {};
+      // Chaque nom : clé d'équipe enregistrée (s'il y en a une) et nombre d'apparitions
+      const add = (n, k) => { n = String(n || "").trim(); if(!n || n === "Local" || n === "Visiteur") return; const x = mergeNames[n] || (mergeNames[n] = { key: "", cal: 0, hist: 0 }); if(k && calPresets[k]) x.key = k; return x; };
+      calTeams(calCat).forEach(k => add(calPresets[k].name, k));
+      calMgr.forEach(c => { const xa = add(c.a, c.aKey), xb = add(c.b, c.bKey); if(xa) xa.cal++; if(xb) xb.cal++; });
+      Object.keys(mergeHist).forEach(id => { const m = obj(mergeHist[id]), nm = obj(m.names), tk = obj(m.teamKeys); ["a", "b"].forEach(t => { const x = add(nm[t], tk[t]); if(x) x.hist++; }); });
+      const items = Object.keys(mergeNames).sort((x, y) => x.localeCompare(y, "fr", { numeric: true }))
+        .map(n => ({ value: n, label: n + (mergeNames[n].key ? " ★" : "") + " (" + (mergeNames[n].cal + mergeNames[n].hist) + ")" }));
+      fillSelect($("mergeKeep"), items, null, "-- Choisir --"); fillSelect($("mergeDrop"), items, null, "-- Choisir --");
+      mergeInfoRefresh(); swapDlg("calendarSheet", "mergeSheet");
+    }, () => notify("Impossible de lire l'historique.", "error"));
+  });
+  function mergeInfoRefresh(){
+    const k = $("mergeKeep").value, d = $("mergeDrop").value;
+    if(!k || !d){ setText("mergeInfo", "★ = équipe enregistrée. Le nombre entre parenthèses : parties où le nom paraît."); return; }
+    if(k === d){ setText("mergeInfo", "Choisissez deux noms différents."); return; }
+    const x = mergeNames[d];
+    setText("mergeInfo", "« " + d + " » sera remplacé par « " + k + " » dans " + x.cal + " partie" + (x.cal > 1 ? "s" : "") + " du calendrier et " + x.hist + " de l'historique." + (x.key ? " Sa fiche d'équipe sera retirée (son alignement est ajouté à celle gardée)." : ""));
+  }
+  on("mergeKeep", "change", mergeInfoRefresh); on("mergeDrop", "change", mergeInfoRefresh);
+  on("mergeCancel", "click", () => swapDlg("mergeSheet", "calendarSheet"));
+  on("mergeGo", "click", () => {
+    const keep = $("mergeKeep").value, drop = $("mergeDrop").value;
+    if(!isAdmin() || !keep || !drop || keep === drop){ notify("Choisissez le nom à garder et le nom en double.", "info"); return; }
+    const K = mergeNames[keep], D = mergeNames[drop], kKey = K.key || "", dKey = D.key || "", base = calOrg + "/" + calCat;
+    ask("Fusionner « " + drop + " » dans « " + keep + " » ?\nCette action ne peut pas être annulée.", { ok: "Fusionner" }).then(ok => {
+      if(!ok) return;
+      let nc = 0, nh = 0;
+      // Calendrier
+      calMgr.forEach(c => { ["a", "b"].forEach(t => { const kk = t === "a" ? "aKey" : "bKey";
+        if(c[t] === drop || (dKey && c[kk] === dKey)){ ref(base + "/calendar/" + c.id + "/" + t).set(keep); ref(base + "/calendar/" + c.id + "/" + kk).set(kKey); nc++; } }); });
+      // Historique (noms et équipes de chaque partie)
+      Object.keys(mergeHist).forEach(id => { const m = obj(mergeHist[id]), nm = obj(m.names), tk = obj(m.teamKeys);
+        ["a", "b"].forEach(t => { if(nm[t] === drop || (dKey && tk[t] === dKey)){ ref(base + "/history/" + id + "/names/" + t).set(keep); if(kKey || tk[t]) ref(base + "/history/" + id + "/teamKeys/" + t).set(kKey); nh++; } }); });
+      // Pratiques et événements d'une équipe enregistrée en double
+      if(dKey && kKey){
+        ref(base + "/events").once("value").then(s => { const ev = obj(s.val()); Object.keys(ev).forEach(id => { if(ev[id] && ev[id].team === dKey) ref(base + "/events/" + id + "/team").set(kKey); }); });
+      }
+      // Associations des importations (.ics, Spordle) : le nom en double mène désormais à l'équipe gardée
+      ref(base + "/icsTeams").once("value").then(s => { const map = obj(s.val()); let ch = false;
+        Object.keys(map).forEach(n => { const v = map[n]; if(v === "=" + drop || (dKey && v === dKey)){ map[n] = kKey || "=" + keep; ch = true; } });
+        map[normKey(drop)] = kKey || "=" + keep; ch = true;
+        if(ch) ref(base + "/icsTeams").set(map); });
+      // Fiche d'équipe en double : son alignement rejoint la fiche gardée, puis elle est retirée
+      if(dKey && calPresets[dKey]){
+        if(kKey && calPresets[kKey]){
+          const kp = calPresets[kKey], have = {}; toArr(kp.roster).forEach(p => { have[(p.no || "") + "|" + String(p.name || "").toLowerCase()] = 1; });
+          const add = toArr(calPresets[dKey].roster).filter(p => !have[(p.no || "") + "|" + String(p.name || "").toLowerCase()]);
+          if(add.length) ref(calOrg + "/teams_presets/" + kKey + "/roster").set(toArr(kp.roster).concat(add));
+          if(!kp.icsUrl && calPresets[dKey].icsUrl) ref(calOrg + "/teams_presets/" + kKey + "/icsUrl").set(calPresets[dKey].icsUrl);
+        }
+        ref(calOrg + "/teams_presets/" + dKey).remove();
+      }
+      swapDlg("mergeSheet", "calendarSheet");
+      notify("Fusion faite : " + nc + " mention" + (nc > 1 ? "s" : "") + " au calendrier et " + nh + " dans l'historique ont maintenant le nom « " + keep + " ».", "done");
     });
   });
 
