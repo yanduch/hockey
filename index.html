@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610241734">
+<meta name="build" content="202610241833">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -798,7 +798,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <span class="side-tag">Local</span>
       <div class="team-header">
         <img src="" alt="" class="team-logo" id="logoA">
-        <input class="name" id="nameA" maxlength="18" readonly tabindex="-1" aria-label="Nom de l'équipe locale" autocomplete="off" enterkeyhint="done">
+        <input class="name" id="nameA" maxlength="30" readonly tabindex="-1" aria-label="Nom de l'équipe locale" autocomplete="off" enterkeyhint="done">
       </div>
       <span class="score" id="scoreA">0</span>
       <p class="shots"><b id="shotsA">0</b><span id="lblShotsA">lancer</span></p>
@@ -821,7 +821,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <span class="side-tag">Visiteur</span>
       <div class="team-header">
         <img src="" alt="" class="team-logo" id="logoB">
-        <input class="name" id="nameB" maxlength="18" readonly tabindex="-1" aria-label="Nom de l'équipe visiteuse" autocomplete="off" enterkeyhint="done">
+        <input class="name" id="nameB" maxlength="30" readonly tabindex="-1" aria-label="Nom de l'équipe visiteuse" autocomplete="off" enterkeyhint="done">
       </div>
       <span class="score" id="scoreB">0</span>
       <p class="shots"><b id="shotsB">0</b><span id="lblShotsB">lancer</span></p>
@@ -1744,7 +1744,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <h2 id="rsTitle">Édition d'Équipe</h2>
     <div class="field-group" style="margin-top:0;">
       <label>Nom de l'équipe :</label>
-      <input type="text" id="editTeamNameInput" maxlength="18" placeholder="Ex: Lions Chavigny 1" style="width:100%;padding:.4rem;border:1px solid var(--line);border-radius:6px;background:#FFF;">
+      <input type="text" id="editTeamNameInput" maxlength="30" placeholder="Ex: Lions Chavigny 1" style="width:100%;padding:.4rem;border:1px solid var(--line);border-radius:6px;background:#FFF;">
     </div>
     <div class="field-group" style="margin-top:.6rem;">
       <label for="editTeamCatSelect">Catégorie :</label>
@@ -2125,7 +2125,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610241734";
+  var BUILD = "202610241833";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2171,7 +2171,7 @@ document.addEventListener("DOMContentLoaded", function(){
   const hex = (v, fb) => /^#[0-9a-f]{6}$/i.test(v || "") ? v : fb;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
   const int = (v,min,max) => { v = Math.floor(Number(v)); if(!isFinite(v)) v = min; return Math.min(max, Math.max(min, v)); };
-  const str = (v,fb) => { v = (typeof v === "string" ? v : "").trim().slice(0,18); return v || fb; };
+  const str = (v,fb) => { v = (typeof v === "string" ? v : "").trim().slice(0,30); return v || fb; };
   const no = v => String(v == null ? "" : v).replace(/\D/g,"").slice(0,2);
   const sum = a => { let s = 0; for(let i = 0; i < a.length; i++) s += Number(a[i]) || 0; return s; };
   const formatTime = s => { const m = Math.floor(s / 60), sec = s % 60; return (m < 10 ? "0" : "") + m + ":" + (sec < 10 ? "0" : "") + sec; };
