@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610240513">
+<meta name="build" content="202610241253">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -440,6 +440,7 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .vis-roles{margin:-.2rem 0 .6rem;font-size:.75rem;color:var(--muted)}
 .vis-table td,.vis-table th{font-size:.78rem}
 .vis-table td:nth-child(2){text-align:left}
+.hid-tag{display:inline-block;margin-left:.4rem;padding:.05rem .4rem;border-radius:999px;background:var(--crease);color:var(--muted);font-size:.7rem;font-weight:700}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -2108,7 +2109,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610240513";
+  var BUILD = "202610241253";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2582,13 +2583,14 @@ document.addEventListener("DOMContentLoaded", function(){
   // Listes du haut en ordre alphabétique (M9 avant M11, accents et majuscules ignorés)
   function byLabel(x, y){ return String(x.label).localeCompare(String(y.label), "fr", { numeric: true, sensitivity: "base" }); }
   function renderOrgsDropdownTop(){
-    const items = organizationsList.map(o => ({ value: o.id, label: o.name }));
+    const items = organizationsList.filter(o => !o.hidden || seesHidden(o.id) || o.id === currentOrg).map(o => ({ value: o.id, label: (o.hidden ? "🙈 " : "") + o.name }));
     if(!items.some(i => i.value === currentOrg)) items.push({ value: currentOrg, label: currentOrg.toUpperCase() });
     items.sort(byLabel);
     fillSelect($("orgSelectTop"), items, currentOrg);
   }
   function renderCategoriesDropdownTop(){
-    fillSelect($("catSelectTop"), categoriesList.map(c => ({ value: c, label: String(c).toUpperCase() })).sort(byLabel), currentCat);
+    const sh = seesHidden();
+    fillSelect($("catSelectTop"), categoriesList.filter(c => sh || !cfgHiddenCats[c] || c === currentCat).map(c => ({ value: c, label: (cfgHiddenCats[c] ? "🙈 " : "") + String(c).toUpperCase() })).sort(byLabel), currentCat);
   }
 
   const brandLogo = $("ohmtroLogo");
@@ -2608,9 +2610,30 @@ document.addEventListener("DOMContentLoaded", function(){
   function bsub(r, cb){ r.on("value", cb); boardSubs.push([r, cb]); }
 
   // Équipes de l'organisation dans une catégorie (celles qui peuvent avoir leur propre tableau)
+  // Éléments cachés par le super administrateur : invisibles pour le public ; visibles (marqués 🙈) pour le super admin et le personnel de l'organisation
+  var cfgHiddenCats = {};
+  const seesHidden = org => isSuper() || (isStaff() && (assignedOrg || currentOrg) === (org || currentOrg));
+  const orgHidden = id => { const o = organizationsList.find(x => x.id === id); return !!(o && o.hidden); };
   function boardTeams(cat){
-    return Object.keys(presets).filter(k => { const p = presets[k]; return p && p.name && p.own && (!p.category || p.category === cat); })
+    const sh = seesHidden();
+    return Object.keys(presets).filter(k => { const p = presets[k]; return p && p.name && p.own && (!p.category || p.category === cat) && (sh || !p.hidden); })
                  .sort((x, y) => String(presets[x].name).localeCompare(String(presets[y].name), "fr", { numeric: true, sensitivity: "base" }));
+  }
+  // Le public qui arrive (lien, code QR) sur un élément caché est dirigé vers le premier élément visible
+  let hideMoving = false;
+  function enforceHidden(){
+    if(hideMoving || seesHidden(currentOrg)) return;
+    if(orgHidden(currentOrg)){
+      const o = organizationsList.filter(x => !x.hidden)[0];
+      if(o){ hideMoving = true; switchOrganization(o.id, "", "replace"); setTimeout(() => { hideMoving = false; try{ enforceHidden(); }catch(e){} }, 1500); }
+      return;
+    }
+    if(cfgHiddenCats[currentCat] && categoriesList.length){
+      const c = categoriesList.filter(x => !cfgHiddenCats[x])[0];
+      if(c){ hideMoving = true; switchOrganization(currentOrg, c, "replace"); setTimeout(() => { hideMoving = false; try{ enforceHidden(); }catch(e){} }, 1500); }
+      return;
+    }
+    if(boardTeam && presets[boardTeam] && presets[boardTeam].hidden){ const t = boardTeams(currentCat)[0] || ""; if(t !== boardTeam) switchBoard(t); }
   }
   function boardFor(cat, team){
     const teams = boardTeams(cat);
@@ -2751,7 +2774,7 @@ document.addEventListener("DOMContentLoaded", function(){
     // Avec une seule équipe, le menu montre son nom ; il ne sert à changer de tableau qu'à partir de deux équipes.
     const sel = $("teamSelectTop"), teams = presetsLoaded ? boardTeams(currentCat) : [];
     if(!teams.length){ sel.style.display = "none"; return; }
-    fillSelect(sel, teams.map(k => ({ value: k, label: presets[k].name })), boardTeam || teams[0]);
+    fillSelect(sel, teams.map(k => ({ value: k, label: (presets[k].hidden ? "🙈 " : "") + presets[k].name })), boardTeam || teams[0]);
     sel.style.display = "";
     try{ renderTeamCal(); }catch(e){}
   }
@@ -2801,7 +2824,8 @@ document.addEventListener("DOMContentLoaded", function(){
       exportCfg = normExports(cfg.exports); applyExports();
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
       cfgRegStart = (cfg.regStart && typeof cfg.regStart === "object") ? cfg.regStart : {};
-      evtTypes = normTypes(cfg.eventTypes); if(historyLoaded) applyPhaseView(); else renderPhaseUI();
+      evtTypes = normTypes(cfg.eventTypes);
+      cfgHiddenCats = obj(cfg.hiddenCats); try{ renderCategoriesDropdownTop(); enforceHidden(); }catch(e){} if(historyLoaded) applyPhaseView(); else renderPhaseUI();
       const min = int(cfg.defaultPeriodMin || 20, 1, 99), mVal = String(min);
       defaultPeriodSec = min * 60;
       if(["10","12","15","18","20"].indexOf(mVal) !== -1){
@@ -3439,7 +3463,13 @@ document.addEventListener("DOMContentLoaded", function(){
       const label = document.createDocumentFragment();
       label.appendChild(el("strong", null, o.name)); label.appendChild(document.createTextNode(" "));
       const sm = el("small", null, "(" + o.id + ")"); sm.style.color = "var(--muted)"; label.appendChild(sm);
+      if(o.hidden) label.appendChild(el("span", "hid-tag", "🙈 Cachée"));
       list.appendChild(manageItem("org-manage-item", label, [
+        btn("btn-edit btn-vis", o.hidden ? "👁 Afficher" : "🙈 Cacher", () => {
+          if(!isSuper()) return;
+          o.hidden = !o.hidden; if(!o.hidden) delete o.hidden; dbOrgs.set(organizationsList); renderOrgManageList(); renderOrgsDropdownTop();
+          notify("Organisation « " + o.name + " » " + (o.hidden ? "cachée au public." : "de nouveau visible."), "ok");
+        }),
         btn("btn-edit", "⚙️ Gérer", () => openOrgDetail(o.id)),
         btn("btn-hist-del", "🗑 Supprimer", () => {
           if(!isSuper()) return;
@@ -3457,6 +3487,8 @@ document.addEventListener("DOMContentLoaded", function(){
   function openOrgDetail(orgKey){
     if(!isAdmin() || (!isSuper() && orgKey !== currentOrg)) return;
     manageOrgKey = orgKey;
+    manageHiddenCats = orgKey === currentOrg ? Object.assign({}, cfgHiddenCats) : {};
+    if(orgKey !== currentOrg) ref(orgKey + "/config/hiddenCats").once("value").then(s => { if(orgKey === manageOrgKey){ manageHiddenCats = obj(s.val()); renderCategoriesManageList(); } });
     const org = manageOrg();
     $("orgDetailTitle").textContent = org ? org.name : orgKey;
     $("orgDetailNameInput").value = org ? org.name : "";
@@ -3528,10 +3560,20 @@ document.addEventListener("DOMContentLoaded", function(){
     if(manageCategoriesList.indexOf(val) !== -1){ notify("Cette catégorie existe déjà.", "error"); return; }
     manageCategoriesList.push(val); saveCats(); $("newCatInput").value = ""; renderCategoriesManageList(); fillTeamCatSelect();
   });
+  var manageHiddenCats = {};
   function renderCategoriesManageList(){
     const list = $("catManageList"); list.textContent = "";
     manageCategoriesList.forEach((cat, index) => {
-      list.appendChild(manageItem("cat-manage-item", el("strong", null, cat.toUpperCase()), [
+      const lab = document.createDocumentFragment(); lab.appendChild(el("strong", null, cat.toUpperCase()));
+      if(manageHiddenCats[cat]) lab.appendChild(el("span", "hid-tag", "🙈 Cachée"));
+      const tools = [];
+      if(isSuper()) tools.push(btn("btn-edit btn-vis", manageHiddenCats[cat] ? "👁 Afficher" : "🙈 Cacher", () => {
+        const h = !manageHiddenCats[cat], r = ref(manageOrgKey + "/config/hiddenCats/" + cat);
+        if(h){ manageHiddenCats[cat] = true; r.set(true); } else { delete manageHiddenCats[cat]; r.remove(); }
+        if(manageOrgKey === currentOrg){ cfgHiddenCats = Object.assign({}, manageHiddenCats); renderCategoriesDropdownTop(); }
+        renderCategoriesManageList(); notify("Catégorie " + cat.toUpperCase() + (h ? " cachée au public." : " de nouveau visible."), "ok");
+      }));
+      list.appendChild(manageItem("cat-manage-item", lab, tools.concat([
         btn("btn-edit", "✏️ Éditer", () => { currentEditingCatIndex = index; $("editCatNameInput").value = cat.toUpperCase(); swapDlg("orgDetailSheet", "editCatSheet"); }),
         btn("btn-hist-del", "🗑 Supprimer", () => {
           if(!can("categories")) return;
@@ -3541,7 +3583,7 @@ document.addEventListener("DOMContentLoaded", function(){
             manageCategoriesList = manageCategoriesList.filter(c => c !== cat); saveCats(); renderCategoriesManageList(); fillTeamCatSelect();
           });
         })
-      ]));
+      ])));
     });
   }
   on("editCatCancel", "click", () => swapDlg("editCatSheet", "orgDetailSheet"));
@@ -3578,8 +3620,14 @@ document.addEventListener("DOMContentLoaded", function(){
       dot.style.background = hex(team.color, DEF_A);
       label.appendChild(dot); label.appendChild(el("strong", null, team.name || key));
       if(team.own){ const tag = el("span", "own-tag", "Notre équipe"); label.appendChild(tag); }
+      if(team.hidden) label.appendChild(el("span", "hid-tag", "🙈 Cachée"));
       if(!manageTeamCatKey && team.category){ const sm = el("small", null, " " + String(team.category).toUpperCase()); sm.style.color = "var(--muted)"; label.appendChild(sm); }
-      list.appendChild(manageItem("team-manage-item", label, [
+      const vis = isSuper() ? [btn("btn-edit btn-vis", team.hidden ? "👁 Afficher" : "🙈 Cacher", () => {
+        const r = ref(manageOrgKey + "/teams_presets/" + key + "/hidden");
+        if(team.hidden) r.remove(); else r.set(true);
+        notify("Équipe « " + (team.name || key) + " » " + (team.hidden ? "de nouveau visible." : "cachée au public."), "ok");
+      })] : [];
+      list.appendChild(manageItem("team-manage-item", label, vis.concat([
         btn("btn-edit", "✏️ Éditer", () => openTeamEditor(key)),
         btn("btn-hist-del", "🗑 Supprimer", () => {
           if(!can("teams")) return;
@@ -3587,7 +3635,7 @@ document.addEventListener("DOMContentLoaded", function(){
             if(ok) ref(manageOrgKey + "/teams_presets/" + key).remove();
           });
         })
-      ]));
+      ])));
     });
   }
 
@@ -3722,7 +3770,7 @@ document.addEventListener("DOMContentLoaded", function(){
       ref(manageOrgKey + "/teams_presets/" + key).set({
         name: teamName, msg: msgsOf(existing)[0] || "", msgs: msgsOf(existing), logo: $("teamLogoInput").value.trim(),
         color: $("presetTeamColor").value, category: category, own: $("editTeamOwn").checked, roster: roster, staff: staff,
-        icsUrl: icsUrl
+        icsUrl: icsUrl, hidden: !!(existing && existing.hidden) || null
       });
       notify("Équipe enregistrée !"); rsLeave();
     };
@@ -7084,6 +7132,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(val.length) organizationsList = val;
     else if(!snap.exists() && isAdmin()) dbOrgs.set(organizationsList);
     renderOrgsDropdownTop(); renderOrgManageList(); updateBrand(); updateTickerDisplay();
+    try{ enforceHidden(); }catch(e){}
   });
   switchOrganization(currentOrg, currentCat, "init", wantedTeam);
 });
