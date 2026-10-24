@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610232107">
+<meta name="build" content="202610240513">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -435,6 +435,9 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .vis-sum div{background:var(--crease);border-radius:10px;padding:.5rem;text-align:center}
 .vis-sum b{display:block;font-size:1.4rem;font-family:var(--display)}
 .vis-sum small{font-size:.68rem;color:var(--muted);font-weight:700;text-transform:uppercase}
+.vis-grp{margin:.2rem 0 .5rem}
+.vis-grp-t{margin:0 0 .25rem;font-size:.78rem;font-weight:800;color:var(--muted)}
+.vis-roles{margin:-.2rem 0 .6rem;font-size:.75rem;color:var(--muted)}
 .vis-table td,.vis-table th{font-size:.78rem}
 .vis-table td:nth-child(2){text-align:left}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
@@ -1418,16 +1421,21 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 <dialog id="visitsSheet">
   <div class="sheet-in">
     <h2>Fréquentation du site</h2>
-    <p class="ctx">Chaque appareil est compté une fois par jour (visiteur unique), et chaque ouverture de la page compte comme une connexion. Aucune donnée personnelle n'est gardée.</p>
+    <p class="ctx">Chaque appareil est compté une fois par jour (unique), et chaque ouverture de la page compte comme une connexion. Les personnes connectées (super admin, administrateurs, gérants, marqueurs) sont comptées à part des visiteurs. Aucune donnée personnelle n'est gardée.</p>
     <div class="inline-row" style="margin-bottom:.6rem;">
       <select id="visOrg" aria-label="Organisation" class="full-input"></select>
       <select id="visDays" aria-label="Période" style="flex:0 1 8rem;"><option value="7">7 jours</option><option value="30" selected>30 jours</option><option value="90">90 jours</option><option value="365">1 an</option></select>
     </div>
-    <div class="vis-sum" id="visSum"></div>
+    <div id="visSum"></div>
     <h3 class="sheet-sub">Par match</h3>
     <div class="stand-wrap"><table class="stand vis-table" id="visGames"></table></div>
     <h3 class="sheet-sub">Par jour</h3>
     <div class="stand-wrap"><table class="stand vis-table" id="visDaysTbl"></table></div>
+    <div class="preset-box" id="visSuperBox" hidden style="margin-top:1rem;">
+      <label style="font-weight:700;">Gestion (super administrateur) :</label>
+      <label class="check-row"><input type="checkbox" id="visExcludeSA"><span>Ne pas compter les connexions du super administrateur</span></label>
+      <button type="button" class="danger" id="visReset" style="margin-top:.4rem;">🗑️ Remettre à zéro</button>
+    </div>
     <div class="actions" style="margin-top:1.2rem;">
       <button type="button" class="act-2" id="visBack">Retour</button>
       <button type="button" class="act-1" id="visClose">Fermer</button>
@@ -2100,7 +2108,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610232107";
+  var BUILD = "202610240513";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2556,7 +2564,8 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function updateRoleUI(){
     document.body.className = (isGerant() ? "role-marqueur role-gerant" : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
-    if(isSuper() && !superForgot){ superForgot = true; try{ statForgetMe(); }catch(e){ superForgot = false; } }
+    if(isStaff() && !statLogged){ statLogged = true; try{ statOnLogin(); }catch(e){ statLogged = false; } }
+    if(!isStaff()) statLogged = false;
     $("btnLogin").textContent = (currentRole !== "viewer") ? "🔓 Déconnexion (" + roleLabel() + ")" : "🔒 Connexion";
     updateStatusDisplay(); applyInv(); updatePermUI();
   }
@@ -6789,34 +6798,48 @@ document.addEventListener("DOMContentLoaded", function(){
     document.body.appendChild(a); a.click(); a.remove();
   });
 
-  /* ============ Fréquentation : visiteurs uniques par jour et par match ============ */
-  // …/<org>/stats/days/<AAAA-MM-JJ>/<appareil> = { n: ouvertures, s: 1 si personne connectée }
-  // …/<org>/stats/games/<partie>/v/<appareil> = 1 ; …/meta = { cat, a, b, date }
+  /* ============ Fréquentation : visiteurs et personnes connectées, par jour et par match ============ */
+  // …/<org>/stats/days/<AAAA-MM-JJ>/<appareil> = { n: ouvertures comme visiteur, sn: ouvertures d'une personne connectée, roles: { sa, admin, admeq, gerant, marqueur } }
+  // …/<org>/stats/games/<partie>/v/<appareil> = 1 (visiteur) ou "s" (personne connectée) ; …/meta = { cat, a, b, date }
+  // Un appareil qui s'est déjà connecté (marqueur, gérant, administrateur…) est toujours compté à part, même avant sa connexion.
   // L'appareil est un numéro au hasard gardé sur l'appareil : rien de personnel.
-  var visitorId = "", superForgot = false;
+  var statLogged = false;
+  var visitorId = "", statsCfg = { excludeSA: false };
   try{ visitorId = localStorage.getItem("hk_vid") || ""; if(!visitorId){ visitorId = "v" + uid(); localStorage.setItem("hk_vid", visitorId); } }catch(e){ visitorId = "v" + uid(); }
   var visCounted = {}, gameCounted = {};
-  const noStat = () => { try{ return localStorage.getItem("hk_nostat") === "1"; }catch(e){ return false; } };
-  // Appareil du super administrateur : jamais compté (ni avant ni après sa connexion)
-  function statForgetMe(){
-    try{ localStorage.setItem("hk_nostat", "1"); }catch(e){}
-    Object.keys(visCounted).forEach(o => ref(o + "/stats/days/" + todayStr() + "/" + visitorId).remove());
-    Object.keys(gameCounted).forEach(k => { const i = k.indexOf("|"); ref(k.slice(0, i) + "/stats/games/" + cleanKey(k.slice(i + 1)) + "/v/" + visitorId).remove(); });
-  }
+  const staffDev = () => { try{ return localStorage.getItem("hk_staffdev") === "1"; }catch(e){ return false; } };
+  const statRole = () => isSuper() ? "sa" : isTeamAdmin() ? "admeq" : isGerant() ? "gerant" : currentRole === "admin" ? "admin" : currentRole === "marqueur" ? "marqueur" : "";
+  const ROLE_LBL = { sa: "Super admin", admin: "Admin", admeq: "Admin d'équipe", gerant: "Gérant(e)", marqueur: "Marqueur" };
+  const statSkip = () => isSuper() && statsCfg.excludeSA;
+  ref("global/statsCfg").once("value").then(s => { const v = obj(s.val()); statsCfg = { excludeSA: !!v.excludeSA }; }, () => {});
   function statVisit(){
-    if(isSuper()){ statForgetMe(); return; }
-    if(noStat() || !currentOrg || visCounted[currentOrg]) return;
+    if(!currentOrg || visCounted[currentOrg] || statSkip()) return;
     visCounted[currentOrg] = true;
-    const r = ref(currentOrg + "/stats/days/" + todayStr() + "/" + visitorId);
-    r.once("value").then(s => { const v = obj(s.val()); r.set({ n: (Number(v.n) || 0) + 1, s: (v.s || isStaff()) ? 1 : 0 }); }, () => {});
+    const r = ref(currentOrg + "/stats/days/" + todayStr() + "/" + visitorId), role = statRole(), staff = isStaff() || staffDev();
+    r.once("value").then(s => { const v = obj(s.val()), roles = obj(v.roles); if(role) roles[role] = 1;
+      r.set(staff ? { n: 0, sn: (Number(v.sn) || 0) + (Number(v.n) || 0) + 1, roles: roles } : { n: (Number(v.n) || 0) + 1, sn: Number(v.sn) || 0, roles: roles }); }, () => {});
   }
   function statGame(){
-    if(noStat() || isSuper()) return;
-    if(simOn || editEntry || archiveKey || !state.id || !hasGame(state)) return;
+    if(simOn || editEntry || archiveKey || !state.id || !hasGame(state) || statSkip()) return;
     const k = currentOrg + "|" + state.id; if(gameCounted[k]) return; gameCounted[k] = true;
     const base = currentOrg + "/stats/games/" + cleanKey(state.id);
-    ref(base + "/v/" + visitorId).set(1);
+    ref(base + "/v/" + visitorId).set(isStaff() || staffDev() ? "s" : 1);
     ref(base + "/meta").set({ cat: currentCat, a: state.names.a, b: state.names.b, date: todayStr() });
+  }
+  // À la connexion : cet appareil devient « personne connectée » ; ses visites du jour passent de ce côté
+  function statOnLogin(){
+    if(!isStaff()) return;
+    try{ localStorage.setItem("hk_staffdev", "1"); }catch(e){}
+    const role = statRole();
+    if(statSkip()){                                                // super administrateur exclu : on retire ses traces
+      Object.keys(visCounted).forEach(o => ref(o + "/stats/days/" + todayStr() + "/" + visitorId).remove());
+      Object.keys(gameCounted).forEach(k => { const i = k.indexOf("|"); ref(k.slice(0, i) + "/stats/games/" + cleanKey(k.slice(i + 1)) + "/v/" + visitorId).remove(); });
+      return;
+    }
+    Object.keys(visCounted).forEach(o => { const r = ref(o + "/stats/days/" + todayStr() + "/" + visitorId);
+      r.once("value").then(s => { const v = obj(s.val()), roles = obj(v.roles); if(role) roles[role] = 1;
+        r.set({ n: 0, sn: (Number(v.sn) || 0) + (Number(v.n) || 0), roles: roles }); }, () => {}); });
+    Object.keys(gameCounted).forEach(k => { const i = k.indexOf("|"); ref(k.slice(0, i) + "/stats/games/" + cleanKey(k.slice(i + 1)) + "/v/" + visitorId).set("s"); });
   }
   // Fenêtre des statistiques (administrateur d'organisation : la sienne ; super administrateur : toutes)
   let visData = {};
@@ -6824,43 +6847,75 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!isAdmin() || isTeamAdmin()) return;
     const items = isSuper() ? [{ value: "*", label: "Toutes les organisations" }].concat(orgItems()) : orgItems().filter(o => o.value === currentOrg);
     fillSelect($("visOrg"), items, isSuper() ? "*" : currentOrg); $("visOrg").disabled = !isSuper();
+    $("visExcludeSA").checked = !!statsCfg.excludeSA;
     swapDlg("settingsSheet", "visitsSheet"); visLoad();
   });
   on("visOrg", "change", visLoad); on("visDays", "change", visRender);
   on("visBack", "click", () => swapDlg("visitsSheet", "settingsSheet"));
   on("visClose", "click", () => closeDlg("visitsSheet"));
+  // Gestion (super administrateur) : exclure ses propres connexions, remettre à zéro
+  on("visExcludeSA", "change", () => {
+    if(!isSuper()) return;
+    statsCfg = { excludeSA: $("visExcludeSA").checked }; ref("global/statsCfg").set(statsCfg);
+    notify(statsCfg.excludeSA ? "Les connexions du super administrateur ne seront plus comptées." : "Les connexions du super administrateur sont comptées avec les personnes connectées.", "ok");
+  });
+  on("visReset", "click", () => {
+    if(!isSuper()) return;
+    const v = $("visOrg").value, orgs = v === "*" ? organizationsList.map(o => o.id) : [v];
+    const what = v === "*" ? "de toutes les organisations" : "de " + (organizationsList.find(o => o.id === v) || {}).name;
+    ask("Effacer toutes les statistiques de fréquentation " + what + " ?\nCette action ne peut pas être annulée.", { ok: "Effacer", danger: true }).then(ok => {
+      if(!ok) return;
+      orgs.forEach(o => ref(o + "/stats").remove());
+      visCounted = {}; gameCounted = {};
+      notify("Statistiques effacées.", "ok"); visLoad();
+    });
+  });
   function visLoad(){
     const v = $("visOrg").value, orgs = v === "*" ? organizationsList.map(o => o.id) : [v];
     $("visSum").textContent = "Chargement…"; visData = {};
+    $("visSuperBox").hidden = !isSuper();
+    $("visReset").textContent = "🗑️ Remettre à zéro " + (v === "*" ? "toutes les organisations" : "« " + ((organizationsList.find(o => o.id === v) || {}).name || v) + " »");
     Promise.all(orgs.map(o => ref(o + "/stats").once("value").then(s => { visData[o] = obj(s.val()); }, () => { visData[o] = {}; }))).then(visRender);
   }
   function visRender(){
     const nd = Number($("visDays").value) || 30, d0 = new Date(); d0.setDate(d0.getDate() - nd + 1);
     const from = d0.getFullYear() + "-" + pad2(d0.getMonth() + 1) + "-" + pad2(d0.getDate()), all = $("visOrg").value === "*";
-    const days = {}, uniq = {}; let loads = 0;
+    const days = {}, uV = {}, uS = {}, roles = {}; let nV = 0, nS = 0;
     Object.keys(visData).forEach(o => { const D = obj(visData[o].days);
-      Object.keys(D).forEach(day => { if(day < from) return; const row = days[day] || (days[day] = { u: {}, n: 0, s: 0 });
-        Object.keys(obj(D[day])).forEach(vid => { const x = obj(D[day][vid]); row.u[vid] = 1; uniq[vid] = 1; const n = Number(x.n) || 1; row.n += n; loads += n; if(x.s) row.s++; }); }); });
+      Object.keys(D).forEach(day => { if(day < from) return; const row = days[day] || (days[day] = { v: {}, s: {}, nv: 0, ns: 0 });
+        Object.keys(obj(D[day])).forEach(vid => { const x = obj(D[day][vid]);
+          const n = Number(x.n) || 0, sn = (Number(x.sn) || 0) + (x.s && !x.sn ? n : 0), vis = x.s && !x.sn ? 0 : n;   // anciennes données : « s » = connecté
+          if(vis > 0){ row.v[vid] = 1; uV[vid] = 1; row.nv += vis; nV += vis; }
+          if(sn > 0){ row.s[vid] = 1; uS[vid] = 1; row.ns += sn; nS += sn; Object.keys(obj(x.roles)).forEach(r => { (roles[r] = roles[r] || {})[vid] = 1; }); }
+        }); }); });
     const sum = $("visSum"); sum.textContent = "";
-    [[Object.keys(uniq).length, "visiteurs uniques"], [loads, "connexions"], [Object.keys(days).length ? (loads / Object.keys(days).length).toFixed(1).replace(".", ",") : "0", "connexions / jour"]]
-      .forEach(c => { const b = el("div"); b.appendChild(el("b", null, String(c[0]))); b.appendChild(el("small", null, c[1])); sum.appendChild(b); });
+    const grp = (title, cells) => { const g = el("div", "vis-grp"); g.appendChild(el("p", "vis-grp-t", title)); const row = el("div", "vis-sum");
+      cells.forEach(c => { const b = el("div"); b.appendChild(el("b", null, String(c[0]))); b.appendChild(el("small", null, c[1])); row.appendChild(b); }); g.appendChild(row); sum.appendChild(g); };
+    const nDays = Object.keys(days).length || 1;
+    grp("👥 Visiteurs (sans connexion)", [[Object.keys(uV).length, "visiteurs uniques"], [nV, "connexions"], [(nV / nDays).toFixed(1).replace(".", ","), "par jour"]]);
+    grp("🔑 Personnes connectées", [[Object.keys(uS).length, "appareils uniques"], [nS, "connexions"], [(nS / nDays).toFixed(1).replace(".", ","), "par jour"]]);
+    const rl = Object.keys(ROLE_LBL).filter(r => roles[r]).map(r => ROLE_LBL[r] + " : " + Object.keys(roles[r]).length);
+    if(rl.length) sum.appendChild(el("p", "vis-roles", rl.join(" · ")));
     // Par match
     const gt = $("visGames"); gt.textContent = "";
     const games = [];
-    Object.keys(visData).forEach(o => { const G = obj(visData[o].games); Object.keys(G).forEach(id => { const g = obj(G[id]), m = obj(g.meta);
-      if(m.date && m.date < from) return; games.push({ org: o, date: m.date || "", cat: String(m.cat || "").toUpperCase(), title: (m.b || "Visiteur") + " @ " + (m.a || "Local"), n: Object.keys(obj(g.v)).length }); }); });
+    Object.keys(visData).forEach(o => { const G = obj(visData[o].games); Object.keys(G).forEach(id => { const g = obj(G[id]), m = obj(g.meta), vv = obj(g.v);
+      if(m.date && m.date < from) return;
+      const st = Object.keys(vv).filter(k => vv[k] === "s").length;
+      games.push({ org: o, date: m.date || "", cat: String(m.cat || "").toUpperCase(), title: (m.b || "Visiteur") + " @ " + (m.a || "Local"), v: Object.keys(vv).length - st, s: st }); }); });
     games.sort((x, y) => String(y.date).localeCompare(String(x.date)));
     const head = (tbl, cols) => { const tr = el("tr"); cols.forEach(c => tr.appendChild(el("th", null, c))); tbl.appendChild(tr); };
     const orgName = k => { const o = organizationsList.find(x => x.id === k); return o ? o.name : k; };
-    if(!games.length){ const tr = el("tr"), td = el("td", null, "Aucun match regardé pendant cette période."); td.colSpan = 4; td.style.textAlign = "center"; tr.appendChild(td); gt.appendChild(tr); }
-    else { head(gt, ["Date", "Match", "Cat.", "Spect."]);
-      games.forEach(g => { const tr = el("tr"); [g.date ? calWhen({ date: g.date }) : "–", g.title + (all ? " · " + orgName(g.org) : ""), g.cat, String(g.n)].forEach((c, i) => tr.appendChild(el("td", i === 3 ? "pts" : null, c))); gt.appendChild(tr); }); }
+    const empty = (tbl, txt, n) => { const tr = el("tr"), td = el("td", null, txt); td.colSpan = n; td.style.textAlign = "center"; tr.appendChild(td); tbl.appendChild(tr); };
+    if(!games.length) empty(gt, "Aucun match regardé pendant cette période.", 5);
+    else { head(gt, ["Date", "Match", "Cat.", "Visit.", "Conn."]);
+      games.forEach(g => { const tr = el("tr"); [g.date ? calWhen({ date: g.date }) : "–", g.title + (all ? " · " + orgName(g.org) : ""), g.cat, String(g.v), String(g.s)].forEach((c, i) => tr.appendChild(el("td", i === 3 ? "pts" : null, c))); gt.appendChild(tr); }); }
     // Par jour
     const dt = $("visDaysTbl"); dt.textContent = "";
     const ks = Object.keys(days).sort().reverse();
-    if(!ks.length){ const tr = el("tr"), td = el("td", null, "Aucune visite pendant cette période."); td.colSpan = 4; td.style.textAlign = "center"; tr.appendChild(td); dt.appendChild(tr); return; }
-    head(dt, ["Date", "Visiteurs uniques", "Connexions", "Dont connectés"]);
-    ks.forEach(k => { const r = days[k], tr = el("tr"); [calWhen({ date: k }), String(Object.keys(r.u).length), String(r.n), String(r.s)].forEach((c, i) => tr.appendChild(el("td", i === 1 ? "pts" : null, c))); dt.appendChild(tr); });
+    if(!ks.length){ empty(dt, "Aucune visite pendant cette période.", 5); return; }
+    head(dt, ["Date", "Visiteurs uniques", "Connexions", "Connectés uniques", "Connexions"]);
+    ks.forEach(k => { const r = days[k], tr = el("tr"); [calWhen({ date: k }), String(Object.keys(r.v).length), String(r.nv), String(Object.keys(r.s).length), String(r.ns)].forEach((c, i) => tr.appendChild(el("td", i === 1 ? "pts" : null, c))); dt.appendChild(tr); });
   }
 
   /* ============ Simulation de match (démonstration) ============ */
