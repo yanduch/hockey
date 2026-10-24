@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610232104">
+<meta name="build" content="202610232107">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -429,7 +429,7 @@ html.booting .wrap::after{content:"Chargement…";display:block;text-align:cente
 .sim-bar button{flex:none;border:0;border-radius:8px;padding:.3rem .6rem;background:#2A1A00;color:#FFF;font-weight:700;font-size:.78rem}
 .sim-bar[hidden]{display:none}
 .sim-teams{display:grid;gap:.1rem;margin:.2rem 0 .4rem .2rem}
-html.sim-on #pad button, html.sim-on .timer-ctrls button{opacity:.55;cursor:not-allowed}
+html.sim-on #pad button, html.sim-on .timer-ctrls button:not(#btnPlayMode){opacity:.55;cursor:not-allowed}
 html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .vis-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin:.2rem 0 .6rem}
 .vis-sum div{background:var(--crease);border-radius:10px;padding:.5rem;text-align:center}
@@ -2100,7 +2100,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610232104";
+  var BUILD = "202610232107";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6941,7 +6941,7 @@ document.addEventListener("DOMContentLoaded", function(){
   document.addEventListener("click", e => {
     if(!simOn || !isStaff() || !e.target.closest) return;
     // Boutons du tableau (buts, passes, lancers, punitions, chrono, périodes) : visibles mais sans effet pendant la simulation
-    if(e.target.closest("#pad, .timer-ctrls, #seg, #timerDisplay, #playMode [data-pm], #pmToggle, #pmTime, #btnPenPause, #pmPenPause")){
+    if(!e.target.closest("#btnPlayMode") && e.target.closest("#pad, .timer-ctrls, #seg, #timerDisplay, #playMode [data-pm], #pmToggle, #pmTime, #btnPenPause, #pmPenPause")){   // « En jeu » reste utilisable
       e.preventDefault(); e.stopPropagation();
       notify("Simulation : ces boutons sont inactifs. Touchez « Arrêter » pour revenir au vrai tableau.", "ok");
       return;
