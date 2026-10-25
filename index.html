@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610241833">
+<meta name="build" content="202610251716">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -441,6 +441,8 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .vis-table td,.vis-table th{font-size:.78rem}
 .vis-table td:nth-child(2){text-align:left}
 .hid-tag{display:inline-block;margin-left:.4rem;padding:.05rem .4rem;border-radius:999px;background:var(--crease);color:var(--muted);font-size:.7rem;font-weight:700}
+.presence-head{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-top:.6rem;flex-wrap:wrap}
+.presence-head .roster-sort{margin:0}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -1701,7 +1703,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <label>Couleur :</label>
         <input type="color" id="wizColorB" value="#F2707A">
       </div>
-      <label style="margin-top:.6rem;display:block;">Joueurs présents :</label>
+      <div class="presence-head"><label>Joueurs présents :</label><span class="roster-sort">Trier : <button type="button" data-wsort="no">#</button><button type="button" data-wsort="name">Nom</button></span></div>
       <div class="presence-list" id="wizPresenceListB"></div>
     </div>
 
@@ -1712,7 +1714,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
         <label>Couleur :</label>
         <input type="color" id="wizColorA" value="#6FA2EE">
       </div>
-      <label style="margin-top:.6rem;display:block;">Joueurs présents :</label>
+      <div class="presence-head"><label>Joueurs présents :</label><span class="roster-sort">Trier : <button type="button" data-wsort="no">#</button><button type="button" data-wsort="name">Nom</button></span></div>
       <div class="presence-list" id="wizPresenceListA"></div>
     </div>
 
@@ -2125,7 +2127,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610241833";
+  var BUILD = "202610251716";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -3456,8 +3458,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!isAdmin()) return;
     closeDlg("settingsSheet");
     if(isTeamAdmin()){ openOwnTeam(); return; }               // administrateur d'équipe : directement la fiche de son équipe
-    if(!isSuper()){ openOrgDetail(currentOrg); return; }      // administrateur d'organisation : directement sa fiche
-    renderOrgManageList(); openDlg("orgManageSheet");
+    openOrgDetail(currentOrg);                                  // directement l'organisation et la catégorie affichées (Retour : liste des organisations)
   });
   on("orgManageClose", "click", () => closeDlg("orgManageSheet"));
   on("orgManageBack", "click", () => swapDlg("orgManageSheet", "settingsSheet"));
@@ -3567,8 +3568,10 @@ document.addEventListener("DOMContentLoaded", function(){
   /* --- Catégories de l'organisation --- */
   const catItems = () => manageCategoriesList.map(c => ({ value: c, label: c.toUpperCase() }));
   function fillTeamCatSelect(){
-    fillSelect($("teamManageCatSelect"), catItems(), manageTeamCatKey, "Toutes les catégories");
-    manageTeamCatKey = $("teamManageCatSelect").value; renderTeamsManageList();
+    const items = catItems();
+    fillSelect($("teamManageCatSelect"), items, manageTeamCatKey, "Toutes les catégories");
+    if(items.length) manageTeamCatKey = $("teamManageCatSelect").value;      // liste encore vide (chargement) : on garde la catégorie voulue
+    renderTeamsManageList();
   }
   on("btnAddCat", "click", () => {
     if(!can("categories")) return;
@@ -4919,7 +4922,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function wizFillCalendar(){
     const sel = $("wizCalSelect"); fillSelect(sel, [], null, "Aucune (partie hors calendrier)"); wizCal = [];
     $("wizCalBox").style.display = "none";
-    const cat = currentCat, bt = boardTeam;
+    const cat = currentCat, bt = boardTeam || boardTeams(currentCat)[0] || "";   // seulement les parties de l'équipe affichée
     ref(currentOrg + "/" + cat + "/calendar").once("value").then(snap => {
       if(cat !== currentCat) return;
       const p = new Date(Date.now() - 2 * 86400000), from = p.getFullYear() + "-" + pad2(p.getMonth() + 1) + "-" + pad2(p.getDate());
@@ -4935,10 +4938,13 @@ document.addEventListener("DOMContentLoaded", function(){
     const c = wizCal.filter(x => x.id === $("wizCalSelect").value)[0]; if(!c){ setWizPhase(defPhase()); return; }
     if(c.phase) setWizPhase(c.phase);
     // Préremplit les équipes de la partie prévue (si elles sont enregistrées)
+    // Local = 2e équipe (« Visiteur @ Local ») ; une équipe non enregistrée est ajoutée à la liste avec son nom
     [["a", c.aKey, c.a], ["b", c.bKey, c.b]].forEach(t => {
       const sel = $(t[0] === "a" ? "wizTeamA" : "wizTeamB");
-      const k = (t[1] && presets[t[1]]) ? t[1] : Object.keys(presets).filter(x => presets[x] && presets[x].name === t[2])[0];
+      Array.prototype.slice.call(sel.options).forEach(o => { if(o.value.indexOf("__n:") === 0) o.remove(); });
+      const k = (t[1] && presets[t[1]]) ? t[1] : Object.keys(presets).filter(x => presets[x] && presets[x].name === t[2] && (!presets[x].category || presets[x].category === currentCat))[0];
       if(k && Array.prototype.some.call(sel.options, o => o.value === k)){ sel.value = k; renderPresenceList(t[0], k); wizSyncColor(t[0]); }
+      else if(t[2]){ const o = el("option", null, t[2] + " (non enregistrée)"); o.value = "__n:" + t[2]; sel.appendChild(o); sel.value = o.value; renderPresenceList(t[0], ""); }
     });
   });
 
@@ -6094,17 +6100,30 @@ document.addEventListener("DOMContentLoaded", function(){
     Object.keys(presets).forEach(k => {
       const p = presets[k]; if(!p || !p.name) return;
       const inCat = !p.category || p.category === currentCat;
-      if(!isAdmin() && !inCat) return;                         // marqueur : équipes de sa catégorie seulement
-      items.push({ value: k, label: p.name + (isAdmin() && p.category ? " (" + String(p.category).toUpperCase() + ")" : "") });
+      if(!inCat) return;                                         // seulement les équipes de la catégorie affichée
+      items.push({ value: k, label: p.name });
       if(p.name === currentName && (selected == null || p.category === currentCat)) selected = k;
     });
+    items.sort((x, y) => x.label.localeCompare(y.label, "fr", { numeric: true, sensitivity: "base" }));
     fillSelect($(selectId), items, selected, "-- Choisir une équipe --");
   }
+  var wizSort = "no"; try{ wizSort = localStorage.getItem("hk_wsort") || "no"; }catch(e){}
+  const paintWSort = () => document.querySelectorAll("[data-wsort]").forEach(x => x.classList.toggle("on", x.dataset.wsort === wizSort));
+  document.querySelectorAll("[data-wsort]").forEach(b => b.addEventListener("click", () => {
+    wizSort = b.dataset.wsort; try{ localStorage.setItem("hk_wsort", wizSort); }catch(e){}
+    paintWSort();
+    // On garde les cases cochées en réordonnant
+    ["a", "b"].forEach(side => { const keep = {}; document.querySelectorAll(".chk-presence-" + side).forEach(c => { keep[c.dataset.idx] = c.checked; });
+      renderPresenceList(side, $(side === "a" ? "wizTeamA" : "wizTeamB").value);
+      document.querySelectorAll(".chk-presence-" + side).forEach(c => { if(c.dataset.idx in keep) c.checked = keep[c.dataset.idx]; }); });
+  }));
+  paintWSort();
   function renderPresenceList(side, teamKey){
     const box = $(side === "a" ? "wizPresenceListA" : "wizPresenceListB"); box.textContent = "";
     const roster = presets[teamKey] ? toArr(presets[teamKey].roster) : [];
     if(!roster.length){ const s = el("small", null, "Aucun joueur prédéfini"); s.style.cssText = "color:var(--muted);grid-column:1/-1;"; box.appendChild(s); return; }
-    roster.forEach((p, idx) => {
+    const cmp = cmpPlayers(wizSort);
+    roster.map((p, idx) => ({ p: p, idx: idx })).sort((x, y) => cmp(normPlayer(x.p), normPlayer(y.p)) || x.idx - y.idx).forEach(o => { const p = o.p, idx = o.idx;
       const label = el("label", "presence-item"), chk = el("input", "chk-presence-" + side);
       chk.type = "checkbox"; chk.checked = true; chk.dataset.idx = idx;
       label.appendChild(chk); label.appendChild(document.createTextNode((p.no ? "#" + p.no + " " : "") + (p.name || ""))); box.appendChild(label);
@@ -6172,6 +6191,7 @@ document.addEventListener("DOMContentLoaded", function(){
     state.stopOnGoal = [0, 1, 2].map(i => $("wizStop" + i).checked);
     store.set(localStorage, "ohmtro_stopgoal", state.stopOnGoal.map(x => x ? "1" : "0").join(""));
     ["a","b"].forEach(t => {
+      if(String(keys[t] || "").indexOf("__n:") === 0){ state.names[t] = str(keys[t].slice(4), t === "a" ? "Local" : "Visiteur"); return; }   // équipe non enregistrée
       const p = presets[keys[t]]; if(!p) return;
       const full = toArr(p.roster).map(normPlayer), present = [];
       document.querySelectorAll(".chk-presence-" + t).forEach(chk => { if(chk.checked && full[Number(chk.dataset.idx)]) present.push(full[Number(chk.dataset.idx)]); });
