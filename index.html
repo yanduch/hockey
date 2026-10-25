@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610251759">
+<meta name="build" content="202610251826">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -161,7 +161,7 @@ body:not(.role-admin) .name{pointer-events:none;border-bottom-color:transparent}
 #playMode .pm-team b{display:block;font-size:clamp(1.15rem,5.6vw,1.9rem);font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #playMode .pm-team.v b{color:var(--pb)}
 #playMode .pm-team.l b{color:var(--pa)}
-#playMode .pm-pause{width:100%;min-height:5rem;border-radius:16px;border:3px solid #6FA2EE;background:#162D45;color:#FFF;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:.8rem;padding:0 1.3rem;font-size:1.6rem;font-weight:800}
+#playMode .pm-pause{width:100%;min-height:7rem;border-radius:16px;border:3px solid #6FA2EE;background:#162D45;color:#FFF;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:.8rem;padding:0 1.3rem;font-size:1.6rem;font-weight:800}
 #playMode .pm-play{display:flex;align-items:center;gap:.7rem}
 #playMode .pm-per{font-size:1.3rem;color:#93A6B7;letter-spacing:.04em;white-space:nowrap}
 #playMode .pm-pause .ic{font-size:2.2rem;line-height:1}
@@ -447,6 +447,15 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .ev-when label{font-size:.8rem;font-weight:700;color:var(--muted)}
 .ev-when select,.ev-when input{padding:.35rem .45rem;border:1px solid var(--line);border-radius:6px;background:#FFF !important;color:#0F2236 !important;-webkit-text-fill-color:#0F2236;font:inherit;font-size:.9rem}
 .ev-when input{width:4.6rem;text-align:center;font-variant-numeric:tabular-nums}
+#playMode .pm-tname{display:flex;flex-direction:column;align-items:center;line-height:1.05;max-width:100%}
+#playMode .pm-tname small{font-size:clamp(.7rem,3vw,.95rem);font-weight:700;opacity:.8;letter-spacing:.05em}
+#playMode .pm-tname b{font-size:clamp(1rem,4.8vw,1.6rem);font-weight:800;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#playMode .pm-penrow{display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap;justify-content:center}
+#playMode .pm-penrow:has(#pmPenPause[hidden]):has(#pmPens[hidden]){display:none}
+#playMode .pm-pens{display:inline-flex;flex-wrap:wrap;gap:.3rem;align-items:center;font-size:1rem}
+.pen-chip.btn{border:0;cursor:pointer;font-family:inherit}
+.pen-chip.ta{box-shadow:inset 0 0 0 2px var(--pa,#6FA2EE)}.pen-chip.tb{box-shadow:inset 0 0 0 2px var(--pb,#F2707A)}
+#playMode .pen-chip{font-size:1rem;padding:.25rem .6rem}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -1095,16 +1104,14 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 
 <div id="playMode" hidden>
   <div class="pm-row top">
-    <div><button type="button" class="pm-shot v" data-pm="shot" data-team="b" style="width:100%"><span>+1 LANCER</span><span class="pm-count" id="pmShotsB">0 Lancer</span></button></div>
-    <div><button type="button" class="pm-shot l" data-pm="shot" data-team="a" style="width:100%"><span>+1 LANCER</span><span class="pm-count" id="pmShotsA">0 Lancer</span></button></div>
+    <div><button type="button" class="pm-shot v" data-pm="shot" data-team="b" style="width:100%"><span class="pm-tname"><small>VISITEUR</small><b id="pmNameB">Visiteur</b></span><span>+1 LANCER</span><span class="pm-count" id="pmShotsB">0 Lancer</span></button></div>
+    <div><button type="button" class="pm-shot l" data-pm="shot" data-team="a" style="width:100%"><span class="pm-tname"><small>LOCAL</small><b id="pmNameA">Local</b></span><span>+1 LANCER</span><span class="pm-count" id="pmShotsA">0 Lancer</span></button></div>
   </div>
   <div class="pm-mid">
-    <div class="pm-team v"><small>VISITEUR</small><b id="pmNameB">Visiteur</b><div class="pen-box" id="pmPenB"></div></div>
-    <div class="pm-team l"><small>LOCAL</small><b id="pmNameA">Local</b><div class="pen-box" id="pmPenA"></div></div>
     <button type="button" class="pm-pause" id="pmToggle"><span class="pm-play"><span class="ic" id="pmIcon">❚❚</span><span id="pmLabel">Pause</span></span><span class="pm-per" id="pmPeriod">PÉRIODE 1</span></button>
   </div>
   <div class="pm-clock">
-    <div class="pm-time"><span id="pmTime" title="Toucher pour ajuster le temps">20:00</span><button type="button" class="pm-x" id="pmClose" aria-label="Revenir au mode normal" title="Revenir au mode normal">✕</button><button type="button" class="pm-x" id="pmSwap" aria-label="Changer les équipes de côté" title="Changer les équipes de côté">⇄</button><button type="button" class="pm-x pm-penp" id="pmPenPause" hidden title="Arrêt de jeu : suspend le temps des punitions (le chrono continue)">❚❚<small id="pmPenLeft"></small></button></div>
+    <div class="pm-time"><span id="pmTime" title="Toucher pour ajuster le temps">20:00</span><button type="button" class="pm-x" id="pmClose" aria-label="Revenir au mode normal" title="Revenir au mode normal">✕</button><button type="button" class="pm-x" id="pmSwap" aria-label="Changer les équipes de côté" title="Changer les équipes de côté">⇄</button><span class="pm-penrow"><button type="button" class="pm-x pm-penp" id="pmPenPause" hidden title="Arrêt de jeu : suspend le temps des punitions (le chrono continue)">❚❚<small id="pmPenLeft"></small></button><span class="pm-pens" id="pmPens"></span></span></div>
   </div>
   <div class="pm-row">
     <button type="button" class="pm-goal v" data-pm="goal" data-team="b" id="pmGoalB">BUT - 0</button>
@@ -1827,6 +1834,20 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="penLeftSheet">
+  <div class="sheet-in">
+    <h2 id="plTitle">Punition</h2>
+    <p class="ctx" id="plCtx"></p>
+    <div class="field-group"><label for="plLeft">Temps qui reste à purger (mm:ss) :</label>
+      <input type="text" id="plLeft" class="full-input" inputmode="numeric" maxlength="5" placeholder="mm:ss" style="font-size:1.4rem;text-align:center;font-variant-numeric:tabular-nums;"></div>
+    <div class="actions" style="margin-top:1rem;">
+      <button type="button" class="act-2" id="plCancel">Annuler</button>
+      <button type="button" class="act-1" id="plSave">Enregistrer</button>
+    </div>
+    <button type="button" class="act-2" id="plEdit" style="width:100%;margin-top:.6rem;">✏️ Modifier la punition (joueur, durée, moment)…</button>
+  </div>
+</dialog>
+
 <dialog id="penSheet">
   <div class="sheet-in">
     <h2 id="penTitle">Punition</h2>
@@ -2133,7 +2154,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610251759";
+  var BUILD = "202610251826";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -4976,7 +4997,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const pens = [];
     const served = (p, g, pacc) => (g - p.g) - (pacc - p.pacc);
     evs.forEach(x => {
-      if(x.e.type === "pen"){ pens.push({ e: x.e, team: x.e.team, g: x.g, pacc: Number(x.e.pacc) || 0, dur: Number(x.e.min || 2) * 60 }); return; }
+      if(x.e.type === "pen"){ pens.push({ e: x.e, team: x.e.team, g: x.g, pacc: Number(x.e.pacc) || 0, dur: Number(x.e.min || 2) * 60 + (Number(x.e.adj) || 0) }); return; }
       const T = x.e.team, O = T === "a" ? "b" : "a", gp = Number(x.e.pacc) || 0;
       const act = t => pens.filter(p => p.team === t && penShort(p.e) && p.g <= x.g && served(p, x.g, gp) < p.dur);
       const oA = act(O); if(oA.length <= act(T).length) return;
@@ -4998,18 +5019,43 @@ document.addEventListener("DOMContentLoaded", function(){
       return (no ? "#" + no : (pl ? pl.split(" ")[0] : "Banc")) + " " + formatTime(x.left); };
     const sig = JSON.stringify([ap.a.map(x => label("a", x)), ap.b.map(x => label("b", x)), paused, canEdit(), state.period, state.stopOnGoal]);
     if(sig === penSig) return; penSig = sig;
-    [["a", "penA", "pmPenA"], ["b", "penB", "pmPenB"]].forEach(r => [r[1], r[2]].forEach(id => {
-      const box = $(id); if(!box) return; box.textContent = "";
-      ap[r[0]].forEach(x => { const c = el("span", "pen-chip" + (paused ? " paused" : ""), label(r[0], x)); c.title = (x.e.min || 2) + " min" + (x.e.reason ? " · " + x.e.reason : ""); box.appendChild(c); });
-    }));
+    // Pastilles : sous le pointage de l'équipe, et en mode En jeu à côté du bouton des punitions ; touchées par un marqueur : temps à corriger
+    const chip = (t, x) => { const ed = canEdit(), c = el(ed ? "button" : "span", "pen-chip t" + t + (paused ? " paused" : "") + (ed ? " btn" : ""), label(t, x));
+      c.title = (x.e.min || 2) + " min" + (x.e.reason ? " · " + x.e.reason : "") + (ed ? " — toucher pour corriger le temps" : "");
+      if(ed){ c.type = "button"; c.addEventListener("click", ev => { ev.stopPropagation(); openPenLeft(x.e.id); }); } return c; };
+    [["a", "penA"], ["b", "penB"]].forEach(r => { const box = $(r[1]); box.textContent = ""; ap[r[0]].forEach(x => box.appendChild(chip(r[0], x))); });
+    const pmBox = $("pmPens"); pmBox.textContent = ""; ap.b.forEach(x => pmBox.appendChild(chip("b", x))); ap.a.forEach(x => pmBox.appendChild(chip("a", x)));
     const any = ap.a.length + ap.b.length > 0, can = canEdit() && any && penPeriodContinuous() && !state.finished;
     const first = ap.a.concat(ap.b).sort((x, y) => x.left - y.left)[0];
     [$("btnPenPause"), $("pmPenPause")].forEach(b => { if(!b) return; b.hidden = !(can || (paused && canEdit())); b.classList.toggle("on", paused);
       b.setAttribute("aria-pressed", String(paused)); b.title = paused ? "Reprendre le temps des punitions" : "Arrêt de jeu : suspend le temps des punitions (le chrono continue)"; });
     $("btnPenPause").textContent = paused ? "▶ Pun." : "⏸ Pun.";
     $("pmPenPause").firstChild.textContent = paused ? "▶ PUN" : "❚❚ PUN";
-    setText("pmPenLeft", first ? formatTime(first.left) : "");
+    $("pmPens").hidden = !any;
+    setText("pmPenLeft", "");
   }
+  // Corriger le temps qui reste à une punition (ex. punition inscrite en retard)
+  let plId = "";
+  function openPenLeft(id){
+    if(!canEdit()) return;
+    const ap = activePens(), x = ap.a.concat(ap.b).filter(y => y.e.id === id)[0], e = findEvent(id); if(!e) return;
+    plId = id;
+    const pl = e.player ? playerLabel(state.rosters[e.team] || [], e.player) : "";
+    setText("plTitle", "Punition — " + state.names[e.team]); setText("plCtx", (pl || "Banc") + " · " + (e.min || 2) + " min" + (e.reason ? " · " + e.reason : "") + " · " + PLONG[e.period] + " (" + e.time + ")");
+    $("plLeft").value = x ? formatTime(x.left) : "00:00";
+    openDlg("penLeftSheet");
+  }
+  on("plCancel", "click", () => closeDlg("penLeftSheet"));
+  on("plEdit", "click", () => { const e = findEvent(plId); closeDlg("penLeftSheet"); if(e && canEdit()) openPen(e.team, e); });
+  on("plSave", "click", () => {
+    const e = findEvent(plId); if(!e || !canEdit()){ closeDlg("penLeftSheet"); return; }
+    const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec($("plLeft").value.trim().replace(/[.,h]/g, ":"));
+    if(!m){ notify("Écrivez le temps comme au chrono (ex. 1:30).", "info"); return; }
+    const want = m[2] != null ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]) * 60;
+    const ap = activePens(), x = ap.a.concat(ap.b).filter(y => y.e.id === plId)[0], now0 = x ? x.left : 0;
+    e.adj = (Number(e.adj) || 0) + (want - now0);
+    closeDlg("penLeftSheet"); penSig = ""; commit();
+  });
   function togglePenPause(){
     if(!canEdit() || !hasGame(state)) return;
     const pp = state.penPause || (state.penPause = { acc: 0, since: -1 }), g = gNow();
