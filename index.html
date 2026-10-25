@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610251826">
+<meta name="build" content="202610251831">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -140,7 +140,9 @@ body:not(.role-admin) .name{pointer-events:none;border-bottom-color:transparent}
 /* Mode « En jeu » : grands boutons pour le marqueur */
 #playMode{position:fixed;inset:0;z-index:70;background:#0B1724;color:#FFF;display:flex;flex-direction:column;gap:1rem;padding:calc(1rem + env(safe-area-inset-top,0px)) 1rem calc(1rem + env(safe-area-inset-bottom,0px));font-family:var(--display);overflow:hidden}
 #playMode[hidden]{display:none}
-#playMode .pm-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+#playMode .pm-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.9rem}
+#playMode .pm-row>div,#playMode .pm-shot{min-width:0}
+#playMode .pm-shot{overflow:hidden}
 #playMode .pm-row.top{flex:1 1 auto;min-height:9rem;grid-template-rows:minmax(0,1fr);align-items:stretch}
 #playMode .pm-row.top>div{display:flex;flex-direction:column;gap:.3rem;min-height:0}
 #playMode .pm-row.top .pm-shot{flex:1;min-height:0}
@@ -448,8 +450,9 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .ev-when select,.ev-when input{padding:.35rem .45rem;border:1px solid var(--line);border-radius:6px;background:#FFF !important;color:#0F2236 !important;-webkit-text-fill-color:#0F2236;font:inherit;font-size:.9rem}
 .ev-when input{width:4.6rem;text-align:center;font-variant-numeric:tabular-nums}
 #playMode .pm-tname{display:flex;flex-direction:column;align-items:center;line-height:1.05;max-width:100%}
-#playMode .pm-tname small{font-size:clamp(.7rem,3vw,.95rem);font-weight:700;opacity:.8;letter-spacing:.05em}
-#playMode .pm-tname b{font-size:clamp(1rem,4.8vw,1.6rem);font-weight:800;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#playMode .pm-tname small{font-size:clamp(.8rem,3.4vw,1.1rem);font-weight:700;opacity:.8;letter-spacing:.05em}
+#playMode .pm-tname{width:100%}
+#playMode .pm-tname b{display:block;font-size:3.2rem;font-weight:900;line-height:1.02;width:100%;padding:0 .35rem;box-sizing:border-box;text-align:center;text-transform:uppercase;white-space:normal;overflow-wrap:normal;word-break:normal;hyphens:none}
 #playMode .pm-penrow{display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap;justify-content:center}
 #playMode .pm-penrow:has(#pmPenPause[hidden]):has(#pmPens[hidden]){display:none}
 #playMode .pm-pens{display:inline-flex;flex-wrap:wrap;gap:.3rem;align-items:center;font-size:1rem}
@@ -2154,7 +2157,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610251826";
+  var BUILD = "202610251831";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6924,7 +6927,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const sA = $("shotsA").textContent, sB = $("shotsB").textContent;
     $("pmShotsA").textContent = sA + (sA === "0" || sA === "1" ? " Lancer" : " Lancers");
     $("pmShotsB").textContent = sB + (sB === "0" || sB === "1" ? " Lancer" : " Lancers");
-    $("pmNameA").textContent = txt("nameA") || "Local"; $("pmNameB").textContent = txt("nameB") || "Visiteur";
+    ["A", "B"].forEach(s => { const n = txt("name" + s) || (s === "A" ? "Local" : "Visiteur"), b = $("pmName" + s);
+      if(b.textContent !== n || b.dataset.w !== String(b.clientWidth)){ b.textContent = n; fitPmName(b); } });
     $("pmGoalA").textContent = "BUT - " + $("scoreA").textContent; $("pmGoalB").textContent = "BUT - " + $("scoreB").textContent;
     $("pmTime").textContent = $("timerDisplay").textContent;
     const p = $("periodMark").textContent.trim();
@@ -6932,6 +6936,14 @@ document.addEventListener("DOMContentLoaded", function(){
     const running = !!(state.timer && state.timer.running);
     $("pmIcon").textContent = running ? "❚❚" : "▶"; $("pmLabel").textContent = running ? "Pause" : "Jouer";
     $("playMode").classList.toggle("swap", invOn());
+  }
+  // Nom d'équipe le plus gros possible : sur une ou deux lignes, sans couper les mots
+  function fitPmName(b){
+    if(!b.clientWidth) return;
+    const lh = s => s * 16 * 1.02;
+    let size = 3.2; b.style.fontSize = size + "rem";
+    while(size > 1.1 && (b.scrollWidth > b.clientWidth + 1 || b.scrollHeight > lh(size) * 2 + 4)){ size -= .1; b.style.fontSize = size.toFixed(2) + "rem"; }
+    b.dataset.w = String(b.clientWidth);
   }
   function pmOpen(){
     if(!isStaff()) return;
