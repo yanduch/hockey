@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610251716">
+<meta name="build" content="202610251759">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -443,6 +443,10 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .hid-tag{display:inline-block;margin-left:.4rem;padding:.05rem .4rem;border-radius:999px;background:var(--crease);color:var(--muted);font-size:.7rem;font-weight:700}
 .presence-head{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin-top:.6rem;flex-wrap:wrap}
 .presence-head .roster-sort{margin:0}
+.ev-when{display:flex;align-items:center;gap:.4rem;margin:0 0 .6rem;flex-wrap:wrap}
+.ev-when label{font-size:.8rem;font-weight:700;color:var(--muted)}
+.ev-when select,.ev-when input{padding:.35rem .45rem;border:1px solid var(--line);border-radius:6px;background:#FFF !important;color:#0F2236 !important;-webkit-text-fill-color:#0F2236;font:inherit;font-size:.9rem}
+.ev-when input{width:4.6rem;text-align:center;font-variant-numeric:tabular-nums}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -1792,7 +1796,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 <dialog id="goalSheet">
   <div class="sheet-in">
     <h2 id="gsTitle">But</h2>
-    <p class="ctx" id="gsCtx"></p>
+    <p class="ctx" id="gsCtx" hidden></p>
+    <div class="ev-when"><label for="gsPer">Moment :</label><select id="gsPer" aria-label="Période"><option value="0">1re période</option><option value="1">2e période</option><option value="2">3e période</option><option value="3">Prolongation</option></select><input type="text" id="gsTime" inputmode="numeric" maxlength="5" placeholder="mm:ss" aria-label="Temps au chrono (mm:ss)"></div>
     <div id="goalSequenceStatus" style="font-weight:bold;color:var(--blue);margin-bottom:.4rem;font-size:.9rem;">1. Sélectionnez le BUTEUR</div>
     <div class="player-pick-grid" id="playerPickGrid"></div>
     
@@ -1800,7 +1805,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <small style="display:block;font-weight:600;margin-bottom:.3rem;color:#0F2236;">Joueur manquant :</small>
       <div style="display:flex;gap:.3rem;">
         <input type="text" id="quickNo" placeholder="#" style="width:2.8rem;padding:.4rem;border:1px solid var(--line);border-radius:6px;">
-        <input type="text" id="quickName" placeholder="Nom du joueur" style="flex:1;padding:.4rem;border:1px solid var(--line);border-radius:6px;">
+        <input type="text" id="quickName" placeholder="Nom du joueur" style="flex:1;min-width:0;padding:.4rem;border:1px solid var(--line);border-radius:6px;">
         <button type="button" class="act-2" id="quickAddBtn" style="padding:.4rem .7rem;">Ajouter</button>
       </div>
     </div>
@@ -1825,7 +1830,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 <dialog id="penSheet">
   <div class="sheet-in">
     <h2 id="penTitle">Punition</h2>
-    <p class="ctx" id="penCtx"></p>
+    <p class="ctx" id="penCtx" hidden></p>
+    <div class="ev-when"><label for="penPer">Moment :</label><select id="penPer" aria-label="Période"><option value="0">1re période</option><option value="1">2e période</option><option value="2">3e période</option><option value="3">Prolongation</option></select><input type="text" id="penTime" inputmode="numeric" maxlength="5" placeholder="mm:ss" aria-label="Temps au chrono (mm:ss)"></div>
     <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:.2rem;">Joueur pénalisé :</label>
     <div class="player-pick-grid" id="penPlayerGrid"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.6rem;">
@@ -2127,7 +2133,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610251716";
+  var BUILD = "202610251759";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6215,13 +6221,29 @@ document.addEventListener("DOMContentLoaded", function(){
 
   /* ============ Buts ============ */
   let curGoal = null, goalPickStep = "scorer";
+  // Moment d'un événement (période et temps au chrono), modifiable : ex. un but à 0:00 de la 1re inscrit dans la 2e
+  function whenFill(pre, period, time){ $(pre + "Per").value = String(period || 0); $(pre + "Time").value = time || ""; }
+  function whenRead(pre){
+    const per = int($(pre + "Per").value, 0, 3), raw = $(pre + "Time").value.trim().replace(/[.,h]/g, ":");
+    const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(raw); if(!m){ notify("Temps invalide : écrivez-le comme au chrono (ex. 12:45 ou 0:00).", "info"); return null; }
+    const total = m[2] != null ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]) * 60;
+    if(m[2] != null && Number(m[2]) > 59){ notify("Les secondes vont de 00 à 59.", "info"); return null; }
+    if(total > perSec(state)){ notify("Le temps dépasse la durée d'une période (" + formatTime(perSec(state)) + ").", "info"); return null; }
+    return { period: per, time: formatTime(total) };
+  }
+  // Après un changement de moment : événements remis dans l'ordre du match (période, puis temps écoulé)
+  function sortEvents(){
+    const P = perSec(state);
+    state.events = state.events.map((e, i) => ({ e: e, i: i, g: int(e.period, 0, 3) * P + (P - mmss(e.time)) }))
+      .sort((x, y) => x.g - y.g || x.i - y.i).map(x => x.e);
+  }
 
   function openGoal(id, isNew, pend){
     const g = pend || findEvent(id); if(!g) return;
     curGoal = { id: id, isNew: isNew, pend: pend || null, team: g.team, scorer: g.scorer || "", a1: g.a1 || "", a2: g.a2 || "" };
     goalPickStep = nextGoalStep();
     $("gsTitle").textContent = (isNew ? "But de " : "But, ") + state.names[g.team];
-    $("gsCtx").textContent = PLONG[g.period] + " (" + g.time + ")";
+    $("gsCtx").textContent = PLONG[g.period] + " (" + g.time + ")"; whenFill("gs", g.period, g.time);
     $("gsDelete").hidden = isNew;
     renderPlayerPickGrid(); openDlg("goalSheet");
   }
@@ -6291,17 +6313,22 @@ document.addEventListener("DOMContentLoaded", function(){
   });
   on("gsSave", "click", () => {
     if(curGoal && canEdit()){
-      const pg = curGoal.pend;
+      const pg = curGoal.pend, w = whenRead("gs"); if(!w) return;
       if(pg){
+        pg.period = w.period; pg.time = w.time;
         // Nouveau but : inscrit maintenant, avec le temps noté quand on a touché « But »
         pg.scorer = curGoal.scorer; pg.a1 = curGoal.a1; pg.a2 = curGoal.a2;
         let i = state.events.length; while(i > 0 && (state.events[i - 1].t || 0) > pg.t) i--;
         state.events.splice(i, 0, pg);
         state.shots[pg.team][pg.period] = Math.min(999, (state.shots[pg.team][pg.period] || 0) + 1);
-        commit();
+        sortEvents(); commit();
       } else {
         const g = findEvent(curGoal.id);
-        if(g){ g.scorer = curGoal.scorer; g.a1 = curGoal.a1; g.a2 = curGoal.a2; commit(); }
+        if(g){
+          // Période changée : le lancer du but suit
+          if(w.period !== g.period){ state.shots[g.team][g.period] = Math.max(0, (state.shots[g.team][g.period] || 0) - 1); state.shots[g.team][w.period] = Math.min(999, (state.shots[g.team][w.period] || 0) + 1); }
+          g.scorer = curGoal.scorer; g.a1 = curGoal.a1; g.a2 = curGoal.a2; g.period = w.period; g.time = w.time; sortEvents(); commit();
+        }
       }
     }
     curGoal = null; closeDlg("goalSheet");
@@ -6328,7 +6355,7 @@ document.addEventListener("DOMContentLoaded", function(){
       ? { id: existing.id, isNew: false, team: existing.team, period: existing.period, time: existing.time, player: existing.player || "", min: existing.min || 2, reason: existing.reason || "Autre" }
       : { id: uid(), isNew: true, team: team, period: state.period, time: formatTime(remaining()), player: "", min: 2, reason: "Accrochage" };
     $("penTitle").textContent = "Punition - " + state.names[curPen.team];
-    $("penCtx").textContent = PLONG[curPen.period] + " (" + curPen.time + ")";
+    $("penCtx").textContent = PLONG[curPen.period] + " (" + curPen.time + ")"; whenFill("pen", curPen.period, curPen.time);
     $("penMin").value = String(curPen.min); if(!$("penMin").value) $("penMin").value = "2";
     $("penReason").value = curPen.reason === "Rétention" ? "Retenue" : curPen.reason;   // ancien libellé
     if(!$("penReason").value) $("penReason").value = "Autre";
@@ -6348,14 +6375,15 @@ document.addEventListener("DOMContentLoaded", function(){
   on("penCancel", "click", () => closeDlg("penSheet"));
   on("penSave", "click", () => {
     if(curPen && canEdit()){
-      const min = Number($("penMin").value) || 2, reason = $("penReason").value;
+      const min = Number($("penMin").value) || 2, reason = $("penReason").value, w = whenRead("pen"); if(!w) return;
+      curPen.period = w.period; curPen.time = w.time;
       if(curPen.isNew){
         state.events.push({ id: curPen.id, type: "pen", team: curPen.team, period: curPen.period, time: curPen.time, player: curPen.player, min: min, reason: reason, t: now(), pacc: pausedAt(gameSec(curPen.period, mmss(curPen.time))) });
       } else {
         const ev = findEvent(curPen.id);
-        if(ev){ ev.player = curPen.player; ev.min = min; ev.reason = reason; }
+        if(ev){ ev.player = curPen.player; ev.min = min; ev.reason = reason; ev.period = w.period; ev.time = w.time; }
       }
-      commit();
+      sortEvents(); commit();
     }
     closeDlg("penSheet");
   });
