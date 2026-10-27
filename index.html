@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610271116">
+<meta name="build" content="202610271140">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -516,6 +516,8 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tour-g b{min-width:1.2rem;text-align:right}
 .tour-col:not(:last-child) .tour-g::after{content:"";position:absolute;right:-.9rem;top:50%;width:.9rem;border-top:2px solid rgba(127,127,127,.45)}
 .tour-champ{text-align:center;font-weight:800;margin:.2rem 0}
+.tour-cat{font-size:.7rem;color:var(--muted);font-weight:700}
+.tour-join{white-space:nowrap;font-size:.78rem;min-height:2rem;padding:0 .5rem}
 .cat-chip{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;margin-right:.4rem;vertical-align:-1px}
 .cat-manage-item,.team-manage-item{border-left-width:6px !important}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
@@ -1130,8 +1132,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     </div>
     <label class="f-lbl" for="trPlace">Lieu</label>
     <input type="text" id="trPlace" class="full-input" maxlength="60" placeholder="Aréna, ville">
-    <label class="f-lbl" for="trTeam">Notre équipe inscrite</label>
-    <select id="trTeam" class="full-input"></select>
+    <div class="f-lbl">Nos équipes inscrites</div>
+    <div id="trTeams" class="ja-list" style="margin-top:0"></div>
     <h3 class="tr-h">Rondes et parties</h3>
     <p class="ctx" style="margin:0 0 .4rem;">Ajoutez les poules, puis l'élimination (quarts, demi-finales, finale). Inscrivez les équipes et les pointages à la main.</p>
     <div id="trRounds"></div>
@@ -2309,7 +2311,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610271116";
+  var BUILD = "202610271140";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -3009,11 +3011,11 @@ document.addEventListener("DOMContentLoaded", function(){
       categoriesList = val.length ? val : DEFAULT_CATS.slice();
       // La catégorie affichée n'existe pas dans cette organisation : on bascule sur sa première catégorie
       if(categoriesList.indexOf(currentCat) === -1){ switchOrganization(currentOrg, categoriesList[0], "init"); return; }
-      renderCategoriesDropdownTop();
+      renderCategoriesDropdownTop(); tourSubAll();
     });
 
-    teamPractices = {}; teamEvents = {}; catTours = {};
-    sub(ref(catBase() + "/tournaments"), snap => { catTours = obj(snap.val()); try{ renderTours(); renderTeamCal(); updateTickerDisplay(); }catch(e){} });
+    teamPractices = {}; teamEvents = {}; catTours = {}; tourSubs = {};
+    tourSubAll();
     sub(ref(catBase() + "/practices"), snap => { teamPractices = obj(snap.val()); try{ renderTeamCal(); updateTickerDisplay(); }catch(e){} });
     sub(ref(catBase() + "/events"), snap => { teamEvents = obj(snap.val()); try{ renderTeamCal(); updateTickerDisplay(); }catch(e){} });
     sub(ref(catBase() + "/calendar"), snap => {
@@ -5545,11 +5547,22 @@ document.addEventListener("DOMContentLoaded", function(){
     item("dot", "Victoire", "V", "#1E9E5A"); item("dot", "Défaite", "D", "#D2453A"); item("dot", "Défaite en prolongation", "DP", "#D2453A"); item("dot", "Nulle", "N", "#6B7785");
   }
   /* ============ Tournois : poules puis arbre d'élimination, saisis à la main ============ */
-  function tourOf(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), team: String(t && t.team || ""),
+  // Les tournois de toutes les catégories de l'organisation (clé « catégorie/id ») : une équipe peut joindre un tournoi déjà créé
+  var tourSubs = {};
+  function tourSubAll(){
+    const org = currentOrg;
+    (categoriesList || []).concat([currentCat]).forEach(c => { if(!c || tourSubs[c]) return; tourSubs[c] = 1;
+      sub(ref(org + "/" + c + "/tournaments"), snap => { if(org !== currentOrg) return;
+        Object.keys(catTours).forEach(k => { if(k.indexOf(c + "/") === 0) delete catTours[k]; });
+        const v = obj(snap.val()); Object.keys(v).forEach(id => { if(v[id]) catTours[c + "/" + id] = v[id]; });
+        try{ renderTours(); renderTeamCal(); updateTickerDisplay(); }catch(e){} }); });
+  }
+  function tourTeams(t){ const o = {}; if(t && t.team) o[t.team] = 1; const m = t && t.teams; if(m && typeof m === "object") Object.keys(m).forEach(k => { if(m[k]) o[k] = 1; }); return o; }
+  function tourOf(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), teams: tourTeams(t),
     rounds: toArr(t && t.rounds).filter(Boolean).map(r => ({ name: String(r.name || ""), pool: !!r.pool, games: toArr(r.games).filter(Boolean).map(g => ({ a: String(g.a || ""), b: String(g.b || ""), sa: g.sa === "" || g.sa == null ? "" : Number(g.sa), sb: g.sb === "" || g.sb == null ? "" : Number(g.sb) })) })) }; }
   const tSame = (a, b) => !!a && !!b && (a === b || !!sameTeamName(a, [b]));
   function tourHasTeam(t, key){
-    const p = presets[key]; if(!p) return false; if(t.team === key) return true;
+    const p = presets[key]; if(!p) return false; if(t.teams[key]) return true;
     return t.rounds.some(r => r.games.some(g => tSame(g.a, p.name) || tSame(g.b, p.name)));
   }
   // Jours de tournoi d'une équipe (calendrier d'équipe et bandeau)
@@ -5599,46 +5612,67 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function renderTours(){
     const btnT = $("toggleTourBtn"); if(!btnT) return;
-    const sy = seasonOf(Date.now()), ids = Object.keys(catTours).filter(id => { const t = catTours[id]; if(!t) return false; if(!t.start) return true; const p = String(t.start).split("-").map(Number); return seasonOf(new Date(p[0], p[1] - 1, p[2]).getTime()) === sy; })
+    const inCat = id => { if(id.split("/")[0] === currentCat) return true; const m = tourTeams(catTours[id]); return Object.keys(m).some(k => presets[k] && presets[k].category === currentCat); };
+    const sy = seasonOf(Date.now()), ids = Object.keys(catTours).filter(id => { const t = catTours[id]; if(!t || !inCat(id)) return false; if(!t.start) return true; const p = String(t.start).split("-").map(Number); return seasonOf(new Date(p[0], p[1] - 1, p[2]).getTime()) === sy; })
       .sort((x, y) => String(catTours[y].start || "").localeCompare(String(catTours[x].start || "")));
     if(!ids.length){ btnT.style.display = "none"; $("tourBlock").classList.add("hidden"); btnT.classList.add("collapsed"); return; }
     btnT.style.display = ""; btnT.textContent = "Tournois (" + ids.length + ")";
     if(!isOpen("tourBlock")) return;
     const key = teamCalKey(), meName = key && presets[key] ? presets[key].name : "", box = $("tourView"); box.textContent = "";
-    ids.forEach(id => box.appendChild(tourCard(id, tourOf(catTours[id]), meName)));
+    ids.forEach(id => { const c = tourCard(id, tourOf(catTours[id]), meName), cat = id.split("/")[0];
+      if(cat !== currentCat) c.querySelector("h3").appendChild(el("small", "tour-cat", " " + cat.toUpperCase())); box.appendChild(c); });
   }
-  // ----- Gestion des tournois (dans Gestion calendrier) -----
-  let tourMgr = {}, tourRef = null, tourEditId = null;
-  const tourBase = () => calOrg + "/" + calCat + "/tournaments";
+  // ----- Gestion des tournois (dans Gestion calendrier) : toutes les catégories de l'organisation -----
+  let tourMgr = {}, tourRefs = [], tourEditId = null;      // tourEditId = « catégorie/id »
+  const tourPath = cid => calOrg + "/" + cid.split("/")[0] + "/tournaments/" + cid.split("/")[1];
+  const calTeamKey = () => { const n = $("calTeamFilter").value; if(!n) return "";
+    const ks = Object.keys(calPresets).filter(k => calPresets[k] && calPresets[k].name === n); return ks.filter(k => calPresets[k].category === calCat)[0] || ks[0] || ""; };
+  function tourStop(){ tourRefs.forEach(r => r.off("value")); tourRefs = []; }
   on("calTour", "click", () => {
     if(!isAdmin() || !calCat) return;
-    setText("tourCtx", pwdOrgLabelOf(calOrg) + " · " + calCat.toUpperCase() + " — les tournois s'affichent dans la section « Tournois » et dans le calendrier de l'équipe inscrite.");
-    if(tourRef) tourRef.off("value");
-    tourRef = ref(tourBase()); tourRef.on("value", s => { tourMgr = obj(s.val()); renderTourList(); });
-    swapDlg("calendarSheet", "tourSheet");
+    const team = calTeamKey(), tn = team && calPresets[team] ? calPresets[team].name : "";
+    setText("tourCtx", pwdOrgLabelOf(calOrg) + " · " + calCat.toUpperCase() + (tn ? " · " + tn + " — touchez « Participer » pour inscrire cette équipe à un tournoi déjà créé." : " — choisissez une équipe dans Gestion calendrier pour l'inscrire d'un toucher à un tournoi déjà créé."));
+    tourStop(); tourMgr = {};
+    const cats = [...$("calCatSelect").options].map(o => o.value).filter(Boolean); if(cats.indexOf(calCat) < 0) cats.push(calCat);
+    cats.forEach(c => { const r = ref(calOrg + "/" + c + "/tournaments"); tourRefs.push(r);
+      r.on("value", s => { Object.keys(tourMgr).forEach(k => { if(k.indexOf(c + "/") === 0) delete tourMgr[k]; });
+        const v = obj(s.val()); Object.keys(v).forEach(id => { if(v[id]) tourMgr[c + "/" + id] = v[id]; }); renderTourList(); }); });
+    renderTourList(); swapDlg("calendarSheet", "tourSheet");
   });
   function renderTourList(){
     const ul = $("tourList"); ul.textContent = "";
-    const ids = Object.keys(tourMgr).filter(k => tourMgr[k]).sort((x, y) => String(tourMgr[y].start || "").localeCompare(String(tourMgr[x].start || "")));
-    if(!ids.length){ ul.appendChild(el("li", "cal-empty", "Aucun tournoi pour cette catégorie.")); return; }
-    ids.forEach(id => { const t = tourOf(tourMgr[id]), li = el("li", "cal-item"), txt = el("div", "cal-main");
-      txt.appendChild(el("strong", null, "🏆 " + t.name)); txt.appendChild(el("small", null, [t.start, t.place, t.rounds.length + " ronde" + (t.rounds.length > 1 ? "s" : "")].filter(Boolean).join(" · ")));
+    const team = calTeamKey();
+    const ids = Object.keys(tourMgr).filter(k => tourMgr[k]).sort((x, y) => ((x.split("/")[0] === calCat ? 0 : 1) - (y.split("/")[0] === calCat ? 0 : 1)) || String(tourMgr[y].start || "").localeCompare(String(tourMgr[x].start || "")));
+    if(!ids.length){ ul.appendChild(el("li", "cal-empty", "Aucun tournoi pour l'instant.")); return; }
+    ids.forEach(id => { const t = tourOf(tourMgr[id]), cat = id.split("/")[0], li = el("li", "cal-item"), txt = el("div", "cal-main");
+      txt.appendChild(el("strong", null, "🏆 " + t.name + (cat !== calCat ? " (" + cat.toUpperCase() + ")" : "")));
+      const ins = Object.keys(t.teams).map(k => calPresets[k] && calPresets[k].name).filter(Boolean);
+      txt.appendChild(el("small", null, [t.start, t.place, ins.length ? "Inscrites : " + ins.join(", ") : "Aucune de nos équipes inscrite"].filter(Boolean).join(" · ")));
       li.appendChild(txt);
+      if(team){ const inn = !!t.teams[team];
+        const b = btn(inn ? "act-1 tour-join on" : "act-2 tour-join", inn ? "✅ Inscrite" : "➕ Participer", () => {
+          const r = ref(tourPath(id) + "/teams/" + team); (inn ? r.remove() : r.set(true)).then(() => { if(inn && tourMgr[id].team === team) ref(tourPath(id) + "/team").remove(); }); });
+        b.title = inn ? "Retirer cette équipe du tournoi" : "Inscrire cette équipe au tournoi"; li.appendChild(b); }
       li.appendChild(btn("act-2", "✏️", () => openTourEdit(id)));
-      li.appendChild(btn("row-del", "✕", () => ask("Supprimer le tournoi « " + t.name + " » ?", { ok: "Supprimer", danger: true }).then(ok => { if(ok) ref(tourBase() + "/" + id).remove(); })));
+      li.appendChild(btn("row-del", "✕", () => ask("Supprimer le tournoi « " + t.name + " » ?", { ok: "Supprimer", danger: true }).then(ok => { if(ok) ref(tourPath(id)).remove(); })));
       ul.appendChild(li); });
   }
-  on("tourBack", "click", () => { if(tourRef){ tourRef.off("value"); tourRef = null; } swapDlg("tourSheet", "calendarSheet"); });
+  on("tourBack", "click", () => { tourStop(); swapDlg("tourSheet", "calendarSheet"); });
   on("tourNew", "click", () => openTourEdit(null));
   function openTourEdit(id){
-    tourEditId = id; const t = tourOf(id ? tourMgr[id] : { start: todayStr() });
-    setText("tourEditTitle", id ? "Modifier le tournoi" : "Nouveau tournoi");
+    tourEditId = id; const t = tourOf(id ? tourMgr[id] : { start: todayStr() }), cat = id ? id.split("/")[0] : calCat;
+    if(!id){ const tm = calTeamKey(); if(tm) t.teams[tm] = 1; }
+    setText("tourEditTitle", (id ? "Modifier le tournoi" : "Nouveau tournoi") + " · " + cat.toUpperCase());
     $("trName").value = id ? t.name : ""; $("trStart").value = t.start; $("trEnd").value = t.end; $("trPlace").value = t.place;
-    const teams = Object.keys(calPresets).filter(k => calPresets[k] && calPresets[k].name && calPresets[k].category === calCat)
-      .sort((x, y) => calPresets[x].name.localeCompare(calPresets[y].name, "fr")).map(k => ({ value: k, label: calPresets[k].name }));
-    fillSelect($("trTeam"), teams, t.team || (teams.length === 1 ? teams[0].value : null), "— Aucune —");
+    // Nos équipes inscrites : toutes les catégories, cochées si inscrites
+    const box = $("trTeams"); box.textContent = "";
+    Object.keys(calPresets).filter(k => calPresets[k] && calPresets[k].name && calPresets[k].own)
+      .sort((x, y) => (calPresets[x].category === cat ? 0 : 1) - (calPresets[y].category === cat ? 0 : 1) || catRank(calPresets[x].category) - catRank(calPresets[y].category) || calPresets[x].name.localeCompare(calPresets[y].name, "fr", { numeric: true }))
+      .forEach(k => { const l = el("label", "check-row"), c = el("input"); c.type = "checkbox"; c.value = k; c.checked = !!t.teams[k];
+        l.appendChild(c); l.appendChild(el("span", null, calPresets[k].name + " (" + String(calPresets[k].category || "").toUpperCase() + ")")); box.appendChild(l); });
+    if(!box.children.length) box.appendChild(el("small", null, "Aucune de nos équipes."));
     const dl = $("trTeamNames"); dl.textContent = "";
-    const names = {}; Object.keys(calPresets).forEach(k => { const p = calPresets[k]; if(p && p.name && p.category === calCat) names[p.name] = 1; });
+    const names = {}; Object.keys(calPresets).forEach(k => { const p = calPresets[k]; if(p && p.name && (p.category === cat || t.teams[k])) names[p.name] = 1; });
     Object.keys(names).sort().forEach(n => { const o = document.createElement("option"); o.value = n; dl.appendChild(o); });
     $("trRounds").textContent = ""; t.rounds.forEach(r => addTourRound(r));
     swapDlg("tourSheet", "tourEdit");
@@ -5672,8 +5706,9 @@ document.addEventListener("DOMContentLoaded", function(){
     const rounds = [...$("trRounds").querySelectorAll(".tr-round")].map(b => ({ name: str(b.querySelector(".tr-rname").value, ""), pool: b.dataset.pool === "1" || null,
       games: [...b.querySelectorAll(".tr-game")].map(r => ({ a: str(r.querySelector(".tr-a").value, ""), b: str(r.querySelector(".tr-b").value, ""), sa: sc(r.querySelector(".tr-sa").value), sb: sc(r.querySelector(".tr-sb").value) }))
         .filter(g => g.a || g.b) }));
-    const id = tourEditId || uid();
-    ref(tourBase() + "/" + id).set({ name: name, start: start, end: end, place: str($("trPlace").value, ""), team: $("trTeam").value || "", rounds: rounds, updatedAt: Date.now() });
+    const id = tourEditId || (calCat + "/" + uid()), teams = {};
+    $("trTeams").querySelectorAll("input:checked").forEach(c => { teams[c.value] = true; });
+    ref(tourPath(id)).set({ name: name, start: start, end: end, place: str($("trPlace").value, ""), teams: teams, rounds: rounds, updatedAt: Date.now() });
     notify("Tournoi enregistré !"); swapDlg("tourEdit", "tourSheet");
   });
 
