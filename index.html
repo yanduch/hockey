@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610271153">
+<meta name="build" content="202610271207">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -28,7 +28,7 @@ try{ var q = location.search; if((!q || /^\?source=app$/.test(q)) && localStorag
 <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<script>try{var t=localStorage.getItem("ohmtro_theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
+<script>var t="dark";try{var s=localStorage.getItem("ohmtro_theme");if(s==="light")t=s;}catch(e){}document.documentElement.setAttribute("data-theme",t);</script>
 <style>
 :root{
   --ice:#EDF3F7; --surface:#FFFFFF; --ink:#0F2236; --muted:#586A7B; --line:#C8D5DF;
@@ -2321,7 +2321,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610271153";
+  var BUILD = "202610271207";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
