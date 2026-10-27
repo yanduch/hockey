@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610271036">
+<meta name="build" content="202610271051">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -132,7 +132,7 @@ html.score-mode #scoreExit{display:flex;position:fixed;top:calc(.5rem + env(safe
 .board{display:grid;grid-template-columns:1fr 5.8rem 1fr;background:var(--surface);border-radius:14px;padding:.9rem .3rem 1rem;gap:.2rem;}
 .side{min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center;overflow:hidden;}
 .team-header{display:flex;align-items:center;justify-content:center;gap:.2rem;width:100%;overflow:hidden;}
-.team-logo{width:1.8rem;height:1.8rem;object-fit:contain;border-radius:4px;flex-shrink:0}
+.team-logo{width:2.6rem;height:2.6rem;object-fit:contain;object-position:center;border-radius:6px;flex:0 0 2.6rem;background:transparent}
 .team-logo[src=""]{display:none}
 .name{width:100%;border:0;border-bottom:2px dashed transparent;background:transparent;text-align:center;
   font-family:var(--display);font-weight:700;font-size:clamp(1.5rem, 5.7vw, 2.4rem);line-height:1.1;padding:.1rem 0;border-radius:0;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;}
@@ -478,6 +478,46 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .install-steps li{margin:.25rem 0}
 .ios-share{display:inline-block;padding:0 .3rem;border:1px solid var(--line);border-radius:5px}
 html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
+.ja-tag{display:inline-block;margin-left:.35rem;padding:0 .35rem;border-radius:5px;background:#F0B35A;color:#2A1A00;font-size:.68rem;font-weight:800;vertical-align:middle}
+.roster-row.ja .r-name{border-color:#F0B35A !important;background:#FFF6E5 !important}
+.roster-row .ja-badge{grid-column:1/-1;margin:-.15rem 0 .1rem;font-size:.7rem;color:#9A6400;font-weight:700}
+.ja-list{display:grid;gap:.2rem;margin-top:.6rem;max-height:40vh;overflow-y:auto}
+.presence-item.ja{background:#FFF1D6;border-color:#F0B35A;color:#6B4500}
+.presence-item.ja::after{content:"JA";margin-left:auto;font-size:.65rem;font-weight:800;background:#F0B35A;color:#2A1A00;border-radius:4px;padding:0 .3rem}
+.p-ltable tr.xorg td{background:#EEF4FF}
+.p-ltable .p-org{font-size:.68rem;color:#4A6A9A;font-weight:600}
+.f-lbl{display:block;font-size:.85rem;font-weight:600;margin:.6rem 0 .3rem}
+.tr-dates{gap:.5rem}.tr-dates>div{flex:1 1 0;min-width:0}
+.tr-h{margin:1rem 0 .3rem;font-size:1rem}
+.tr-round{border:1px solid var(--line,#D5DEE8);border-radius:10px;padding:.5rem;margin-bottom:.6rem;background:rgba(127,127,127,.06)}
+.tr-rhead{display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem}
+.tr-rhead input{flex:1 1 auto;min-width:0}
+.tr-game{display:grid;grid-template-columns:minmax(0,1fr) 2.6rem 2.6rem minmax(0,1fr) 2rem;gap:.25rem;align-items:center;margin-bottom:.25rem}
+.tr-game input{min-width:0;padding:.35rem .4rem;font-size:.85rem}
+.tr-game .tr-s{text-align:center}
+.tr-addround{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.tr-addround button,.tr-round .tr-addg{min-height:2.1rem;font-size:.82rem}
+.tour-card{margin:.4rem 0 1rem}
+.tour-card h3{margin:.2rem 0;font-size:1.05rem}
+.tour-meta{font-size:.82rem;color:var(--muted);margin-bottom:.5rem}
+.tour-pool h4,.tour-tree-h{margin:.6rem 0 .3rem;font-size:.9rem}
+.tour-pool table{width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:.4rem}
+.tour-pool td,.tour-pool th{padding:.2rem .3rem;border-bottom:1px solid rgba(127,127,127,.25);text-align:center}
+.tour-pool td:first-child,.tour-pool th:first-child{text-align:left}
+.tour-pool tr.me td{font-weight:800}
+.tour-tree{display:flex;gap:.9rem;overflow-x:auto;padding:.3rem 0 .6rem}
+.tour-col{display:flex;flex-direction:column;justify-content:space-around;gap:.6rem;min-width:9.5rem;flex:0 0 auto}
+.tour-col>h5{margin:0;font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:center}
+.tour-g{border:1px solid rgba(127,127,127,.4);border-radius:8px;overflow:hidden;background:var(--surface);position:relative}
+.tour-g>div{display:flex;justify-content:space-between;gap:.4rem;padding:.25rem .45rem;font-size:.82rem}
+.tour-g>div+div{border-top:1px solid rgba(127,127,127,.25)}
+.tour-g .w{font-weight:800}
+.tour-g .me{background:rgba(240,179,90,.25)}
+.tour-g b{min-width:1.2rem;text-align:right}
+.tour-col:not(:last-child) .tour-g::after{content:"";position:absolute;right:-.9rem;top:50%;width:.9rem;border-top:2px solid rgba(127,127,127,.45)}
+.tour-champ{text-align:center;font-weight:800;margin:.2rem 0}
+.cat-chip{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;margin-right:.4rem;vertical-align:-1px}
+.cat-manage-item,.team-manage-item{border-left-width:6px !important}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -1009,6 +1049,11 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <div class="tcal-legend" id="teamCalLegend"></div>
   </div>
 
+  <h2 class="toggle-title collapsed" id="toggleTourBtn" style="display:none">Tournois</h2>
+  <div class="toggle-block hidden" id="tourBlock">
+    <div id="tourView"></div>
+  </div>
+
   <button type="button" class="share-btn" id="btnShare">📤 Partager la page</button>
   <div class="app-row" id="appRow">
     <button type="button" class="share-btn" id="btnInstall" hidden>📲 Installer sur l'écran d'accueil</button>
@@ -1064,12 +1109,62 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 <div id="voiceTag" hidden>🎙️ Annonce en cours…</div>
 <div id="annMsg" hidden role="status" aria-live="assertive"></div>
 
+<dialog id="tourSheet">
+  <div class="sheet-in">
+    <h2>Tournois</h2>
+    <p class="ctx" id="tourCtx"></p>
+    <ul class="cal-list" id="tourList"></ul>
+    <button type="button" class="act-1" id="tourNew" style="width:100%;min-height:2.4rem;margin:.6rem 0;">➕ Nouveau tournoi</button>
+    <div class="actions"><button type="button" class="act-2" id="tourBack">Retour</button></div>
+  </div>
+</dialog>
+
+<dialog id="tourEdit">
+  <div class="sheet-in">
+    <h2 id="tourEditTitle">Tournoi</h2>
+    <label class="f-lbl" for="trName">Nom du tournoi</label>
+    <input type="text" id="trName" class="full-input" maxlength="40" placeholder="Ex. : Tournoi de la Mauricie">
+    <div class="inline-row tr-dates">
+      <div><label class="f-lbl" for="trStart">Début</label><input type="date" id="trStart" class="full-input"></div>
+      <div><label class="f-lbl" for="trEnd">Fin</label><input type="date" id="trEnd" class="full-input"></div>
+    </div>
+    <label class="f-lbl" for="trPlace">Lieu</label>
+    <input type="text" id="trPlace" class="full-input" maxlength="60" placeholder="Aréna, ville">
+    <label class="f-lbl" for="trTeam">Notre équipe inscrite</label>
+    <select id="trTeam" class="full-input"></select>
+    <h3 class="tr-h">Rondes et parties</h3>
+    <p class="ctx" style="margin:0 0 .4rem;">Ajoutez les poules, puis l'élimination (quarts, demi-finales, finale). Inscrivez les équipes et les pointages à la main.</p>
+    <div id="trRounds"></div>
+    <div class="tr-addround">
+      <button type="button" class="act-2" data-tr-add="pool">+ Poule</button>
+      <button type="button" class="act-2" data-tr-add="Quarts de finale">+ Quarts</button>
+      <button type="button" class="act-2" data-tr-add="Demi-finales">+ Demi-finales</button>
+      <button type="button" class="act-2" data-tr-add="Finale">+ Finale</button>
+    </div>
+    <datalist id="trTeamNames"></datalist>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="trCancel">Annuler</button><button type="button" class="act-1" id="trSave">Enregistrer</button></div>
+  </div>
+</dialog>
+
+<dialog id="jaSheet">
+  <div class="sheet-in">
+    <h2>Joueur affilié (JA)</h2>
+    <p class="ctx">Un joueur d'une catégorie plus jeune (ou de calibre inférieur) de l'organisation peut jouer avec cette équipe. Il garde sa fiche dans son équipe ; une fiche JA est créée ici, et le total des deux est affiché.</p>
+    <label for="jaTeam" style="display:block;font-size:.85rem;font-weight:600;margin:.4rem 0 .3rem;">Son équipe</label>
+    <select id="jaTeam" class="full-input"></select>
+    <div id="jaList" class="ja-list"></div>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="jaCancel">Annuler</button><button type="button" class="act-1" id="jaAdd">Ajouter</button></div>
+  </div>
+</dialog>
+
 <dialog id="linkSheet">
   <div class="sheet-in">
     <h2>Lier des fiches</h2>
     <p class="ctx" id="linkWho"></p>
     <p style="font-size:.85rem;color:var(--muted);margin:0 0 .6rem;">Pour un joueur qui joue aussi avec une autre équipe : chaque fiche garde ses statistiques, et la fiche montre aussi le total de toutes ses équipes.</p>
     <div id="linkCur"></div>
+    <label for="linkOrg" style="display:block;font-size:.85rem;font-weight:600;margin:.6rem 0 .3rem;">Organisation</label>
+    <select id="linkOrg" class="full-input"></select>
     <label for="linkTeam" style="display:block;font-size:.85rem;font-weight:600;margin:.6rem 0 .3rem;">Autre équipe</label>
     <select id="linkTeam" class="full-input"></select>
     <label for="linkPlayer" style="display:block;font-size:.85rem;font-weight:600;margin:.8rem 0 .3rem;">Le même joueur dans cette équipe</label>
@@ -1302,6 +1397,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <small id="calSpordleNote" hidden style="display:block;margin:-.2rem 0 .6rem;color:var(--muted);font-size:.76rem;text-align:center;"></small>
     <button type="button" class="act-2 super-only" id="calImport" style="width:100%;min-height:2.4rem;margin-bottom:.8rem;font-size:.88rem;">📥 Importer un horaire (.ics)</button>
     <input type="file" id="calIcsFile" accept=".ics,text/calendar" hidden>
+    <button type="button" class="act-2 org-admin-only" id="calTour" style="width:100%;min-height:2.4rem;margin-bottom:.5rem;font-size:.88rem;">🏆 Tournois (arbre du tournoi)</button>
     <button type="button" class="act-2 org-admin-only" id="calMerge" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">🔀 Fusionner deux noms d'équipe (doublons)</button>
     <ul class="cal-list" id="calList"></ul>
     <div class="actions" style="margin-top:1.2rem;">
@@ -1813,7 +1909,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <label style="display:block;font-size:.8rem;margin-bottom:.2rem;font-weight:600;">Joueurs :</label>
     <div class="roster-sort">Trier : <button type="button" data-rsort="no"># Numéro</button><button type="button" data-rsort="name">Nom</button><button type="button" data-rsort="pos">Position</button></div>
     <div class="roster-grid" id="rosterForm"></div>
-    <button type="button" class="act-2" id="addPlayerBtn" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">+ Ajouter un joueur</button>
+    <button type="button" class="act-2" id="addPlayerBtn" style="width:100%;min-height:2.2rem;margin-bottom:.4rem;font-size:.85rem;">+ Ajouter un joueur</button>
+    <button type="button" class="act-2" id="addJaBtn" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">+ Ajouter un joueur affilié (JA)</button>
 
     <label style="display:block;font-size:.8rem;margin-bottom:.2rem;font-weight:600;">Staff :</label>
     <div class="roster-grid" id="staffForm"></div>
@@ -2197,7 +2294,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610271036";
+  var BUILD = "202610271051";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2381,8 +2478,8 @@ document.addEventListener("DOMContentLoaded", function(){
     return o;
   }
   const typeList = T => Object.keys(T).sort((x, y) => (T[x].order - T[y].order) || T[x].label.localeCompare(T[y].label, "fr")).map(k => Object.assign({ k: k }, T[k]));
-  const typeOf = (T, k) => T[k] || { label: "Événement", icon: "📅" };
-  var evtTypes = normTypes(null), teamEvents = {};
+  const typeOf = (T, k) => T[k] || (k === "tournament" ? { label: "Tournoi", icon: "🏆" } : { label: "Événement", icon: "📅" });
+  var evtTypes = normTypes(null), teamEvents = {}, catTours = {};
   var cfgRegStart = {};                // date de début de la saison régulière, par catégorie (« AAAA-MM-JJ »)
   const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() < 9 ? "0" : "") + (d.getMonth() + 1) + "-" + (d.getDate() < 10 ? "0" : "") + d.getDate(); };
   // Type d'une partie selon sa date : avec une date de début de saison, avant = pré-saison, à partir de = saison
@@ -2479,7 +2576,14 @@ document.addEventListener("DOMContentLoaded", function(){
     };
   }
 
-  const normPlayer = p => ({ no: no(p && p.no), name: String((p && p.name) || ""), pos: String((p && p.pos) || "A") });
+  const normPlayer = p => { const o = { no: no(p && p.no), name: String((p && p.name) || ""), pos: String((p && p.pos) || "A") };
+    if(p && p.ja && p.ja.team) o.ja = { team: String(p.ja.team), pid: String(p.ja.pid || ""), cat: String(p.ja.cat || "") }; return o; };
+  // Rang d'une catégorie (âge, puis calibre : C < B < A) : un joueur affilié vient toujours d'une catégorie de rang inférieur
+  function catRank(c){ const m = /(\d+)\s*([a-e])?/i.exec(String(c || "")); if(!m) return 0; const lv = m[2] ? 5 - (m[2].toLowerCase().charCodeAt(0) - 97) : 5; return Number(m[1]) * 10 + lv; }
+  // Couleurs douces des catégories (gestion) : même couleur pour la catégorie et ses équipes
+  const CAT_COLORS = ["#8DB8E8", "#8FD1A8", "#F2B880", "#C3A3E0", "#F0A3BC", "#80CBC4", "#E8D27A", "#9FA8DA", "#BCAAA4", "#A5D6A7"];
+  function catColor(cat, list){ const L = (list || []).slice().sort((x, y) => catRank(x) - catRank(y) || String(x).localeCompare(String(y))); const i = L.indexOf(cat); return i < 0 ? "" : CAT_COLORS[i % CAT_COLORS.length]; }
+  function tintItem(li, col){ if(!col) return; li.style.borderLeftColor = col; li.style.background = "linear-gradient(90deg, " + col + "33, " + col + "0d 60%), var(--surface)"; }
   const normStaff = s => ({ name: String((s && s.name) || ""), role: String((s && s.role) || "") });
 
   function sanitize(d){
@@ -2893,7 +2997,8 @@ document.addEventListener("DOMContentLoaded", function(){
       renderCategoriesDropdownTop();
     });
 
-    teamPractices = {}; teamEvents = {};
+    teamPractices = {}; teamEvents = {}; catTours = {};
+    sub(ref(catBase() + "/tournaments"), snap => { catTours = obj(snap.val()); try{ renderTours(); renderTeamCal(); updateTickerDisplay(); }catch(e){} });
     sub(ref(catBase() + "/practices"), snap => { teamPractices = obj(snap.val()); try{ renderTeamCal(); updateTickerDisplay(); }catch(e){} });
     sub(ref(catBase() + "/events"), snap => { teamEvents = obj(snap.val()); try{ renderTeamCal(); updateTickerDisplay(); }catch(e){} });
     sub(ref(catBase() + "/calendar"), snap => {
@@ -2994,6 +3099,7 @@ document.addEventListener("DOMContentLoaded", function(){
                   at: new Date(p[0], p[1] - 1, p[2], hm[0] || 0, hm[1] || 0).getTime() }); };
     const pr = obj(teamPractices[key]); Object.keys(pr).forEach(id => add(pr[id], "practice"));
     Object.keys(teamEvents).forEach(id => { const e = teamEvents[id]; if(e && e.team === key) add(e); });
+    tourDays(key).forEach(x => add(x));
     return list.sort((x, y) => x.at - y.at)[0] || null;
   }
   // Adresse de l'aréna d'une partie : « (1740, avenue Gilles-Villeneuve, Trois-Rivières) »
@@ -3653,8 +3759,9 @@ document.addEventListener("DOMContentLoaded", function(){
   var manageHiddenCats = {};
   function renderCategoriesManageList(){
     const list = $("catManageList"); list.textContent = "";
-    manageCategoriesList.forEach((cat, index) => {
-      const lab = document.createDocumentFragment(); lab.appendChild(el("strong", null, cat.toUpperCase()));
+    manageCategoriesList.map((cat, index) => ({ cat: cat, index: index })).sort((x, y) => catRank(x.cat) - catRank(y.cat) || x.cat.localeCompare(y.cat)).forEach(o => { const cat = o.cat, index = o.index;
+      const lab = document.createDocumentFragment(), cc = catColor(cat, manageCategoriesList), chip = el("span", "cat-chip"); chip.style.background = cc;
+      lab.appendChild(chip); lab.appendChild(el("strong", null, cat.toUpperCase()));
       if(manageHiddenCats[cat]) lab.appendChild(el("span", "hid-tag", "🙈 Cachée"));
       const tools = [];
       if(isSuper()) tools.push(btn("btn-edit btn-vis", manageHiddenCats[cat] ? "👁 Afficher" : "🙈 Cacher", () => {
@@ -3663,7 +3770,7 @@ document.addEventListener("DOMContentLoaded", function(){
         if(manageOrgKey === currentOrg){ cfgHiddenCats = Object.assign({}, manageHiddenCats); renderCategoriesDropdownTop(); }
         renderCategoriesManageList(); notify("Catégorie " + cat.toUpperCase() + (h ? " cachée au public." : " de nouveau visible."), "ok");
       }));
-      list.appendChild(manageItem("cat-manage-item", lab, tools.concat([
+      const catLi = manageItem("cat-manage-item", lab, tools.concat([
         btn("btn-edit", "✏️ Éditer", () => { currentEditingCatIndex = index; $("editCatNameInput").value = cat.toUpperCase(); swapDlg("orgDetailSheet", "editCatSheet"); }),
         btn("btn-hist-del", "🗑 Supprimer", () => {
           if(!can("categories")) return;
@@ -3673,7 +3780,8 @@ document.addEventListener("DOMContentLoaded", function(){
             manageCategoriesList = manageCategoriesList.filter(c => c !== cat); saveCats(); renderCategoriesManageList(); fillTeamCatSelect();
           });
         })
-      ])));
+      ]));
+      tintItem(catLi, cc); list.appendChild(catLi);
     });
   }
   on("editCatCancel", "click", () => swapDlg("editCatSheet", "orgDetailSheet"));
@@ -3717,7 +3825,7 @@ document.addEventListener("DOMContentLoaded", function(){
         if(team.hidden) r.remove(); else r.set(true);
         notify("Équipe « " + (team.name || key) + " » " + (team.hidden ? "de nouveau visible." : "cachée au public."), "ok");
       })] : [];
-      list.appendChild(manageItem("team-manage-item", label, vis.concat([
+      const teamLi = manageItem("team-manage-item", label, vis.concat([
         btn("btn-edit", "✏️ Éditer", () => openTeamEditor(key)),
         btn("btn-hist-del", "🗑 Supprimer", () => {
           if(!can("teams")) return;
@@ -3725,7 +3833,8 @@ document.addEventListener("DOMContentLoaded", function(){
             if(ok) ref(manageOrgKey + "/teams_presets/" + key).remove();
           });
         })
-      ])));
+      ]));
+      tintItem(teamLi, catColor(team.category, manageCategoriesList)); list.appendChild(teamLi);
     });
   }
 
@@ -3754,7 +3863,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("editTeamNameInput").readOnly = isTeamScoped() && !!key;                       // ni de nom (réservé à l'administrateur de l'organisation)
     updateLogoPreview();
     const roster = toArr(team.roster), staff = toArr(team.staff);
-    $("rosterForm").textContent = ""; roster.forEach(p => addRosterRow(p.no, p.name, p.pos)); if(!roster.length) addRosterRow("","","A");
+    $("rosterForm").textContent = ""; roster.forEach(p => addRosterRow(p.no, p.name, p.pos, p.ja)); if(!roster.length) addRosterRow("","","A");
     $("staffForm").textContent = ""; staff.forEach(s => addStaffRow(s.name, s.role));
     if(teamEditSolo) openDlg("rosterSheet"); else swapDlg("orgDetailSheet", "rosterSheet");
   }
@@ -3771,12 +3880,41 @@ document.addEventListener("DOMContentLoaded", function(){
     const s = el("select", cls); opts.forEach(o => { const op = el("option", null, o[1]); op.value = o[0]; s.appendChild(op); });
     if(val && opts.some(o => o[0] === val)) s.value = val; return s;
   };
-  function addRosterRow(n, name, pos){
-    const row = el("div", "roster-row");
+  function addRosterRow(n, name, pos, ja){
+    const row = el("div", "roster-row" + (ja ? " ja" : ""));
     row.appendChild(mkInput("r-no", "#", n, 2)); row.appendChild(mkInput("r-name", "Nom du joueur", name));
     row.appendChild(mkSelect("r-pos", [["A","A"],["D","D"],["G","G"]], pos)); row.appendChild(delBtn(row));
+    if(ja){ row.dataset.ja = JSON.stringify(ja); const tn = (manageTeamPresets[ja.team] && manageTeamPresets[ja.team].name) || "";
+            row.appendChild(el("div", "ja-badge", "JA · joueur affilié de " + tn + (ja.cat ? " (" + String(ja.cat).toUpperCase() + ")" : ""))); }
     $("rosterForm").appendChild(row);
   }
+  // Joueurs affiliés : choisis dans une équipe d'une catégorie de rang inférieur, même organisation
+  on("addJaBtn", "click", () => {
+    const meCat = $("editTeamCatSelect").value || (editingTeamKey && manageTeamPresets[editingTeamKey] && manageTeamPresets[editingTeamKey].category) || "";
+    const r0 = catRank(meCat);
+    const teams = Object.keys(manageTeamPresets).filter(k => { const t = manageTeamPresets[k]; return k !== editingTeamKey && t && t.own && t.name && t.category && catRank(t.category) < r0 && toArr(t.roster).length; })
+      .sort((x, y) => catRank(manageTeamPresets[y].category) - catRank(manageTeamPresets[x].category) || manageTeamPresets[x].name.localeCompare(manageTeamPresets[y].name, "fr"));
+    if(!meCat){ notify("Choisissez d'abord la catégorie de cette équipe.", "info"); return; }
+    if(!teams.length){ notify("Aucune équipe d'une catégorie plus jeune (ou de calibre inférieur) avec des joueurs dans cette organisation.", "info"); return; }
+    fillSelect($("jaTeam"), teams.map(k => ({ value: k, label: manageTeamPresets[k].name + " (" + String(manageTeamPresets[k].category).toUpperCase() + ")" })), teams[0]);
+    jaRender(); swapDlg("rosterSheet", "jaSheet");
+  });
+  function jaRender(){
+    const k = $("jaTeam").value, t = manageTeamPresets[k], box = $("jaList"); box.textContent = "";
+    const have = {}; $("rosterForm").querySelectorAll(".roster-row.ja").forEach(r => { try{ const j = JSON.parse(r.dataset.ja); have[j.team + "|" + j.pid] = 1; }catch(e){} });
+    toArr(t && t.roster).map(normPlayer).forEach((p, i) => { if(p.ja) return; const pid = pidOf(p, i);
+      const l = el("label", "check-row"), c = el("input"); c.type = "checkbox"; c.value = pid; c.dataset.i = i; c.disabled = !!have[k + "|" + pid];
+      l.appendChild(c); l.appendChild(el("span", null, (p.no ? "#" + p.no + " " : "") + p.name + (p.pos === "G" ? " (G)" : "") + (have[k + "|" + pid] ? " — déjà ajouté" : ""))); box.appendChild(l); });
+  }
+  on("jaTeam", "change", jaRender);
+  on("jaCancel", "click", () => swapDlg("jaSheet", "rosterSheet"));
+  on("jaAdd", "click", () => {
+    const k = $("jaTeam").value, t = manageTeamPresets[k], r = toArr(t && t.roster).map(normPlayer); let n = 0;
+    $("jaList").querySelectorAll("input:checked").forEach(c => { const p = r[Number(c.dataset.i)]; if(!p) return;
+      addRosterRow(p.no, p.name, p.pos, { team: k, pid: c.value, cat: t.category || "" }); n++; });
+    swapDlg("jaSheet", "rosterSheet");
+    if(n) notify(n + " joueur" + (n > 1 ? "s" : "") + " affilié" + (n > 1 ? "s" : "") + " ajouté" + (n > 1 ? "s" : "") + ". Vérifiez le numéro, puis touchez « Enregistrer l'équipe ».", "info");
+  });
   function addStaffRow(name, role){
     const row = el("div", "staff-row");
     row.appendChild(mkInput("s-name", "Nom", name));
@@ -3848,7 +3986,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const roster = [], staff = [], seen = {}; let dup = "";
     $("rosterForm").querySelectorAll(".roster-row").forEach(r => {
       const n = no(r.querySelector(".r-no").value), nm = r.querySelector(".r-name").value.trim(), ps = r.querySelector(".r-pos").value;
-      if(n || nm){ if(n){ if(seen[n]) dup = n; seen[n] = true; } roster.push({ no: n, name: nm, pos: ps }); }
+      if(n || nm){ if(n){ if(seen[n]) dup = n; seen[n] = true; } const it = { no: n, name: nm, pos: ps };
+        if(r.dataset.ja){ try{ it.ja = JSON.parse(r.dataset.ja); }catch(e){} } roster.push(it); }
     });
     $("staffForm").querySelectorAll(".staff-row").forEach(r => {
       const nm = r.querySelector(".s-name").value.trim(), rl = r.querySelector(".s-role").value;
@@ -5285,6 +5424,7 @@ document.addEventListener("DOMContentLoaded", function(){
     Object.keys(teamEvents).forEach(id => { const e = teamEvents[id]; if(!e || !e.date || e.team !== key) return;
       const prac = e.type === "practice"; if(prac) hasPrac = true; else hasEvt = true;
       (pracDay[e.date] = pracDay[e.date] || []).push({ kind: prac ? "practice" : "evt", type: e.type, title: e.title, date: e.date, time: e.start || "", end: e.end || "", place: e.place, arena: e.arena, address: e.address, note: e.note }); });
+    tourDays(key).forEach(x => { hasEvt = true; (pracDay[x.date] = pracDay[x.date] || []).push(Object.assign({ kind: "evt" }, x)); });
     Object.keys(pracDay).forEach(dd => pracDay[dd].sort((x, y) => String(x.time).localeCompare(String(y.time))));
     const pad = n => (n < 10 ? "0" : "") + n, now = new Date(), today = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
     // Mois montrés : de septembre à mars au minimum, élargis aux mois où l'équipe joue (saison de juillet à juin)
@@ -5340,6 +5480,139 @@ document.addEventListener("DOMContentLoaded", function(){
     item("home", "À domicile (local)"); item("away", "À l'étranger (visiteur)"); if(hasPrac) item("prac", typeOf(evtTypes, "practice").label); if(hasEvt) item("evt", "Activité / autre"); item("today", "Aujourd'hui");
     item("dot", "Victoire", "V", "#1E9E5A"); item("dot", "Défaite", "D", "#D2453A"); item("dot", "Défaite en prolongation", "DP", "#D2453A"); item("dot", "Nulle", "N", "#6B7785");
   }
+  /* ============ Tournois : poules puis arbre d'élimination, saisis à la main ============ */
+  function tourOf(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), team: String(t && t.team || ""),
+    rounds: toArr(t && t.rounds).filter(Boolean).map(r => ({ name: String(r.name || ""), pool: !!r.pool, games: toArr(r.games).filter(Boolean).map(g => ({ a: String(g.a || ""), b: String(g.b || ""), sa: g.sa === "" || g.sa == null ? "" : Number(g.sa), sb: g.sb === "" || g.sb == null ? "" : Number(g.sb) })) })) }; }
+  const tSame = (a, b) => !!a && !!b && (a === b || !!sameTeamName(a, [b]));
+  function tourHasTeam(t, key){
+    const p = presets[key]; if(!p) return false; if(t.team === key) return true;
+    return t.rounds.some(r => r.games.some(g => tSame(g.a, p.name) || tSame(g.b, p.name)));
+  }
+  // Jours de tournoi d'une équipe (calendrier d'équipe et bandeau)
+  function tourDays(key){
+    const out = [];
+    Object.keys(catTours).forEach(id => { const t = tourOf(catTours[id]); if(!t.start || !tourHasTeam(t, key)) return;
+      const s = t.start.split("-").map(Number), d = new Date(s[0], s[1] - 1, s[2]); let n = 0;
+      while(n++ < 15){ const ds = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); out.push({ type: "tournament", title: t.name, date: ds, time: "", end: "", place: t.place, tid: id });
+        if(ds >= t.end) break; d.setDate(d.getDate() + 1); } });
+    return out;
+  }
+  function poolTable(r, meName){
+    const T = {};
+    const row = n => T[n] || (T[n] = { n: n, pj: 0, v: 0, d: 0, nl: 0, bp: 0, bc: 0 });
+    r.games.forEach(g => { if(!g.a || !g.b) return; const A = row(g.a), B = row(g.b); if(g.sa === "" || g.sb === "") return;
+      A.pj++; B.pj++; A.bp += g.sa; A.bc += g.sb; B.bp += g.sb; B.bc += g.sa;
+      if(g.sa > g.sb){ A.v++; B.d++; } else if(g.sa < g.sb){ B.v++; A.d++; } else { A.nl++; B.nl++; } });
+    const L = Object.keys(T).map(k => T[k]).sort((x, y) => (2 * y.v + y.nl) - (2 * x.v + x.nl) || (y.bp - y.bc) - (x.bp - x.bc) || y.bp - x.bp || x.n.localeCompare(y.n, "fr"));
+    const tb = el("table"), h = el("tr"); ["Équipe", "PJ", "V", "D", "N", "BP", "BC", "PTS"].forEach(c => h.appendChild(el("th", null, c))); tb.appendChild(h);
+    L.forEach(x => { const tr = el("tr", meName && tSame(x.n, meName) ? "me" : ""); [x.n, x.pj, x.v, x.d, x.nl, x.bp, x.bc, 2 * x.v + x.nl].forEach(c => tr.appendChild(el("td", null, String(c)))); tb.appendChild(tr); });
+    return tb;
+  }
+  function tourGameBox(g, meName){
+    const box = el("div", "tour-g"), done = g.sa !== "" && g.sb !== "";
+    [["a", "sa"], ["b", "sb"]].forEach((s, i) => { const nm = g[s[0]] || "À déterminer", sc = g[s[1]], other = i ? g.sa : g.sb;
+      const line = el("div", (done && sc > other ? "w" : "") + (meName && tSame(nm, meName) ? " me" : ""));
+      line.appendChild(el("span", null, nm)); line.appendChild(el("b", null, sc === "" ? "" : String(sc))); box.appendChild(line); });
+    return box;
+  }
+  function tourCard(id, t, meName){
+    const card = el("div", "tour-card");
+    card.appendChild(el("h3", null, "🏆 " + t.name));
+    const dfmt = ds => { const p = ds.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString("fr-CA", { day: "numeric", month: "long" }); };
+    card.appendChild(el("div", "tour-meta", [t.start ? (t.end && t.end !== t.start ? "Du " + dfmt(t.start) + " au " + dfmt(t.end) : dfmt(t.start)) : "", t.place ? "📍 " + t.place : ""].filter(Boolean).join(" · ")));
+    t.rounds.filter(r => r.pool).forEach(r => { const pb = el("div", "tour-pool"); pb.appendChild(el("h4", null, r.name || "Poule")); pb.appendChild(poolTable(r, meName));
+      r.games.forEach(g => pb.appendChild(tourGameBox(g, meName))); card.appendChild(pb); });
+    const el2 = t.rounds.filter(r => !r.pool && r.games.length);
+    if(el2.length){
+      card.appendChild(el("h4", "tour-tree-h", "Arbre du tournoi"));
+      const tree = el("div", "tour-tree");
+      el2.forEach(r => { const col = el("div", "tour-col"); col.appendChild(el("h5", null, r.name || "Ronde")); r.games.forEach(g => col.appendChild(tourGameBox(g, meName))); tree.appendChild(col); });
+      card.appendChild(tree);
+      const fin = el2[el2.length - 1]; if(fin.games.length === 1){ const g = fin.games[0]; if(g.sa !== "" && g.sb !== "" && g.sa !== g.sb) card.appendChild(el("p", "tour-champ", "🥇 Champions : " + (g.sa > g.sb ? g.a : g.b))); }
+    }
+    if(!t.rounds.length) card.appendChild(el("p", "p-note", "Les parties seront ajoutées bientôt."));
+    return card;
+  }
+  function renderTours(){
+    const btnT = $("toggleTourBtn"); if(!btnT) return;
+    const sy = seasonOf(Date.now()), ids = Object.keys(catTours).filter(id => { const t = catTours[id]; if(!t) return false; if(!t.start) return true; const p = String(t.start).split("-").map(Number); return seasonOf(new Date(p[0], p[1] - 1, p[2]).getTime()) === sy; })
+      .sort((x, y) => String(catTours[y].start || "").localeCompare(String(catTours[x].start || "")));
+    if(!ids.length){ btnT.style.display = "none"; $("tourBlock").classList.add("hidden"); btnT.classList.add("collapsed"); return; }
+    btnT.style.display = ""; btnT.textContent = "Tournois (" + ids.length + ")";
+    if(!isOpen("tourBlock")) return;
+    const key = teamCalKey(), meName = key && presets[key] ? presets[key].name : "", box = $("tourView"); box.textContent = "";
+    ids.forEach(id => box.appendChild(tourCard(id, tourOf(catTours[id]), meName)));
+  }
+  // ----- Gestion des tournois (dans Gestion calendrier) -----
+  let tourMgr = {}, tourRef = null, tourEditId = null;
+  const tourBase = () => calOrg + "/" + calCat + "/tournaments";
+  on("calTour", "click", () => {
+    if(!isAdmin() || !calCat) return;
+    setText("tourCtx", pwdOrgLabelOf(calOrg) + " · " + calCat.toUpperCase() + " — les tournois s'affichent dans la section « Tournois » et dans le calendrier de l'équipe inscrite.");
+    if(tourRef) tourRef.off("value");
+    tourRef = ref(tourBase()); tourRef.on("value", s => { tourMgr = obj(s.val()); renderTourList(); });
+    swapDlg("calendarSheet", "tourSheet");
+  });
+  function renderTourList(){
+    const ul = $("tourList"); ul.textContent = "";
+    const ids = Object.keys(tourMgr).filter(k => tourMgr[k]).sort((x, y) => String(tourMgr[y].start || "").localeCompare(String(tourMgr[x].start || "")));
+    if(!ids.length){ ul.appendChild(el("li", "cal-empty", "Aucun tournoi pour cette catégorie.")); return; }
+    ids.forEach(id => { const t = tourOf(tourMgr[id]), li = el("li", "cal-item"), txt = el("div", "cal-main");
+      txt.appendChild(el("strong", null, "🏆 " + t.name)); txt.appendChild(el("small", null, [t.start, t.place, t.rounds.length + " ronde" + (t.rounds.length > 1 ? "s" : "")].filter(Boolean).join(" · ")));
+      li.appendChild(txt);
+      li.appendChild(btn("act-2", "✏️", () => openTourEdit(id)));
+      li.appendChild(btn("row-del", "✕", () => ask("Supprimer le tournoi « " + t.name + " » ?", { ok: "Supprimer", danger: true }).then(ok => { if(ok) ref(tourBase() + "/" + id).remove(); })));
+      ul.appendChild(li); });
+  }
+  on("tourBack", "click", () => { if(tourRef){ tourRef.off("value"); tourRef = null; } swapDlg("tourSheet", "calendarSheet"); });
+  on("tourNew", "click", () => openTourEdit(null));
+  function openTourEdit(id){
+    tourEditId = id; const t = tourOf(id ? tourMgr[id] : { start: todayStr() });
+    setText("tourEditTitle", id ? "Modifier le tournoi" : "Nouveau tournoi");
+    $("trName").value = id ? t.name : ""; $("trStart").value = t.start; $("trEnd").value = t.end; $("trPlace").value = t.place;
+    const teams = Object.keys(calPresets).filter(k => calPresets[k] && calPresets[k].name && calPresets[k].category === calCat)
+      .sort((x, y) => calPresets[x].name.localeCompare(calPresets[y].name, "fr")).map(k => ({ value: k, label: calPresets[k].name }));
+    fillSelect($("trTeam"), teams, t.team || (teams.length === 1 ? teams[0].value : null), "— Aucune —");
+    const dl = $("trTeamNames"); dl.textContent = "";
+    const names = {}; Object.keys(calPresets).forEach(k => { const p = calPresets[k]; if(p && p.name && p.category === calCat) names[p.name] = 1; });
+    Object.keys(names).sort().forEach(n => { const o = document.createElement("option"); o.value = n; dl.appendChild(o); });
+    $("trRounds").textContent = ""; t.rounds.forEach(r => addTourRound(r));
+    swapDlg("tourSheet", "tourEdit");
+  }
+  function addTourRound(r){
+    const box = el("div", "tr-round"); box.dataset.pool = r.pool ? "1" : "";
+    const head = el("div", "tr-rhead"), nm = el("input"); nm.type = "text"; nm.className = "tr-rname"; nm.maxLength = 30; nm.value = r.name; nm.placeholder = r.pool ? "Poule A" : "Nom de la ronde";
+    head.appendChild(el("span", "ja-tag", r.pool ? "POULE" : "ÉLIM.")); head.appendChild(nm);
+    head.appendChild(btn("row-del", "✕", () => box.remove())); box.appendChild(head);
+    const games = el("div", "tr-games"); box.appendChild(games);
+    const addG = g => { const row = el("div", "tr-game");
+      const mk = (cls, v, ph, num) => { const i = el("input"); i.type = num ? "number" : "text"; i.className = cls; i.value = v === "" || v == null ? "" : v; i.placeholder = ph; if(num){ i.min = 0; i.inputMode = "numeric"; } else { i.setAttribute("list", "trTeamNames"); i.maxLength = 30; } return i; };
+      row.appendChild(mk("tr-a", g.a, "Équipe 1")); row.appendChild(mk("tr-s tr-sa", g.sa, "–", 1)); row.appendChild(mk("tr-s tr-sb", g.sb, "–", 1)); row.appendChild(mk("tr-b", g.b, "Équipe 2"));
+      row.appendChild(btn("row-del", "✕", () => row.remove())); games.appendChild(row); };
+    r.games.forEach(addG);
+    const ab = btn("act-2 tr-addg", "+ Ajouter une partie", () => addG({ a: "", b: "", sa: "", sb: "" })); ab.style.width = "100%"; box.appendChild(ab);
+    if(!r.games.length){ const n = /finale$/i.test(r.name) && !/demi|quart/i.test(r.name) ? 1 : /demi/i.test(r.name) ? 2 : /quart/i.test(r.name) ? 4 : 2; for(let i = 0; i < n; i++) addG({ a: "", b: "", sa: "", sb: "" }); }
+    $("trRounds").appendChild(box);
+  }
+  document.querySelectorAll("[data-tr-add]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.trAdd, pools = $("trRounds").querySelectorAll(".tr-round[data-pool='1']").length;
+    addTourRound(k === "pool" ? { name: "Poule " + String.fromCharCode(65 + pools), pool: true, games: [] } : { name: k, pool: false, games: [] });
+  }));
+  on("trCancel", "click", () => swapDlg("tourEdit", "tourSheet"));
+  on("trSave", "click", () => {
+    if(!isAdmin() || !calCat) return;
+    const name = str($("trName").value, ""); if(!name){ notify("Le nom du tournoi est obligatoire.", "info"); return; }
+    const start = $("trStart").value, end = $("trEnd").value && $("trEnd").value >= start ? $("trEnd").value : start;
+    if(!start){ notify("Choisissez la date de début.", "info"); return; }
+    const sc = v => v === "" ? "" : Math.max(0, Math.min(99, Number(v) || 0));
+    const rounds = [...$("trRounds").querySelectorAll(".tr-round")].map(b => ({ name: str(b.querySelector(".tr-rname").value, ""), pool: b.dataset.pool === "1" || null,
+      games: [...b.querySelectorAll(".tr-game")].map(r => ({ a: str(r.querySelector(".tr-a").value, ""), b: str(r.querySelector(".tr-b").value, ""), sa: sc(r.querySelector(".tr-sa").value), sb: sc(r.querySelector(".tr-sb").value) }))
+        .filter(g => g.a || g.b) }));
+    const id = tourEditId || uid();
+    ref(tourBase() + "/" + id).set({ name: name, start: start, end: end, place: str($("trPlace").value, ""), team: $("trTeam").value || "", rounds: rounds, updatedAt: Date.now() });
+    notify("Tournoi enregistré !"); swapDlg("tourEdit", "tourSheet");
+  });
+
   function teamPracCard(x, p){
     const card = el("div", "player-card-inline tcal-card prac-card"), h = el("h4"), T = typeOf(evtTypes, x.kind === "practice" && !x.type ? "practice" : x.type);
     h.appendChild(el("span", null, T.icon + " " + T.label + (x.title ? " : " + x.title : "") + " · " + p.name));
@@ -5926,6 +6199,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const li = el("li", "roster-item" + (isCardOpen ? " active" : "")), nameSpan = el("span");
       if(p.no){ nameSpan.appendChild(el("b", null, "#" + p.no)); nameSpan.appendChild(document.createTextNode(" ")); }
       nameSpan.appendChild(document.createTextNode(p.name));
+      if(p.ja && p.ja.team) nameSpan.appendChild(el("span", "ja-tag", "JA"));
       li.appendChild(nameSpan);
       if(ptsOf && ptsOf[idx] && ptsOf[idx].p > 0) li.appendChild(el("span", "pts-badge", ptsOf[idx].p + " PTS (" + ptsOf[idx].b + "B " + ptsOf[idx].a + "A)"));
       li.appendChild(el("span", "pos", p.pos));
@@ -5967,28 +6241,41 @@ document.addEventListener("DOMContentLoaded", function(){
   /* ---- Fiches liées : un joueur qui joue aussi pour une autre équipe (même catégorie ou non) ---- */
   function teamKeyOf(name){ const p = presetByName[name]; return p ? Object.keys(presets).filter(k => presets[k] === p)[0] || "" : ""; }
   const memId = (team, pid) => team + "__" + pid;
+  const orgNameOf = id => { const o = organizationsList.find(x => x.id === id); return o ? o.name : id; };
   function linkOf(team, pid){
-    const id = memId(team, pid);
+    const id = memId(team, pid), out = [], seen = {}; let lid0 = null;
+    seen[currentOrg + "|" + id] = 1;
+    const add = x => { const org = x.org || currentOrg, k = org + "|" + memId(x.team, x.pid); if(seen[k]) return; seen[k] = 1; out.push(x); };
     for(const lid of Object.keys(plinks)){
       const L = plinks[lid], m = L && L.m; if(!m || !m[cleanKey(id)]) continue;
-      const others = Object.keys(m).map(k => m[k]).filter(x => x && memId(x.team, x.pid) !== id)
-                       .map(x => ({ team: x.team, pid: String(x.pid), cat: (presets[x.team] && presets[x.team].category) || x.cat || currentCat,
-                                    teamName: (presets[x.team] && presets[x.team].name) || x.teamName || "?", label: x.label || "" }));
-      if(others.length) return { id: lid, others: others };
+      lid0 = lid;
+      Object.keys(m).map(k => m[k]).forEach(x => { if(!x) return; const org = x.org && x.org !== currentOrg ? x.org : "";
+        add({ team: x.team, pid: String(x.pid), org: org,
+              cat: (!org && presets[x.team] && presets[x.team].category) || x.cat || currentCat,
+              teamName: (!org && presets[x.team] && presets[x.team].name) || x.teamName || "?", label: x.label || "" }); });
+      break;
     }
-    return null;
+    // Joueurs affiliés (JA) : la fiche JA et la fiche d'origine sont liées d'office
+    const me = presets[team];
+    toArr(me && me.roster).map(normPlayer).forEach((p, i) => { if(p.ja && pidOf(p, i) === String(pid) && presets[p.ja.team])
+      add({ team: p.ja.team, pid: p.ja.pid, org: "", cat: presets[p.ja.team].category || p.ja.cat || currentCat, teamName: presets[p.ja.team].name, label: "", ja: "src" }); });
+    Object.keys(presets).forEach(k => { if(k === team || !presets[k]) return;
+      toArr(presets[k].roster).map(normPlayer).forEach((p, i) => { if(p.ja && p.ja.team === team && String(p.ja.pid) === String(pid))
+        add({ team: k, pid: pidOf(p, i), org: "", cat: presets[k].category || currentCat, teamName: presets[k].name, label: (p.no ? "#" + p.no + " " : "") + p.name, ja: "dst" }); }); });
+    return out.length ? { id: lid0, others: out } : null;
   }
-  // Historique d'une autre catégorie (chargé une fois, à la demande)
-  function histOf(cat){
-    if(cat === currentCat) return historyLoaded ? historyList : null;
-    const c = xHist[cat];
+  // Historique d'une autre catégorie / organisation (chargé une fois, à la demande)
+  function histOf(cat, org){
+    org = org || currentOrg;
+    if(cat === currentCat && org === currentOrg) return historyLoaded ? historyList : null;
+    const ck = org + "/" + cat, c = xHist[ck];
     if(c) return c.all ? c.all.filter(h => phaseOk(h.m, h.at)) : null;
-    xHist[cat] = { list: null };
-    ref(currentOrg + "/" + cat + "/history").once("value").then(s => {
+    xHist[ck] = { list: null };
+    ref(org + "/" + cat + "/history").once("value").then(s => {
       const v = s.val() || {};
-      xHist[cat] = { all: Object.keys(v).map(k => indexMatch(k, v[k])).filter(Boolean) };
+      xHist[ck] = { all: Object.keys(v).map(k => indexMatch(k, v[k])).filter(Boolean) };
       if(isOpen("rosterBlock")) renderRosters();
-    }, () => { xHist[cat] = { all: [] }; });
+    }, () => { xHist[ck] = { all: [] }; });
     return null;
   }
   function statsIn(list, teamName, pId, isG){
@@ -6021,9 +6308,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const box = el("div", "p-linked"), rows = [{ name: (presets[tKey] && presets[tKey].name) || "", st: mine }];
     let waiting = false;
     lk.others.forEach(m => {
-      const list = histOf(m.cat);
+      const list = histOf(m.cat, m.org);
       if(!list){ waiting = true; return; }
-      rows.push({ name: m.teamName + (m.cat !== currentCat ? " (" + String(m.cat).toUpperCase() + ")" : ""), st: statsIn(list, m.teamName, m.pid, isG) });
+      rows.push({ name: m.teamName + (m.cat !== currentCat || m.org ? " (" + String(m.cat).toUpperCase() + ")" : "") + (m.ja === "dst" ? " · JA" : ""),
+                  org: m.org ? orgNameOf(m.org) : "", st: statsIn(list, m.teamName, m.pid, isG) });
     });
     const tot = rows.reduce((t, r) => { Object.keys(r.st).forEach(k => { t[k] = (t[k] || 0) + (Number(r.st[k]) || 0); }); return t; }, {});
     const tbl = el("table", "p-ltable"), head = el("tr");
@@ -6031,7 +6319,9 @@ document.addEventListener("DOMContentLoaded", function(){
                      : [["PJ", s => s.pj], ["B", s => s.b], ["A", s => s.a], ["PTS", s => s.b + s.a], ["PUN", s => s.pun + "m"]];
     head.appendChild(el("th", null, "Équipe")); cols.forEach(c => head.appendChild(el("th", null, c[0]))); tbl.appendChild(head);
     rows.concat([{ name: "Total", st: tot, total: true }]).forEach(r => {
-      const tr = el("tr", r.total ? "tot" : ""); tr.appendChild(el("td", null, r.name)); cols.forEach(c => tr.appendChild(el("td", null, String(c[1](r.st))))); tbl.appendChild(tr);
+      const tr = el("tr", r.total ? "tot" : (r.org ? "xorg" : "")), td = el("td", null, r.name);
+      if(r.org){ td.appendChild(document.createElement("br")); td.appendChild(el("small", "p-org", "🏢 " + r.org)); }
+      tr.appendChild(td); cols.forEach(c => tr.appendChild(el("td", null, String(c[1](r.st))))); tbl.appendChild(tr);
     });
     box.appendChild(el("div", "p-team", "🔗 Toutes ses équipes"));
     box.appendChild(tbl);
@@ -6041,6 +6331,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Fenêtre de liaison
   let linkCtx = null;
   function openLinkSheet(team, pid, label, teamName){ linkCtx = { team: team, pid: pid, label: label, teamName: teamName }; renderLinkSheet(); openDlg("linkSheet"); }
+  let linkOrgPresets = {}, linkOrgTok = 0;
   function renderLinkSheet(){
     if(!linkCtx) return;
     $("linkWho").textContent = linkCtx.label + " — " + linkCtx.teamName;
@@ -6049,54 +6340,88 @@ document.addEventListener("DOMContentLoaded", function(){
       cur.appendChild(el("p", "p-note", "Déjà liée à :"));
       lk.others.forEach(m => {
         const r = el("div", "msg-row");
-        r.appendChild(el("span", null, (m.label || m.pid) + " — " + m.teamName + " (" + String(m.cat).toUpperCase() + ")"));
-        r.appendChild(btn("row-del", "✕", () => unlinkMember(lk.id, m.team, m.pid)));
+        r.appendChild(el("span", null, (m.label || m.pid) + " — " + m.teamName + " (" + String(m.cat).toUpperCase() + ")" + (m.org ? " · " + orgNameOf(m.org) : "")));
+        if(m.ja) r.appendChild(el("span", "ja-tag", "JA"));
+        else r.appendChild(btn("row-del", "✕", () => unlinkMember(lk.id, m.team, m.pid, m.org)));
         cur.appendChild(r);
       });
     }
-    const teams = Object.keys(presets).filter(k => k !== linkCtx.team && presets[k] && presets[k].name)
-      .sort((x, y) => String(presets[x].name).localeCompare(String(presets[y].name), "fr"))
-      .map(k => ({ value: k, label: presets[k].name + " (" + String(presets[k].category || currentCat).toUpperCase() + ")" }));
-    const ts = $("linkTeam"), keep = ts.value;
-    fillSelect(ts, teams, keep || null, "Choisir l'équipe…");
+    const os = $("linkOrg"), keepO = os.value || currentOrg;
+    fillSelect(os, organizationsList.filter(o => !o.hidden || seesHidden(o.id) || o.id === currentOrg).map(o => ({ value: o.id, label: o.name + (o.id === currentOrg ? " (cette organisation)" : "") }))
+      .sort((x, y) => x.label.localeCompare(y.label, "fr")), keepO);
+    renderLinkTeams();
+  }
+  function linkPresets(){ const o = $("linkOrg").value || currentOrg; return o === currentOrg ? presets : (linkOrgPresets[o] || {}); }
+  function renderLinkTeams(){
+    const o = $("linkOrg").value || currentOrg, P = linkPresets();
+    if(o !== currentOrg && !linkOrgPresets[o]){
+      const tok = ++linkOrgTok; fillSelect($("linkTeam"), [], null, "Chargement…"); fillSelect($("linkPlayer"), [], null, "—");
+      ref(o + "/teams_presets").once("value").then(s => { linkOrgPresets[o] = obj(s.val()); if(tok === linkOrgTok) renderLinkTeams(); }, () => { linkOrgPresets[o] = {}; });
+      return;
+    }
+    const teams = Object.keys(P).filter(k => (o !== currentOrg || k !== linkCtx.team) && P[k] && P[k].name)
+      .sort((x, y) => String(P[x].name).localeCompare(String(P[y].name), "fr"))
+      .map(k => ({ value: k, label: P[k].name + " (" + String(P[k].category || currentCat).toUpperCase() + ")" }));
+    const ts = $("linkTeam"), keep = teams.some(t => t.value === ts.value) ? ts.value : null;
+    fillSelect(ts, teams, keep, "Choisir l'équipe…");
     renderLinkPlayers();
   }
   function renderLinkPlayers(){
-    const k = $("linkTeam").value, r = k && presets[k] ? toArr(presets[k].roster).map(normPlayer) : [];
-    // le même numéro ou le même nom est proposé en premier
+    const P = linkPresets(), k = $("linkTeam").value, r = k && P[k] ? toArr(P[k].roster).map(normPlayer) : [];
+    // le même nom est proposé en premier (le numéro peut être différent)
     const me = String(linkCtx.label).replace(/^#\S+\s/, "").toLowerCase();
     const items = r.map((p, i) => ({ value: pidOf(p, i), label: (p.no ? "#" + p.no + " " : "") + p.name + (p.pos === "G" ? " (G)" : ""), top: p.name.toLowerCase() === me }))
                    .sort((x, y) => (y.top ? 1 : 0) - (x.top ? 1 : 0));
     fillSelect($("linkPlayer"), items, null, k ? (items.length ? "Choisir le joueur…" : "Aucun joueur dans cette équipe") : "—");
   }
+  on("linkOrg", "change", () => { $("linkTeam").value = ""; renderLinkTeams(); });
   on("linkTeam", "change", renderLinkPlayers);
   on("linkClose", "click", () => closeDlg("linkSheet"));
   on("linkSave", "click", () => {
     if(!isAdmin() || !linkCtx) return;
-    const t2 = $("linkTeam").value, p2 = $("linkPlayer").value;
-    if(!t2 || !p2){ notify("Choisissez l'équipe et le joueur.", "info"); return; }
+    const o2 = $("linkOrg").value || currentOrg, P = linkPresets(), t2 = $("linkTeam").value, p2 = $("linkPlayer").value;
+    if(!t2 || !p2 || !P[t2]){ notify("Choisissez l'équipe et le joueur.", "info"); return; }
     const opt = $("linkPlayer").selectedOptions[0], lab2 = opt ? opt.textContent.replace(/ \(G\)$/, "") : p2;
     const mine = { team: linkCtx.team, pid: linkCtx.pid, cat: (presets[linkCtx.team] && presets[linkCtx.team].category) || currentCat, teamName: linkCtx.teamName, label: linkCtx.label };
-    const other = { team: t2, pid: p2, cat: presets[t2].category || currentCat, teamName: presets[t2].name, label: lab2 };
+    const other = { team: t2, pid: p2, cat: P[t2].category || currentCat, teamName: P[t2].name, label: lab2 };
+    const base = currentOrg + "/playerLinks/";
+    if(o2 !== currentOrg){
+      // Autre organisation : le lien est inscrit dans les deux organisations (chacune garde sa fiche)
+      const l1 = linkOf(mine.team, mine.pid), lid = (l1 && l1.id) || uid();
+      const w = [
+        ref(base + lid + "/m/" + cleanKey(memId(mine.team, mine.pid))).set(mine),
+        ref(base + lid + "/m/" + cleanKey(o2 + "__" + memId(t2, p2))).set(Object.assign({ org: o2 }, other)),
+        ref(o2 + "/playerLinks/" + lid + "/m/" + cleanKey(memId(t2, p2))).set(other),
+        ref(o2 + "/playerLinks/" + lid + "/m/" + cleanKey(currentOrg + "__" + memId(mine.team, mine.pid))).set(Object.assign({ org: currentOrg }, mine))
+      ];
+      Promise.all(w).then(() => notify("Fiches liées entre les deux organisations !", "ok"), err => notify("Échec : " + (err && err.message || err), "error"));
+      return;
+    }
     // Si l'une des deux fiches fait déjà partie d'un groupe, on regroupe tout
     const l1 = linkOf(mine.team, mine.pid), l2 = linkOf(other.team, other.pid);
     const lid = (l1 && l1.id) || (l2 && l2.id) || uid(), upd = {};
     upd[lid + "/m/" + cleanKey(memId(mine.team, mine.pid))] = mine;
     upd[lid + "/m/" + cleanKey(memId(other.team, other.pid))] = other;
-    if(l1 && l2 && l1.id !== l2.id){
+    if(l1 && l2 && l1.id && l2.id && l1.id !== l2.id){
       const m2 = plinks[l2.id].m; Object.keys(m2).forEach(k => { upd[lid + "/m/" + k] = m2[k]; });
       upd[l2.id] = null;
     }
-    const base = currentOrg + "/playerLinks/";
     Promise.all(Object.keys(upd).map(k => upd[k] === null ? ref(base + k).remove() : ref(base + k).set(upd[k])))
       .then(() => notify("Fiches liées !", "ok"), err => notify("Échec : " + (err && err.message || err), "error"));
   });
-  function unlinkMember(lid, team, pid){
-    if(!isAdmin()) return;
+  function unlinkMember(lid, team, pid, org){
+    if(!isAdmin() || !lid) return;
     const L = plinks[lid]; if(!L || !L.m) return;
-    const left = Object.keys(L.m).filter(k => k !== cleanKey(memId(team, pid)));
+    const key = cleanKey(org ? org + "__" + memId(team, pid) : memId(team, pid));
+    if(org){ // retire aussi le lien inscrit dans l'autre organisation
+      const back = ref(org + "/playerLinks/" + lid);
+      back.once("value").then(s => { const v = obj(s.val()), m = obj(v.m), mine = Object.keys(m).filter(k => m[k] && m[k].org === currentOrg);
+        const rest = Object.keys(m).filter(k => mine.indexOf(k) < 0);
+        if(rest.length <= 1) back.remove(); else mine.forEach(k => ref(org + "/playerLinks/" + lid + "/m/" + k).remove()); });
+    }
+    const left = Object.keys(L.m).filter(k => k !== key);
     if(left.length <= 1) ref(currentOrg + "/playerLinks/" + lid).remove();
-    else ref(currentOrg + "/playerLinks/" + lid + "/m/" + cleanKey(memId(team, pid))).remove();
+    else ref(currentOrg + "/playerLinks/" + lid + "/m/" + key).remove();
   }
 
   function playerStats(ctx, pId, scope){
@@ -6189,6 +6514,7 @@ document.addEventListener("DOMContentLoaded", function(){
   setupToggle("toggleHistoryBtn", "historyBlock", () => { ensureHistory(); renderHistory(); });
   setupToggle("toggleStandBtn", "standBlock", () => { ensureHistory(); renderStandings(); });
   setupToggle("toggleTeamCalBtn", "teamCalBlock", () => { teamCalSel = ""; teamCalIdx = null; renderTeamCal(); });
+  setupToggle("toggleTourBtn", "tourBlock", () => renderTours());
 
   /* ============ Nouvelle partie ============ */
   function populateWizTeamSelect(selectId, currentName){
@@ -6219,9 +6545,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const roster = presets[teamKey] ? toArr(presets[teamKey].roster) : [];
     if(!roster.length){ const s = el("small", null, "Aucun joueur prédéfini"); s.style.cssText = "color:var(--muted);grid-column:1/-1;"; box.appendChild(s); return; }
     const cmp = cmpPlayers(wizSort);
-    roster.map((p, idx) => ({ p: p, idx: idx })).sort((x, y) => cmp(normPlayer(x.p), normPlayer(y.p)) || x.idx - y.idx).forEach(o => { const p = o.p, idx = o.idx;
-      const label = el("label", "presence-item"), chk = el("input", "chk-presence-" + side);
-      chk.type = "checkbox"; chk.checked = true; chk.dataset.idx = idx;
+    // Joueurs affiliés (JA) : à la fin, d'une autre couleur, non cochés par défaut
+    roster.map((p, idx) => ({ p: p, idx: idx, ja: !!(p && p.ja && p.ja.team) })).sort((x, y) => (x.ja ? 1 : 0) - (y.ja ? 1 : 0) || cmp(normPlayer(x.p), normPlayer(y.p)) || x.idx - y.idx).forEach(o => { const p = o.p, idx = o.idx;
+      const label = el("label", "presence-item" + (o.ja ? " ja" : "")), chk = el("input", "chk-presence-" + side);
+      chk.type = "checkbox"; chk.checked = !o.ja; chk.dataset.idx = idx;
       label.appendChild(chk); label.appendChild(document.createTextNode((p.no ? "#" + p.no + " " : "") + (p.name || ""))); box.appendChild(label);
     });
   }
