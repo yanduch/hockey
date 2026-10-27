@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610271051">
+<meta name="build" content="202610271108">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2294,7 +2294,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610271051";
+  var BUILD = "202610271108";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -3812,6 +3812,10 @@ document.addEventListener("DOMContentLoaded", function(){
       const t = manageTeamPresets[k]; return t && (!manageTeamCatKey || !t.category || t.category === manageTeamCatKey);
     });
     if(!keys.length){ list.appendChild(el("li", "empty", "Aucune équipe.")); return; }
+    // Par catégorie (même ordre que la liste des catégories), puis en ordre alphabétique
+    const T = k => manageTeamPresets[k], cr = c => c ? catRank(c) : 1e9;
+    keys.sort((x, y) => cr(T(x).category) - cr(T(y).category) || String(T(x).category || "").localeCompare(String(T(y).category || "")) ||
+                        String(T(x).name || x).localeCompare(String(T(y).name || y), "fr", { numeric: true, sensitivity: "base" }));
     keys.forEach(key => {
       const team = manageTeamPresets[key];
       const label = document.createDocumentFragment(), dot = el("span", "color-dot");
