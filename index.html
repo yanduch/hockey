@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610271140">
+<meta name="build" content="202610271153">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -96,6 +96,7 @@ body.role-viewer .g-fix{display:none !important}
 .ph-choice input:checked+span{background:var(--blue);border-color:var(--blue);color:var(--on-team,#FFF)}
 .ph-tag{display:inline-block;margin-left:.4rem;padding:.05rem .4rem;border-radius:4px;font-size:.68rem;font-weight:700;vertical-align:middle;background:var(--ice);color:var(--muted);border:1px solid var(--line)}
 .ph-tag.reg{background:var(--crease);color:var(--blue)}
+.ph-tag.tour{background:#FFF1D6;color:#8A5A00;border-color:#F0B35A}
 .stop-goal{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.3rem}
 .stop-goal label{flex:1;display:flex;align-items:center;gap:.35rem;padding:.45rem .5rem;border:1px solid var(--line);border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .stop-goal input{width:1.1rem;height:1.1rem;margin:0}
@@ -1836,7 +1837,16 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <div class="ph-choice">
         <label><input type="radio" name="wizPhase" value="pre"><span>Pré-saison</span></label>
         <label><input type="radio" name="wizPhase" value="reg"><span>Saison</span></label>
+        <label><input type="radio" name="wizPhase" value="tour"><span>🏆 Tournoi</span></label>
       </div>
+    </div>
+
+    <div class="preset-box" id="wizTourBox" style="display:none;">
+      <label for="wizTourSel">Tournoi :</label>
+      <select id="wizTourSel"></select>
+      <label for="wizTourGame" style="margin-top:.5rem;">Partie du tournoi :</label>
+      <select id="wizTourGame"></select>
+      <small style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;">Choisir la partie remplit les équipes. Une fois enregistrée dans l'historique, le pointage est inscrit dans le tournoi (poule ou arbre).</small>
     </div>
 
     <div class="preset-box" id="wizCalBox" style="display:none;">
@@ -2311,7 +2321,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610271140";
+  var BUILD = "202610271153";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2483,8 +2493,9 @@ document.addEventListener("DOMContentLoaded", function(){
   let myPresenceRef = null, onlineCount = 1, connected = false, serverOffset = 0;
   let defaultPeriodSec = 1200;
   let cfgPhases = {};                  // type de parties par défaut, par catégorie : "pre" (pré-saison) ou "reg" (saison)
-  const PHASE_LABEL = { pre: "Pré-saison", reg: "Saison" };
-  const phaseOfM = m => (m && m.phase === "reg") ? "reg" : "pre";       // une partie sans type (anciennes parties) = pré-saison
+  const PHASE_LABEL = { pre: "Pré-saison", reg: "Saison", tour: "Tournoi" };
+  const PHASE_LONG = { pre: "Pré-saison", reg: "Saison régulière", tour: "Tournois" };
+  const phaseOfM = m => (m && (m.phase === "reg" || m.phase === "tour")) ? m.phase : "pre";       // une partie sans type (anciennes parties) = pré-saison
   // Types d'événements (entraînements, activités…), modifiables par l'administrateur : …/config/eventTypes
   var EVT_DEFAULT = { practice: { label: "Entraînement", icon: "🏒", order: 1 }, activity: { label: "Activité d'équipe", icon: "🎉", order: 2 } };
   function normTypes(v){
@@ -2588,7 +2599,8 @@ document.addEventListener("DOMContentLoaded", function(){
       penPause: { acc: 0, since: -1 },   // temps des punitions suspendu (périodes à temps continu), en secondes de match
       playedAt: 0,
       phase: "",                         // "pre" = pré-saison, "reg" = saison
-      calId: "",                         // partie du calendrier jouée sur ce tableau                       // date de la partie dans l'historique (ne change pas quand on la corrige)
+      calId: "", tour: "",                // tour : partie de tournoi « catégorie/id/ronde/partie »
+                              // partie du calendrier jouée sur ce tableau                       // date de la partie dans l'historique (ne change pas quand on la corrige)
       updatedAt: 0
     };
   }
@@ -2624,7 +2636,8 @@ document.addEventListener("DOMContentLoaded", function(){
     s.id = typeof d.id === "string" ? d.id : "";
     s.playedAt = Number(d.playedAt) || 0;
     s.calId = typeof d.calId === "string" ? d.calId : "";
-    s.phase = d.phase === "reg" ? "reg" : (d.phase === "pre" ? "pre" : "");
+    s.phase = (d.phase === "reg" || d.phase === "pre" || d.phase === "tour") ? d.phase : "";
+    s.tour = typeof d.tour === "string" ? d.tour : "";
     s.periodSec = int(d.periodSec, 0, 5940);
     s.stopOnGoal = [0, 1, 2].map(i => !!(Array.isArray(d.stopOnGoal) ? d.stopOnGoal[i] : (d.stopOnGoal && d.stopOnGoal[i])));
     if(d.penPause && typeof d.penPause === "object") s.penPause = { acc: Math.max(0, Number(d.penPause.acc) || 0), since: Number.isFinite(Number(d.penPause.since)) ? Number(d.penPause.since) : -1 };
@@ -2713,7 +2726,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function commit(){
     if(!canEdit()) return;
     state.updatedAt = now(); lastLocal = state.updatedAt;
-    if(editEntry){ editEntry.m = state; calSyncResult(); }   // correction d'une partie archivée : le calendrier suit
+    if(editEntry){ editEntry.m = state; calSyncResult(); tourSyncResult(); }   // correction d'une partie archivée : le calendrier suit
     db.set(state, err => { if(err) notify("Échec de l'enregistrement : " + (err.message || err), "error"); });
     updateLiveIndex();
     render();
@@ -4468,6 +4481,16 @@ document.addEventListener("DOMContentLoaded", function(){
     r.child("scoreA").set(goalsOf("a")); r.child("scoreB").set(goalsOf("b"));
     r.child("end").set(state.period === 3 ? "OT" : ""); r.child("histKey").set(state.histKey);
   }
+  // Partie de tournoi : le pointage est inscrit dans le tournoi (poule ou arbre)
+  function tourSyncResult(){
+    if(!state.tour || state.phase !== "tour") return;
+    const p = state.tour.split("/"); if(p.length !== 4) return;
+    const base = currentOrg + "/" + p[0] + "/tournaments/" + p[1] + "/rounds/" + p[2] + "/games/" + p[3];
+    ref(base).once("value").then(s => { const g = s.val(); if(!g) return;
+      const flip = tSame(state.names.a, g.b) && !tSame(state.names.a, g.a);
+      ref(base + "/sa").set(goalsOf(flip ? "b" : "a")); ref(base + "/sb").set(goalsOf(flip ? "a" : "b"));
+      if(state.histKey) ref(base + "/histKey").set(state.histKey); });
+  }
 
   // Le super administrateur choisit l'organisation, puis la catégorie ; l'administrateur choisit la catégorie de son organisation
   let calOrg = "", calCat = "", calPresets = {}, calRef = null, calMgr = [], calEditId = null, calToken = 0;
@@ -5209,19 +5232,53 @@ document.addEventListener("DOMContentLoaded", function(){
       $("wizCalBox").style.display = "";
     });
   }
-  function setWizPhase(ph){ document.querySelectorAll("input[name=wizPhase]").forEach(r => { r.checked = r.value === ph; }); }
+  function setWizPhase(ph){ document.querySelectorAll("input[name=wizPhase]").forEach(r => { r.checked = r.value === ph; }); wizTourShow(); }
+  // Équipe de l'assistant d'après un nom (équipe enregistrée, sinon ajoutée à la liste avec son nom)
+  function wizSetTeam(side, key, name){
+    const sel = $(side === "a" ? "wizTeamA" : "wizTeamB");
+    Array.prototype.slice.call(sel.options).forEach(o => { if(o.value.indexOf("__n:") === 0) o.remove(); });
+    const k = (key && presets[key]) ? key : Object.keys(presets).filter(x => presets[x] && (presets[x].name === name || tSame(name, presets[x].name)) && (!presets[x].category || presets[x].category === currentCat))[0];
+    if(k && Array.prototype.some.call(sel.options, o => o.value === k)){ sel.value = k; renderPresenceList(side, k); wizSyncColor(side); }
+    else if(name){ const o = el("option", null, name + " (non enregistrée)"); o.value = "__n:" + name; sel.appendChild(o); sel.value = o.value; renderPresenceList(side, ""); }
+  }
+  // --- Partie de tournoi ---
+  let wizTours = [];
+  function wizTourShow(){
+    const on2 = !!document.querySelector("input[name=wizPhase][value=tour]:checked");
+    $("wizTourBox").style.display = on2 ? "" : "none";
+    if(on2){ if($("wizCalSelect").value){ $("wizCalSelect").value = ""; } wizFillTours(); }
+  }
+  function wizFillTours(){
+    const bt = boardTeam || boardTeams(currentCat)[0] || "", sy = seasonOf(Date.now()), keep = $("wizTourSel").value;
+    wizTours = Object.keys(catTours).filter(id => { const t = tourOf(catTours[id]); if(!t.start) return false;
+        const p = t.start.split("-").map(Number); if(seasonOf(new Date(p[0], p[1] - 1, p[2]).getTime()) !== sy) return false;
+        return bt ? tourHasTeam(t, bt) : (id.split("/")[0] === currentCat); })
+      .sort((x, y) => Math.abs(new Date(catTours[x].start).getTime() - Date.now()) - Math.abs(new Date(catTours[y].start).getTime() - Date.now()));
+    fillSelect($("wizTourSel"), wizTours.map(id => ({ value: id, label: "🏆 " + tourOf(catTours[id]).name })), wizTours.indexOf(keep) >= 0 ? keep : (wizTours[0] || null), wizTours.length ? "Choisir le tournoi…" : "Aucun tournoi pour cette équipe");
+    wizFillTourGames();
+  }
+  function wizFillTourGames(){
+    const id = $("wizTourSel").value, t = id && catTours[id] ? tourOf(catTours[id]) : null, items = [];
+    const me = boardTeam && presets[boardTeam] ? presets[boardTeam].name : "";
+    if(t) t.rounds.forEach((r, ri) => r.games.forEach((g, gi) => { if(!g.a && !g.b) return;
+      const done = g.sa !== "" && g.sb !== "", mine = !me || tSame(g.a, me) || tSame(g.b, me);
+      items.push({ value: ri + "/" + gi, label: (r.name || (r.pool ? "Poule" : "Ronde")) + " : " + (g.a || "?") + " vs " + (g.b || "?") + (done ? " (" + g.sa + "-" + g.sb + ")" : ""), o: (done ? 2 : 0) + (mine ? 0 : 1), i: items.length }); }));
+    items.sort((x, y) => x.o - y.o || x.i - y.i);
+    fillSelect($("wizTourGame"), items, null, items.length ? "Choisir la partie…" : (t ? "Ajoutez d'abord les parties du tournoi (Gestion calendrier → Tournois)" : "—"));
+  }
+  on("wizTourSel", "change", wizFillTourGames);
+  on("wizTourGame", "change", () => {
+    const id = $("wizTourSel").value, v = $("wizTourGame").value; if(!id || !v) return;
+    const t = tourOf(catTours[id]), rg = v.split("/").map(Number), g = t.rounds[rg[0]] && t.rounds[rg[0]].games[rg[1]]; if(!g) return;
+    wizSetTeam("a", "", g.a); wizSetTeam("b", "", g.b);
+  });
+  document.querySelectorAll("input[name=wizPhase]").forEach(r => r.addEventListener("change", wizTourShow));
   on("wizCalSelect", "change", () => {
     const c = wizCal.filter(x => x.id === $("wizCalSelect").value)[0]; if(!c){ setWizPhase(defPhase()); return; }
     if(c.phase) setWizPhase(c.phase);
     // Préremplit les équipes de la partie prévue (si elles sont enregistrées)
     // Local = 2e équipe (« Visiteur @ Local ») ; une équipe non enregistrée est ajoutée à la liste avec son nom
-    [["a", c.aKey, c.a], ["b", c.bKey, c.b]].forEach(t => {
-      const sel = $(t[0] === "a" ? "wizTeamA" : "wizTeamB");
-      Array.prototype.slice.call(sel.options).forEach(o => { if(o.value.indexOf("__n:") === 0) o.remove(); });
-      const k = (t[1] && presets[t[1]]) ? t[1] : Object.keys(presets).filter(x => presets[x] && presets[x].name === t[2] && (!presets[x].category || presets[x].category === currentCat))[0];
-      if(k && Array.prototype.some.call(sel.options, o => o.value === k)){ sel.value = k; renderPresenceList(t[0], k); wizSyncColor(t[0]); }
-      else if(t[2]){ const o = el("option", null, t[2] + " (non enregistrée)"); o.value = "__n:" + t[2]; sel.appendChild(o); sel.value = o.value; renderPresenceList(t[0], ""); }
-    });
+    [["a", c.aKey, c.a], ["b", c.bKey, c.b]].forEach(t => wizSetTeam(t[0], t[1], t[2]));
   });
 
   /* ============ Chronomètre ============ */
@@ -5852,9 +5909,9 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!rows.length){ list.appendChild(el("li", "empty", "Aucune partie enregistrée.")); return; }
     const frag = document.createDocumentFragment();
     rows.forEach(h => frag.appendChild(historyRow(h, [
-      btn("btn-edit", "🏷 " + (phaseOfM(h.m) === "reg" ? "→ Pré-saison" : "→ Saison"), () => {
+      btn("btn-edit", "🏷 → " + PHASE_LABEL[{ pre: "reg", reg: "tour", tour: "pre" }[phaseOfM(h.m)]], () => {
         if(currentRole === "viewer") return;
-        const np = phaseOfM(h.m) === "reg" ? "pre" : "reg";
+        const np = { pre: "reg", reg: "tour", tour: "pre" }[phaseOfM(h.m)];
         ref(hmOrg + "/" + hmCat + "/history/" + h.key + "/phase").set(np);
         h.m.phase = np; hmRender();
         if(hmOrg === currentOrg && hmCat === currentCat && state.histKey === h.key){ state.phase = np; commit(); }
@@ -5917,7 +5974,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!state.playedAt) state.playedAt = Date.now();
     state.closed = true;
     commit();
-    calSyncResult();
+    calSyncResult(); tourSyncResult();
     dbHistory.child(state.histKey).set(state, err => {
       if(err) notify("Échec de la sauvegarde : " + (err.message || err), "error");
       else notify("Partie sauvegardée dans l'historique !\nLe tableau reste modifiable à l'écran.");
@@ -5984,7 +6041,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderPhaseUI(){
     const years = {}; years[seasonOf(Date.now())] = 1; historyAll.forEach(h => { years[seasonOf(h.at)] = 1; }); years[curYear()] = 1;
     const items = []; Object.keys(years).map(Number).sort((a, b) => b - a).forEach(y => {
-      items.push({ value: y + "|pre", label: y + "-" + (y + 1) + " Pré-saison" }, { value: y + "|reg", label: y + "-" + (y + 1) + " Saison régulière" });
+      items.push({ value: y + "|pre", label: y + "-" + (y + 1) + " Pré-saison" }, { value: y + "|reg", label: y + "-" + (y + 1) + " Saison régulière" }, { value: y + "|tour", label: y + "-" + (y + 1) + " Tournois" });
     });
     fillSelect($("phaseSel"), items, viewKey());
     const d = defPhase(), st = cfgRegStart[currentCat] || "";
@@ -6308,7 +6365,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(isCardOpen){
         const isG = p.pos === "G", card = el("div", "player-card-inline"), h4 = el("h4"), grid = el("div", "p-grid" + (isG ? " g-grid" : ""));
         h4.appendChild(el("span", null, (isG ? "🥅 " : "👤 ") + (p.no ? "#" + p.no + " " : "") + p.name));
-        h4.appendChild(el("small", null, "(" + (scope === "match" ? "Ce match" : curYear() + "-" + (curYear() + 1) + " " + (curView() === "reg" ? "Saison régulière" : "Pré-saison")) + ")"));
+        h4.appendChild(el("small", null, "(" + (scope === "match" ? "Ce match" : curYear() + "-" + (curYear() + 1) + " " + (PHASE_LONG[curView()] || "Pré-saison")) + ")"));
         let cells;
         if(isG){
           // Gardien : fiche, blanchissages, moyenne de buts accordés par match, lancers reçus, buts contre, arrêts, % d'arrêts
@@ -6680,7 +6737,9 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!canEdit()) return;
     const keys = { a: $("wizTeamA").value, b: $("wizTeamB").value };
     // Partie non choisie dans le calendrier, mais une partie prévue oppose les mêmes équipes : on les relie
-    if(!$("wizCalSelect").value && keys.a && keys.b){
+    const isTour = !!document.querySelector("input[name=wizPhase][value=tour]:checked");
+    if(isTour && $("wizCalSelect").value) $("wizCalSelect").value = "";
+    if(!isTour && !$("wizCalSelect").value && keys.a && keys.b){
       const m = wizCal.filter(c => (c.aKey === keys.a && c.bKey === keys.b) || (c.aKey === keys.b && c.bKey === keys.a))
                       .sort((x, y) => Math.abs(x.at - Date.now()) - Math.abs(y.at - Date.now()))[0];
       if(m) $("wizCalSelect").value = m.id;
@@ -6709,6 +6768,7 @@ document.addEventListener("DOMContentLoaded", function(){
     state.periodSec = int($("wizPeriodMin").value || Math.round(defaultPeriodSec / 60), 1, 99) * 60;   // durée choisie pour cette partie
     state.calId = $("wizCalSelect").value || "";
     const wp = document.querySelector("input[name=wizPhase]:checked"); state.phase = wp ? wp.value : defPhase();
+    state.tour = state.phase === "tour" && $("wizTourSel").value && $("wizTourGame").value ? $("wizTourSel").value + "/" + $("wizTourGame").value : "";
     state.timer.sec = state.periodSec;
     state.stopOnGoal = [0, 1, 2].map(i => $("wizStop" + i).checked);
     store.set(localStorage, "ohmtro_stopgoal", state.stopOnGoal.map(x => x ? "1" : "0").join(""));
