@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610271108">
+<meta name="build" content="202610271116">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1146,6 +1146,20 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="jaOutSheet">
+  <div class="sheet-in">
+    <h2>Affilier un joueur (JA)</h2>
+    <p class="ctx" id="jaoCtx">Choisissez le joueur, la catégorie où il est affilié, puis cochez les équipes de cette catégorie pour lesquelles il peut jouer.</p>
+    <label class="f-lbl" for="jaoPlayer">Joueur</label>
+    <select id="jaoPlayer" class="full-input"></select>
+    <label class="f-lbl" for="jaoCat">Catégorie d'affiliation</label>
+    <select id="jaoCat" class="full-input"></select>
+    <div id="jaoTeams" class="ja-list"></div>
+    <p class="p-note" id="jaoNow"></p>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="jaoCancel">Annuler</button><button type="button" class="act-1" id="jaoSave">Enregistrer</button></div>
+  </div>
+</dialog>
+
 <dialog id="jaSheet">
   <div class="sheet-in">
     <h2>Joueur affilié (JA)</h2>
@@ -1910,7 +1924,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <div class="roster-sort">Trier : <button type="button" data-rsort="no"># Numéro</button><button type="button" data-rsort="name">Nom</button><button type="button" data-rsort="pos">Position</button></div>
     <div class="roster-grid" id="rosterForm"></div>
     <button type="button" class="act-2" id="addPlayerBtn" style="width:100%;min-height:2.2rem;margin-bottom:.4rem;font-size:.85rem;">+ Ajouter un joueur</button>
-    <button type="button" class="act-2" id="addJaBtn" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">+ Ajouter un joueur affilié (JA)</button>
+    <button type="button" class="act-2" id="addJaBtn" style="width:100%;min-height:2.2rem;margin-bottom:.4rem;font-size:.85rem;">+ Ajouter un joueur affilié (JA)</button>
+    <button type="button" class="act-2" id="jaOutBtn" style="width:100%;min-height:2.2rem;margin-bottom:.8rem;font-size:.85rem;">↗ Affilier un de nos joueurs à une catégorie supérieure</button>
 
     <label style="display:block;font-size:.8rem;margin-bottom:.2rem;font-weight:600;">Staff :</label>
     <div class="roster-grid" id="staffForm"></div>
@@ -2294,7 +2309,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610271108";
+  var BUILD = "202610271116";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -3911,6 +3926,51 @@ document.addEventListener("DOMContentLoaded", function(){
       l.appendChild(c); l.appendChild(el("span", null, (p.no ? "#" + p.no + " " : "") + p.name + (p.pos === "G" ? " (G)" : "") + (have[k + "|" + pid] ? " — déjà ajouté" : ""))); box.appendChild(l); });
   }
   on("jaTeam", "change", jaRender);
+  // Affilier un joueur de cette équipe : une catégorie supérieure, puis les équipes cochées (ex. : Lions 1 et/ou Lions 2)
+  let jaoSrc = "";
+  const jaoRoster = () => toArr(manageTeamPresets[jaoSrc] && manageTeamPresets[jaoSrc].roster).map(normPlayer);
+  on("jaOutBtn", "click", () => {
+    if(!editingTeamKey || !manageTeamPresets[editingTeamKey]){ notify("Enregistrez d'abord l'équipe, puis revenez affilier ses joueurs.", "info"); return; }
+    jaoSrc = editingTeamKey; const me = manageTeamPresets[jaoSrc], r0 = catRank(me.category);
+    const pl = jaoRoster().map((p, i) => ({ p: p, i: i })).filter(o => !o.p.ja && o.p.name);
+    if(!pl.length){ notify("Aucun joueur enregistré dans cette équipe.", "info"); return; }
+    const cats = {}; Object.keys(manageTeamPresets).forEach(k => { const t = manageTeamPresets[k]; if(t && t.own && t.category && catRank(t.category) > r0) cats[t.category] = 1; });
+    const cl = Object.keys(cats).sort((x, y) => catRank(x) - catRank(y) || x.localeCompare(y));
+    if(!cl.length){ notify("Aucune de nos équipes dans une catégorie supérieure (ou de calibre supérieur).", "info"); return; }
+    setText("jaoCtx", me.name + " (" + String(me.category).toUpperCase() + ") — choisissez le joueur, la catégorie où il est affilié, puis cochez les équipes de cette catégorie pour lesquelles il peut jouer.");
+    fillSelect($("jaoPlayer"), pl.map(o => ({ value: String(o.i), label: (o.p.no ? "#" + o.p.no + " " : "") + o.p.name })), String(pl[0].i));
+    fillSelect($("jaoCat"), cl.map(c => ({ value: c, label: c.toUpperCase() })), cl[0]);
+    jaoRender(); swapDlg("rosterSheet", "jaOutSheet");
+  });
+  function jaoWhere(pid){   // équipes où ce joueur est déjà affilié
+    const out = []; Object.keys(manageTeamPresets).forEach(k => { const t = manageTeamPresets[k];
+      if(toArr(t && t.roster).some(p => p && p.ja && p.ja.team === jaoSrc && String(p.ja.pid) === pid)) out.push(k); }); return out;
+  }
+  function jaoRender(){
+    const i = Number($("jaoPlayer").value), p = jaoRoster()[i]; if(!p) return;
+    const pid = pidOf(p, i), cat = $("jaoCat").value, where = jaoWhere(pid), box = $("jaoTeams"); box.textContent = "";
+    Object.keys(manageTeamPresets).filter(k => { const t = manageTeamPresets[k]; return t && t.own && t.category === cat; })
+      .sort((x, y) => manageTeamPresets[x].name.localeCompare(manageTeamPresets[y].name, "fr", { numeric: true })).forEach(k => {
+        const l = el("label", "check-row"), c = el("input"); c.type = "checkbox"; c.value = k; c.checked = where.indexOf(k) >= 0;
+        l.appendChild(c); l.appendChild(el("span", null, manageTeamPresets[k].name)); box.appendChild(l); });
+    setText("jaoNow", where.length ? "Affilié présentement à : " + where.map(k => manageTeamPresets[k].name + " (" + String(manageTeamPresets[k].category).toUpperCase() + ")").join(", ") : "Pas encore affilié.");
+  }
+  on("jaoPlayer", "change", jaoRender); on("jaoCat", "change", jaoRender);
+  on("jaoCancel", "click", () => swapDlg("jaOutSheet", "rosterSheet"));
+  on("jaoSave", "click", () => {
+    const i = Number($("jaoPlayer").value), p = jaoRoster()[i]; if(!p || !jaoSrc) return;
+    const pid = pidOf(p, i), src = manageTeamPresets[jaoSrc], w = []; let add = 0, del = 0;
+    $("jaoTeams").querySelectorAll("input[type=checkbox]").forEach(c => {
+      const k = c.value, t = manageTeamPresets[k]; if(!t) return;
+      const ro = toArr(t.roster).map(normPlayer), at = ro.findIndex(x => x.ja && x.ja.team === jaoSrc && String(x.ja.pid) === pid);
+      if(c.checked && at < 0){ ro.push({ no: p.no, name: p.name, pos: p.pos, ja: { team: jaoSrc, pid: pid, cat: src.category || "" } }); add++; }
+      else if(!c.checked && at >= 0){ ro.splice(at, 1); del++; }
+      else return;
+      w.push(ref(manageOrgKey + "/teams_presets/" + k + "/roster").set(ro));
+    });
+    Promise.all(w).then(() => { swapDlg("jaOutSheet", "rosterSheet"); notify(add || del ? "Affiliation enregistrée." : "Aucun changement.", "ok"); },
+                        err => notify("Échec : " + (err && err.message || err), "error"));
+  });
   on("jaCancel", "click", () => swapDlg("jaSheet", "rosterSheet"));
   on("jaAdd", "click", () => {
     const k = $("jaTeam").value, t = manageTeamPresets[k], r = toArr(t && t.roster).map(normPlayer); let n = 0;
