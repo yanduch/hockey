@@ -2,10 +2,22 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202610251831">
+<meta name="build" content="202610271036">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B1724">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hockey Live">
+<link rel="apple-touch-icon" href="pwa/apple-touch-icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="pwa/icon-192.png">
+<script>
+// Application ouverte depuis l'écran d'accueil : on revient à la dernière organisation / catégorie / équipe regardée
+try{ var q = location.search; if((!q || /^\?source=app$/.test(q)) && localStorage.getItem("hk_lastq")) history.replaceState(null, "", location.pathname + localStorage.getItem("hk_lastq")); }catch(e){}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://ohmtro-26e56-default-rtdb.firebaseio.com" crossorigin>
@@ -459,6 +471,13 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 .pen-chip.btn{border:0;cursor:pointer;font-family:inherit}
 .pen-chip.ta{box-shadow:inset 0 0 0 2px var(--pa,#6FA2EE)}.pen-chip.tb{box-shadow:inset 0 0 0 2px var(--pb,#F2707A)}
 #playMode .pen-chip{font-size:1rem;padding:.25rem .6rem}
+.app-row{display:flex;gap:.5rem;margin-top:.5rem}
+.app-row:not(:has(button:not([hidden]))){display:none}
+.app-row .share-btn{flex:1;margin:0}
+.install-steps ol{margin:.2rem 0 .6rem 1.2rem;padding:0}
+.install-steps li{margin:.25rem 0}
+.ios-share{display:inline-block;padding:0 .3rem;border:1px solid var(--line);border-radius:5px}
+html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .amb{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.8rem;margin-top:1rem}
 .amb h2{font-size:1rem;margin:0 0 .6rem}
 .amb h2.amb-toggle{display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin:0;user-select:none}
@@ -991,6 +1010,10 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 
   <button type="button" class="share-btn" id="btnShare">📤 Partager la page</button>
+  <div class="app-row" id="appRow">
+    <button type="button" class="share-btn" id="btnInstall" hidden>📲 Installer sur l'écran d'accueil</button>
+    <button type="button" class="share-btn" id="btnFull" hidden>⛶ Plein écran</button>
+  </div>
 
   <button type="button" class="btn-new-game-pastel" id="newGame">➕ Commencer une nouvelle partie</button>
   <button type="button" class="btn-reset-board" id="askSave" style="display:none">💾 Enregistrer la partie dans l'historique…</button>
@@ -1837,6 +1860,23 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="installSheet">
+  <div class="sheet-in">
+    <h2>Installer sur l'écran d'accueil</h2>
+    <p class="ctx">La page s'ouvrira comme une application, en plein écran, sans barre d'adresse, directement sur votre équipe.</p>
+    <div id="installIOS" class="install-steps">
+      <p><b>iPhone / iPad (Safari) :</b></p>
+      <ol><li>Touchez le bouton <b>Partager</b> <span class="ios-share">⬆︎</span> (en bas sur iPhone, en haut sur iPad).</li><li>Choisissez <b>« Sur l'écran d'accueil »</b> (faites défiler au besoin).</li><li>Touchez <b>Ajouter</b>.</li></ol>
+      <p class="ctx">Sur iPhone, utilisez Safari : Chrome et les autres navigateurs ne le permettent pas toujours.</p>
+    </div>
+    <div id="installAndroid" class="install-steps">
+      <p><b>Android (Chrome) :</b></p>
+      <ol><li>Touchez le menu <b>⋮</b> en haut à droite.</li><li>Choisissez <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>.</li><li>Confirmez.</li></ol>
+    </div>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-1" id="installClose">OK</button></div>
+  </div>
+</dialog>
+
 <dialog id="penLeftSheet">
   <div class="sheet-in">
     <h2 id="plTitle">Punition</h2>
@@ -2157,7 +2197,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202610251831";
+  var BUILD = "202610271036";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2693,6 +2733,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(nav === "pop") return;
     const newUrl = window.location.pathname + "?org=" + encodeURIComponent(currentOrg) + "&cat=" + encodeURIComponent(currentCat) +
                    (boardTeam ? "&team=" + encodeURIComponent(boardTeam) : "");
+    try{ localStorage.setItem("hk_lastq", newUrl.slice(newUrl.indexOf("?"))); }catch(e){}
     try{
       if(nav === "init") window.history.replaceState(null, "", newUrl);
       else window.history.pushState(null, "", newUrl);
@@ -7308,6 +7349,40 @@ document.addEventListener("DOMContentLoaded", function(){
   ["simOnChk", "simViewers", "simStaff"].forEach(id => on(id, "change", simSave));
   document.querySelectorAll("input[name=simScope]").forEach(r => r.addEventListener("change", simSave));
   on("simTeams", "change", simSave);
+
+  /* ============ Application sur l'écran d'accueil et plein écran (iPhone, iPad, Android) ============ */
+  (function(){
+    const standalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || (window.matchMedia && matchMedia("(display-mode: fullscreen)").matches) || navigator.standalone === true;
+    const de = document.documentElement, canFull = !!(de.requestFullscreen || de.webkitRequestFullscreen);
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    let deferred = null;
+    if("serviceWorker" in navigator && /^https:/.test(location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
+    function paint(){
+      const sa = standalone(); de.classList.toggle("standalone", sa);
+      $("btnInstall").hidden = sa;
+      const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      $("btnFull").hidden = sa || !canFull;
+      $("btnFull").textContent = fs ? "⛶ Quitter le plein écran" : "⛶ Plein écran";
+    }
+    window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; paint(); });
+    window.addEventListener("appinstalled", () => { deferred = null; paint(); notify("Application installée : retrouvez « Hockey Live » sur l'écran d'accueil.", "done"); });
+    on("btnInstall", "click", () => {
+      if(deferred){ deferred.prompt(); deferred.userChoice.finally(() => { deferred = null; paint(); }); return; }
+      $("installIOS").hidden = !ios; $("installAndroid").hidden = ios && !/Android/.test(navigator.userAgent);
+      if(!ios && !/Android/.test(navigator.userAgent)){ $("installIOS").hidden = false; $("installAndroid").hidden = false; }
+      openDlg("installSheet");
+    });
+    on("installClose", "click", () => closeDlg("installSheet"));
+    on("btnFull", "click", () => {
+      const fs = document.fullscreenElement || document.webkitFullscreenElement;
+      try{
+        if(fs) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        else (de.requestFullscreen || de.webkitRequestFullscreen).call(de);
+      }catch(e){}
+    });
+    ["fullscreenchange", "webkitfullscreenchange"].forEach(t => document.addEventListener(t, paint));
+    paint();
+  })();
 
   /* ============ Mode sombre / clair (choix de chaque appareil) ============ */
   const isDark = () => { const t = document.documentElement.getAttribute("data-theme"); return t ? t === "dark" : !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches); };
