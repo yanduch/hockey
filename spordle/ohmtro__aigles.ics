@@ -106,6 +106,26 @@ CATEGORIES:Game
 STATUS:Active
 END:VEVENT
 BEGIN:VEVENT
+UID:game-1003063
+DTSTART:20261127T133000Z
+DTEND:20261127T144000Z
+SUMMARY:(U15 C) AIGLES TROIS-RIVIERES-OUEST VS (U15 C) ROYAUX CRSA
+LOCATION:Complexe sportif de Saint-Augustin-de-Desmaures - Glace B, 230 Rte de Fossambault, Saint-Augustin-de-Desmaures, G3A 0R3
+DESCRIPTION:Game\nhttps://page.spordle.com/en/tournoi-m11-m13-m15-banque-scotia-de-saint-augustin-de-desmaures/schedule/1003063
+CATEGORIES:Game
+STATUS:Active
+END:VEVENT
+BEGIN:VEVENT
+UID:game-1003080
+DTSTART:20261128T000000Z
+DTEND:20261128T011000Z
+SUMMARY:(U15 C) AIGLES TROIS-RIVIERES-OUEST VS (U15 C) COMMANDEURS-1 POINTE-LÉVY
+LOCATION:Complexe sportif de Saint-Augustin-de-Desmaures - Glace B, 230 Rte de Fossambault, Saint-Augustin-de-Desmaures, G3A 0R3
+DESCRIPTION:Game\nhttps://page.spordle.com/en/tournoi-m11-m13-m15-banque-scotia-de-saint-augustin-de-desmaures/schedule/1003080
+CATEGORIES:Game
+STATUS:Active
+END:VEVENT
+BEGIN:VEVENT
 UID:practice-4a885e7d-01d8-4724-a24a-5bbbc264716a
 DTSTART:20261019T223000Z
 DTEND:20261019T233000Z
