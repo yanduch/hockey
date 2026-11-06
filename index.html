@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611011755">
+<meta name="build" content="202611052231">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -733,6 +733,13 @@ button.tcal-d{cursor:pointer;font-weight:800}
 .stand td.pts{font-weight:800}
 .stand tr.me td{background:var(--crease);font-weight:700}
 .stand .rk{color:var(--muted);width:1.4rem}
+.stand th,.stand td{white-space:nowrap}
+.stand th:nth-child(2),.stand td:nth-child(2){position:sticky;left:0;z-index:1;background:var(--surface);max-width:9.5rem;overflow:hidden;text-overflow:ellipsis;box-shadow:1px 0 0 var(--line)}
+.stand tr.me td:nth-child(2){background:var(--crease)}
+.stand .adv1{border-left:2px solid var(--line)}
+.stand td.dif.pos{color:#2E9E5B;font-weight:700}
+.stand td.dif.neg{color:#D0473F;font-weight:700}
+.stand-legend{margin:.35rem 0 0;font-size:.7rem;color:var(--muted);line-height:1.4}
 .h-box{flex:1;min-width:0;margin-right:.5rem}
 #hmList .history-item{flex-direction:column;align-items:stretch}
 #hmList .h-box{margin:0 0 .45rem}
@@ -1046,6 +1053,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   <div class="toggle-block hidden" id="standBlock">
     <p class="stand-sub" id="standSub"></p>
     <div class="stand-wrap"><table class="stand" id="standTable"></table></div>
+    <p class="stand-legend">PJ parties jouées · V victoires · D défaites · DP défaites en prolongation · N nulles · PTS points · BP buts pour · BC buts contre · DIF différentiel · BP/MJ et BC/MJ : buts pour et contre par match. Glissez le tableau vers la gauche pour tout voir.</p>
   </div>
 
   <h2 class="toggle-title collapsed" id="toggleTeamCalBtn" style="display:none">Calendrier</h2>
@@ -2330,7 +2338,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611011755";
+  var BUILD = "202611052231";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5539,12 +5547,15 @@ document.addEventListener("DOMContentLoaded", function(){
     const rows = Object.keys(T).map(k => T[k]); rows.forEach(r => { r.pts = r.v * 2 + r.dp + r.nu; r.dif = r.bp - r.bc; });
     rows.sort((x, y) => y.pts - x.pts || y.v - x.v || y.dif - x.dif || x.pj - y.pj || x.n.localeCompare(y.n, "fr", { numeric: true }));
     if(!games.length) setText("standSub", "La saison n'est pas encore commencée · " + String(currentCat).toUpperCase() + " · équipes en ordre alphabétique");
-    if(!rows.length){ const tr = el("tr"), td = el("td", null, "Aucune équipe dans cette catégorie."); td.colSpan = 9; td.style.textAlign = "center"; tr.appendChild(td); tbl.appendChild(tr); return; }
-    const head = el("tr"); ["#", "Équipe", "PJ", "V", "D", "DP", "N", "PTS", "DIF"].forEach(h => head.appendChild(el("th", null, h))); tbl.appendChild(head);
+    if(!rows.length){ const tr = el("tr"), td = el("td", null, "Aucune équipe dans cette catégorie."); td.colSpan = 13; td.style.textAlign = "center"; tr.appendChild(td); tbl.appendChild(tr); return; }
+    // Statistiques avancées : buts pour, buts contre, différentiel, moyennes par match
+    const head = el("tr"), TIPS = { PJ: "Parties jouées", V: "Victoires", D: "Défaites", DP: "Défaites en prolongation", N: "Nulles", PTS: "Points", BP: "Buts pour", BC: "Buts contre", DIF: "Différentiel (BP − BC)", "BP/MJ": "Buts pour par match", "BC/MJ": "Buts contre par match" };
+    ["#", "Équipe", "PJ", "V", "D", "DP", "N", "PTS", "BP", "BC", "DIF", "BP/MJ", "BC/MJ"].forEach(h => { const th = el("th", h === "BP" ? "adv1" : null, h); if(TIPS[h]) th.title = TIPS[h]; head.appendChild(th); }); tbl.appendChild(head);
+    const avg = (n, pj) => pj ? (n / pj).toFixed(2).replace(".", ",") : "—";
     const mine = boardTeam && presets[boardTeam] ? presets[boardTeam].name : "";
     rows.forEach((r, i) => {
       const tr = el("tr", r.n === mine ? "me" : "");
-      [[i + 1, "rk"], [r.n], [r.pj], [r.v], [r.d], [r.dp], [r.nu], [r.pts, "pts"], [(r.dif > 0 ? "+" : "") + r.dif]].forEach(c => tr.appendChild(el("td", c[1] || null, String(c[0]))));
+      [[i + 1, "rk"], [r.n], [r.pj], [r.v], [r.d], [r.dp], [r.nu], [r.pts, "pts"], [r.bp, "adv1"], [r.bc], [(r.dif > 0 ? "+" : "") + r.dif, r.dif > 0 ? "dif pos" : r.dif < 0 ? "dif neg" : "dif"], [avg(r.bp, r.pj)], [avg(r.bc, r.pj)]].forEach(c => tr.appendChild(el("td", c[1] || null, String(c[0]))));
       tbl.appendChild(tr);
     });
   }
