@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611071304">
+<meta name="build" content="202611071439">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -581,6 +581,24 @@ body.role-viewer .staff-only{display:none !important}
 .slot-seg button{flex:1;border:0;border-radius:9px;padding:.45rem .3rem;font-weight:700;font-size:.85rem;background:transparent;color:inherit;opacity:.7}
 .slot-seg button.on{background:var(--accent, #2F6FD6);color:#fff;opacity:1}
 .slot-bar small{display:block;margin-top:.25rem;font-size:.72rem;opacity:.75}
+#cmpSheet .sheet-in{max-width:640px}
+.cmp-sum{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:.3rem 0 .6rem}
+.cmp-sum div{border:1px solid var(--line, rgba(127,127,127,.3));border-radius:10px;padding:.4rem .5rem;text-align:center;font-size:.85rem}
+.cmp-sum b{display:block;font-size:1.25rem}
+.cmp-tbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.cmp-tbl th{font-size:.7rem;opacity:.7;padding:.25rem .2rem;text-align:center}
+.cmp-tbl td{border-top:1px solid var(--line, rgba(127,127,127,.25));padding:.35rem .25rem;vertical-align:middle}
+.cmp-tbl td.c{width:44%}
+.cmp-tbl td.pick{width:12%;text-align:center;white-space:nowrap}
+.cmp-cell{display:block;border:2px solid transparent;border-radius:8px;padding:.3rem .35rem;cursor:pointer;line-height:1.25}
+.cmp-cell.on{border-color:#2F6FD6;background:rgba(47,111,214,.12)}
+.cmp-cell.none{opacity:.45;font-style:italic}
+.cmp-cell small{display:block;opacity:.7}
+.cmp-diff td.c .cmp-cell{background:rgba(240,179,90,.12)}
+.cmp-shots td{text-align:center}
+.cmp-shots select{padding:.2rem;font-size:.8rem}
+.cmp-h{margin:.9rem 0 .35rem;font-size:.95rem}
+.ph-tag.fusion{background:#EFE3FF;color:#5A2E9A}
 .ph-tag.scorer{background:#E3ECFF;color:#244C9A}
 .ph-tag.unpub{background:#FDE2E0;color:#9A2A20}
 .ph-tag.pub{background:#DDF4E6;color:#1E6B3E}
@@ -1636,6 +1654,15 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="cmpSheet">
+  <div class="sheet-in">
+    <h2>⚖ Comparer les deux marquages</h2>
+    <p class="ctx" id="cmpCtx"></p>
+    <div id="cmpBody"></div>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="cmpCancel">Annuler</button><button type="button" class="act-1" id="cmpSave">Publier la version choisie</button></div>
+  </div>
+</dialog>
+
 <dialog id="historyManageSheet">
   <div class="sheet-in">
     <h2>Gestion de l'historique</h2>
@@ -2360,7 +2387,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611071304";
+  var BUILD = "202611071439";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5589,6 +5616,77 @@ document.addEventListener("DOMContentLoaded", function(){
     if(h1.m.calId && h2.m.calId) return h1.m.calId === h2.m.calId;
     return dateOf(h1.at) === dateOf(h2.at) && [h1.a, h1.b].sort().join("|") === [h2.a, h2.b].sort().join("|");
   }
+  /* ===== Comparer deux marquages côte à côte et composer la version publiée =====
+     Chaque but / punition : version du marqueur 1, du marqueur 2 ou aucune ; lancers : M1, M2 ou moyenne des deux. */
+  let cmpCtx = null;
+  const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  function cmpPairs(E1, E2){
+    const sec = t => { const m = /^(\d+):(\d\d)$/.exec(String(t || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : 0; };
+    const ok = e => e && (e.type === "goal" || e.type === "pen");
+    const A = E1.filter(ok), B = E2.filter(ok), used = {}, rows = [];
+    A.forEach(a => { let best = -1, bd = 1e9;
+      B.forEach((b, j) => { if(used[j] || b.type !== a.type || b.team !== a.team || int(b.period, 0, 3) !== int(a.period, 0, 3)) return;
+        const d = Math.abs(sec(a.time) - sec(b.time)) + ((a.type === "goal" ? a.scorer !== b.scorer : a.player !== b.player) ? 20 : 0); if(d <= 150 && d < bd){ bd = d; best = j; } });
+      if(best >= 0) used[best] = 1; rows.push({ a: a, b: best >= 0 ? B[best] : null }); });
+    B.forEach((b, j) => { if(!used[j]) rows.push({ a: null, b: b }); });
+    const key = r => { const e = r.a || r.b; return int(e.period, 0, 3) * 10000 + (9999 - sec(e.time)); };
+    return rows.sort((x, y) => key(x) - key(y));
+  }
+  function cmpDesc(e, m){
+    if(!e) return '<span class="cmp-cell none">— rien —</span>';
+    const r = (m.rosters && m.rosters[e.team]) || [], nm = m.names[e.team] || "";
+    const t = e.type === "goal" ? "🥅 But · " + esc(e.scorer ? playerLabel(r, e.scorer) : "?") + (e.a1 ? "<small>Passes : " + esc([e.a1, e.a2].filter(Boolean).map(x => playerLabel(r, x)).join(", ")) + "</small>" : "<small>Sans passe</small>")
+                                : "⛔ Punition · " + esc(e.player ? playerLabel(r, e.player) : "Banc") + " · " + (e.min || 2) + " min" + (e.reason ? "<small>" + esc(e.reason) + "</small>" : "");
+    return '<b>' + esc(nm) + '</b> · ' + (["1re","2e","3e","Prol."][int(e.period, 0, 3)]) + " " + esc(e.time || "") + "<br>" + t;
+  }
+  function openCompare(h1, h2, org, cat, list){
+    if(h1.m.scorer === 2 && h2.m.scorer !== 2){ const t = h1; h1 = h2; h2 = t; }
+    const m1 = h1.m, m2 = h2.m, rows = cmpPairs(m1.events || [], m2.events || []);
+    cmpCtx = { h1: h1, h2: h2, org: org, cat: cat, list: list, rows: rows, pick: rows.map(r => r.a ? 1 : 2), shots: {} };
+    setText("cmpCtx", (m1.names.b || "") + " @ " + (m1.names.a || "") + " · " + (dateOf(h1.at) || "") + " — touchez la case à garder pour chaque action.");
+    const sh = (m, t) => toArr(m.shots && m.shots[t]).map(x => Number(x) || 0);
+    let html = '<div class="cmp-sum"><div>Marqueur ' + (m1.scorer === 2 ? 2 : 1) + (m1.scorer === "fusion" ? " (fusion)" : "") + '<b>' + esc(m1.names.b) + " " + h1.gB + " – " + h1.gA + " " + esc(m1.names.a) + '</b></div><div>Marqueur ' + (m2.scorer === 2 ? 2 : (m2.scorer === "fusion" ? "fusion" : 1)) + '<b>' + esc(m2.names.b) + " " + h2.gB + " – " + h2.gA + " " + esc(m2.names.a) + '</b></div></div>';
+    html += '<h3 class="cmp-h">Buts et punitions</h3>';
+    if(!rows.length) html += '<p class="ctx">Aucun but ni punition.</p>';
+    else html += '<table class="cmp-tbl"><tr><th>Marqueur 1</th><th>Marqueur 2</th><th>Aucun</th></tr>' + rows.map((r, i) => {
+      const diff = !(r.a && r.b) || (r.a.time !== r.b.time || (r.a.scorer || r.a.player) !== (r.b.scorer || r.b.player) || (r.a.a1 || "") !== (r.b.a1 || "") || (r.a.a2 || "") !== (r.b.a2 || ""));
+      return '<tr class="' + (diff ? "cmp-diff" : "") + '" data-i="' + i + '"><td class="c"><span class="cmp-cell' + (r.a ? "" : " none") + '" data-p="1">' + cmpDesc(r.a, m1) + '</span></td><td class="c"><span class="cmp-cell' + (r.b ? "" : " none") + '" data-p="2">' + cmpDesc(r.b, m2) + '</span></td><td class="pick"><span class="cmp-cell" data-p="0">✕</span></td></tr>'; }).join("") + '</table>';
+    html += '<h3 class="cmp-h">Lancers par période</h3><table class="cmp-tbl cmp-shots"><tr><th></th><th>Période</th><th>M1</th><th>M2</th><th>Garder</th></tr>';
+    ["b", "a"].forEach(t => [0, 1, 2, 3].forEach(p => { const v1 = sh(m1, t)[p] || 0, v2 = sh(m2, t)[p] || 0; if(p === 3 && !v1 && !v2) return;
+      html += '<tr><td style="text-align:left">' + (p === 0 ? "<b>" + esc(m1.names[t]) + "</b>" : "") + '</td><td>' + ["1re","2e","3e","Prol."][p] + '</td><td>' + v1 + '</td><td>' + v2 + '</td><td><select data-t="' + t + '" data-p="' + p + '">' +
+        '<option value="avg">Moyenne (' + Math.round((v1 + v2) / 2) + ')</option><option value="1">M1 (' + v1 + ')</option><option value="2">M2 (' + v2 + ')</option></select></td></tr>'; }));
+    html += '</table><p class="ctx">La moyenne est arrondie. Les deux versions d\'origine sont gardées (non publiées) : on peut revenir en arrière.</p>';
+    $("cmpBody").innerHTML = html;
+    const paint = () => $("cmpBody").querySelectorAll("tr[data-i]").forEach(tr => { const k = cmpCtx.pick[Number(tr.dataset.i)]; tr.querySelectorAll(".cmp-cell").forEach(c => c.classList.toggle("on", Number(c.dataset.p) === k)); });
+    $("cmpBody").querySelectorAll("tr[data-i] .cmp-cell").forEach(c => c.addEventListener("click", () => { const i = Number(c.closest("tr").dataset.i), p = Number(c.dataset.p);
+      if(p === 1 && !cmpCtx.rows[i].a || p === 2 && !cmpCtx.rows[i].b) return; cmpCtx.pick[i] = p; paint(); }));
+    paint(); swapDlg("historyManageSheet", "cmpSheet");
+  }
+  on("cmpCancel", "click", () => swapDlg("cmpSheet", "historyManageSheet"));
+  on("cmpSave", "click", () => {
+    if(!cmpCtx || !isAdmin()) return;
+    const C = cmpCtx, m1 = C.h1.m, m2 = C.h2.m, m = JSON.parse(JSON.stringify(m1));
+    const sh = (mm, t) => toArr(mm.shots && mm.shots[t]).map(x => Number(x) || 0);
+    m.events = (m1.events || []).filter(e => e && e.type !== "goal" && e.type !== "pen");   // messages système (fin de période…)
+    C.rows.forEach((r, i) => { const k = C.pick[i], e = k === 1 ? r.a : k === 2 ? r.b : null; if(e) m.events.push(JSON.parse(JSON.stringify(e))); });
+    const sec = t => { const x = /^(\d+):(\d\d)$/.exec(String(t || "")); return x ? Number(x[1]) * 60 + Number(x[2]) : 0; };
+    m.events = m.events.map((e, i) => ({ e: e, i: i })).sort((x, y) => (int(x.e.period, 0, 3) - int(y.e.period, 0, 3)) || (sec(y.e.time) - sec(x.e.time)) || x.i - y.i).map(x => x.e);
+    // alignements : ceux du marqueur 1, complétés par les joueurs que seul le marqueur 2 avait
+    ["a", "b"].forEach(t => { const R = toArr(m.rosters && m.rosters[t]).slice(), have = {}; R.forEach(p => { have[String(p.no) + "|" + p.name] = 1; });
+      toArr(m2.rosters && m2.rosters[t]).forEach(p => { if(!have[String(p.no) + "|" + p.name]) R.push(p); }); m.rosters = m.rosters || {}; m.rosters[t] = R; });
+    $("cmpBody").querySelectorAll("select[data-t]").forEach(sel => { const t = sel.dataset.t, p = Number(sel.dataset.p), v1 = sh(m1, t)[p] || 0, v2 = sh(m2, t)[p] || 0;
+      m.shots = m.shots || { a: [0,0,0,0], b: [0,0,0,0] }; const arrS = toArr(m.shots[t]).map(x => Number(x) || 0); while(arrS.length < 4) arrS.push(0);
+      arrS[p] = sel.value === "1" ? v1 : sel.value === "2" ? v2 : Math.round((v1 + v2) / 2); m.shots[t] = arrS; });
+    m.scorer = "fusion"; m.unpub = null; m.mergedFrom = [C.h1.key, C.h2.key]; m.updatedAt = Date.now();
+    const key = (C.h1.m.scorer === "fusion" ? C.h1.key : C.h1.key + "_f");
+    m.histKey = key;
+    ref(C.org + "/" + C.cat + "/history/" + key).set(m).then(() => {
+      const nh = indexMatch(key, m); C.list = C.list.filter(x => x.key !== key).concat([nh]);
+      publishEntry(C.org, C.cat, nh, C.list); hmList = C.list; cmpCtx = null;
+      swapDlg("cmpSheet", "historyManageSheet"); hmRender();
+      notify("Version choisie publiée : " + (m.names.b || "") + " " + nh.gB + " – " + nh.gA + " " + (m.names.a || "") + ".", "ok");
+    });
+  });
   // Publie une version (et retire les autres versions de la même partie) ; le calendrier reprend son pointage
   function publishEntry(org, cat, h, list){
     const base = org + "/" + cat;
@@ -5612,7 +5710,8 @@ document.addEventListener("DOMContentLoaded", function(){
     box.className = "h-box";
     box.appendChild(el("strong", "h-line", h.a + " " + h.gA + " - " + h.gB + " " + h.b));
     const sm = el("small", "h-sub", dateOf(h.at) || "—"); sm.appendChild(el("span", "ph-tag " + phaseOfM(h.m), PHASE_LABEL[phaseOfM(h.m)]));
-    if(h.m.scorer === 2 || h.twin) sm.appendChild(el("span", "ph-tag scorer", "Marqueur " + (h.m.scorer === 2 ? 2 : 1)));
+    if(h.m.scorer === "fusion") sm.appendChild(el("span", "ph-tag fusion", "⚖ Version choisie"));
+    else if(h.m.scorer === 2 || h.twin) sm.appendChild(el("span", "ph-tag scorer", "Marqueur " + (h.m.scorer === 2 ? 2 : 1)));
     if(h.twin || h.m.unpub) sm.appendChild(el("span", "ph-tag " + (h.m.unpub ? "unpub" : "pub"), h.m.unpub ? "Non publiée" : "📊 Publiée"));
     box.appendChild(sm);
     buttons.forEach(b => ctrls.appendChild(b));
@@ -6049,7 +6148,13 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!rows.length){ list.appendChild(el("li", "empty", "Aucune partie enregistrée.")); return; }
     const frag = document.createDocumentFragment();
     rows.forEach(h => { h.twin = hmList.some(x => x.key !== h.key && sameGame(x, h)); });
-    rows.forEach(h => frag.appendChild(historyRow(h, [].concat(h.m.unpub ? [btn("btn-edit", "📊 Publier cette version", () => {
+    rows.forEach(h => frag.appendChild(historyRow(h, [].concat(h.twin && isAdmin() ? [btn("btn-edit", "⚖ Comparer", () => {
+        const others = hmList.filter(x => x.key !== h.key && sameGame(x, h) && x.m.scorer !== "fusion");
+        const base = h.m.scorer === "fusion" ? hmList.find(x => x.key === (h.m.mergedFrom || [])[0]) || others[0] : h;
+        const other = h.m.scorer === "fusion" ? hmList.find(x => x.key === (h.m.mergedFrom || [])[1]) || others[1] : others[0];
+        if(!base || !other){ notify("Il faut les deux versions de cette partie pour les comparer.", "info"); return; }
+        openCompare(base, other, hmOrg, hmCat, hmList);
+      })] : []).concat(h.m.unpub ? [btn("btn-edit", "📊 Publier cette version", () => {
         if(currentRole === "viewer" || !isAdmin()){ notify("Seul un administrateur choisit la version publiée.", "info"); return; }
         publishEntry(hmOrg, hmCat, h, hmList); hmRender();
         notify("Version du marqueur " + (h.m.scorer === 2 ? 2 : 1) + " publiée dans les statistiques.", "ok");
