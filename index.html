@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611071507">
+<meta name="build" content="202611071812">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2397,7 +2397,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611071507";
+  var BUILD = "202611071812";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -3021,9 +3021,21 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   const scorerLbl = (m, n) => (m && m.scorerName) || ("Marqueur " + n);
   const slotFresh = s => s && hasGame(s) && (now() - (Number(s.updatedAt) || 0)) < 12 * 3600e3;
+  // Visiteur : sans choix affiché, on montre la partie en cours (sinon celle du marqueur 1)
+  function slotAuto(){
+    if(!twoScorers){ if(slot === 2) setSlot(1); }
+    else if(!isStaff()){
+      const live = k => slotFresh(slotSum[k]) && !slotSum[k].finished && !slotSum[k].closed;
+      const shown = slotFresh(slotSum[1]) && slotFresh(slotSum[2]) && (live(1) || live(2));
+      if(!shown || !slotChosen){ const want = (live(2) && !live(1)) || (!slotFresh(slotSum[1]) && slotFresh(slotSum[2])) ? 2 : 1; if(want !== slot) setSlot(want); }
+    }
+    renderSlotBar();
+  }
   function renderSlotBar(){
     const bar = $("slotBar"); if(!bar) return;
-    const two = slotFresh(slotSum[2]), staff = isStaff();
+    // Visiteur : le choix n'apparaît que si les deux marqueurs ont une partie aujourd'hui et qu'au moins une est en cours
+    const live = n => slotFresh(slotSum[n]) && !slotSum[n].finished && !slotSum[n].closed;
+    const two = slotFresh(slotSum[1]) && slotFresh(slotSum[2]) && (live(1) || live(2)), staff = isStaff();
     bar.hidden = !twoScorers || !(two || staff) || !!editEntry;
     bar.querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.slot) === slot));
     if(bar.hidden) return;
@@ -3063,9 +3075,7 @@ document.addEventListener("DOMContentLoaded", function(){
     [1, 2].forEach(n => bsub(ref(boardBase + (n === 2 ? "/match2" : "/match")), snap => {
       const v = snap.val(); slotSum[n] = v ? sanitize(v) : null;
       // visiteur qui n'a rien choisi : si seul le marqueur 2 a une partie, on l'affiche
-      if(!twoScorers){ if(slot === 2) setSlot(1); }
-      else if(!slotChosen && !isStaff()){ const want = !slotFresh(slotSum[1]) && slotFresh(slotSum[2]) ? 2 : 1; if(want !== slot) setSlot(want); }
-      renderSlotBar(); }));
+      slotAuto(); }));
     if(editEntry) applyEdit();
     renderTeamDropdownTop(); updateRoleUI(); render();
   }
@@ -3161,7 +3171,7 @@ document.addEventListener("DOMContentLoaded", function(){
       simCfg = normSim(cfg.sim); try{ if(simOn && !simAllowed()) simStop(false); else simMaybe(); }catch(e){}
       AUTO_CD_MS = cdHoursOk(cfg.autoCdHours) * 3600000; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
-      twoScorers = cfg.scorers === 2; if(!twoScorers && slot === 2) setSlot(1); try{ renderSlotBar(); }catch(e){}
+      twoScorers = cfg.scorers === 2; try{ slotAuto(); }catch(e){}
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
       cfgRegStart = (cfg.regStart && typeof cfg.regStart === "object") ? cfg.regStart : {};
       evtTypes = normTypes(cfg.eventTypes);
