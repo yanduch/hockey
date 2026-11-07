@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611052231">
+<meta name="build" content="202611071043">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -575,6 +575,15 @@ body.role-viewer .staff-only{display:none !important}
 @media (prefers-reduced-motion: reduce){.confetti{display:none}}
 .archive-bar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--warn);color:#FFF;border-radius:8px;padding:.4rem .6rem;margin-bottom:.8rem;font-size:.85rem;font-weight:600}
 .archive-bar[hidden]{display:none}
+.slot-bar{margin:0 0 .7rem;text-align:center}
+.slot-bar[hidden]{display:none}
+.slot-seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--surface2, rgba(127,127,127,.15));border:1px solid var(--line, rgba(127,127,127,.3))}
+.slot-seg button{flex:1;border:0;border-radius:9px;padding:.45rem .3rem;font-weight:700;font-size:.85rem;background:transparent;color:inherit;opacity:.7}
+.slot-seg button.on{background:var(--accent, #2F6FD6);color:#fff;opacity:1}
+.slot-bar small{display:block;margin-top:.25rem;font-size:.72rem;opacity:.75}
+.ph-tag.scorer{background:#E3ECFF;color:#244C9A}
+.ph-tag.unpub{background:#FDE2E0;color:#9A2A20}
+.ph-tag.pub{background:#DDF4E6;color:#1E6B3E}
 .archive-bar button{border:0;border-radius:6px;padding:.3rem .6rem;background:#FFF;color:#0F2236;font-weight:700;font-size:.8rem;white-space:nowrap}
 .color-dot{display:inline-block;width:.8rem;height:.8rem;border-radius:50%;margin-right:.4rem}
 .row-del{border:0;background:transparent;color:var(--red);font-weight:bold;padding:.2rem .4rem}
@@ -877,6 +886,10 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     </div>
   </div>
 
+  <div class="slot-bar" id="slotBar" hidden>
+    <div class="slot-seg"><button type="button" data-slot="1" class="on">Marqueur 1</button><button type="button" data-slot="2">Marqueur 2</button></div>
+    <small id="slotHint"></small>
+  </div>
   <div class="archive-bar" id="archiveBar" hidden>
     <span id="archiveText">Partie archivée</span>
     <button type="button" id="archiveBack">Retour au direct</button>
@@ -2338,7 +2351,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611052231";
+  var BUILD = "202611071043";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2802,7 +2815,9 @@ document.addEventListener("DOMContentLoaded", function(){
     $("btnOpenOrgManage").style.display = (can("orgName") || can("categories") || can("teams")) ? "" : "none";
   }
 
+  document.querySelectorAll("#slotBar [data-slot]").forEach(b => b.addEventListener("click", () => setSlot(Number(b.dataset.slot), true)));
   function updateRoleUI(){
+    try{ renderSlotBar(); }catch(e){}
     document.body.className = (isGerant() ? "role-marqueur role-gerant" : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
     if(isStaff() && !statLogged){ statLogged = true; try{ statOnLogin(); }catch(e){ statLogged = false; } }
     if(!isStaff()) statLogged = false;
@@ -2942,6 +2957,29 @@ document.addEventListener("DOMContentLoaded", function(){
     if(presetsLoaded && !isAdminGlobal && (isTeamAdmin() || isGerant()) && !onMyTeam()){ demoteToViewer(); try{ updateRoleUI(); }catch(e){} }
   }
 
+  /* ============ Deux marqueurs en même temps : chacun a son propre tableau (match / match2) ============
+     Les visiteurs choisissent qui suivre ; l'administrateur choisit la version publiée dans les statistiques. */
+  let slot = 1, slotChosen = false, slotSum = { 1: null, 2: null };
+  const slotKey = () => "hk_slot_" + boardBase;
+  function slotPath(){ return slot === 2 ? boardBase + "/match2" : (isLinked() ? catBase() + "/boards/" + boardLink.team + "/match" : boardBase + "/match"); }
+  function setSlot(n, user){
+    n = n === 2 ? 2 : 1; if(user) slotChosen = true;
+    if(n === slot) { renderSlotBar(); return; }
+    slot = n; store.set(sessionStorage, slotKey(), String(n));
+    if(archiveKey) exitArchive();
+    lastLocal = 0; state = blank(); watchMatch(); renderSlotBar(); render();
+  }
+  const slotFresh = s => s && hasGame(s) && (now() - (Number(s.updatedAt) || 0)) < 12 * 3600e3;
+  function renderSlotBar(){
+    const bar = $("slotBar"); if(!bar) return;
+    const two = slotFresh(slotSum[2]), staff = isStaff();
+    bar.hidden = !(two || staff) || !!editEntry;
+    if(bar.hidden) return;
+    const lab = n => { const s = slotSum[n]; return "Marqueur " + n + (slotFresh(s) ? " · " + goalsOf("b", null, s.events) + "-" + goalsOf("a", null, s.events) + (s.finished ? " (fin)" : "") : (n === 2 ? " · libre" : "")); };
+    bar.querySelectorAll("button").forEach(b => { const n = Number(b.dataset.slot); b.textContent = lab(n); b.classList.toggle("on", n === slot); });
+    $("slotHint").textContent = staff ? (slot === 2 ? "Vous marquez sur le tableau du marqueur 2 : il n'altère pas celui du marqueur 1." : "Deux marqueurs ? Le second choisit « Marqueur 2 » avant de commencer la partie.") : "Deux marqueurs suivent cette partie : choisissez lequel afficher.";
+  }
+
   function attachBoard(teamKey, nav){
     if(simOn) simStop(false);
     detachBoard();
@@ -2951,6 +2989,7 @@ document.addEventListener("DOMContentLoaded", function(){
     boardLink = null; linkStale = false; pendingSnap = null; linkKnown = !boardTeam;
     archiveKey = null; liveState = null; setArchiveBar(null);
     lastLocal = 0; openCardId = null; state = blank(); liveSig = "";
+    slotSum = { 1: null, 2: null }; slotChosen = false; slot = Number(store.get(sessionStorage, slotKey())) === 2 ? 2 : 1; if(slot === 2) slotChosen = true;
     setUrl(nav); checkMarqueurScope();
 
     dbPresence = ref(boardBase + "/presence");
@@ -2968,6 +3007,12 @@ document.addEventListener("DOMContentLoaded", function(){
       else if(first && pendingSnap){ const s = pendingSnap; pendingSnap = null; onMatch(s); }
     });
     watchMatch();
+    // résumé des deux tableaux (pour le choix Marqueur 1 / Marqueur 2)
+    [1, 2].forEach(n => bsub(ref(boardBase + (n === 2 ? "/match2" : "/match")), snap => {
+      const v = snap.val(); slotSum[n] = v ? sanitize(v) : null;
+      // visiteur qui n'a rien choisi : si seul le marqueur 2 a une partie, on l'affiche
+      if(!slotChosen && !isStaff()){ const want = !slotFresh(slotSum[1]) && slotFresh(slotSum[2]) ? 2 : 1; if(want !== slot) setSlot(want); }
+      renderSlotBar(); }));
     if(editEntry) applyEdit();
     renderTeamDropdownTop(); updateRoleUI(); render();
   }
@@ -2977,7 +3022,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(editEntry) return;                                    // on modifie une partie archivée : pas de direct
     if(matchRef) matchRef.off("value", onMatch);
     pendingSnap = null;
-    db = matchRef = ref(isLinked() ? catBase() + "/boards/" + boardLink.team + "/match" : boardBase + "/match");
+    db = matchRef = ref(slotPath());
     matchRef.on("value", onMatch);
   }
   function onMatch(snap){
@@ -5494,7 +5539,7 @@ document.addEventListener("DOMContentLoaded", function(){
     historyOn = true;
     sub(dbHistory, snap => {
       const val = snap.val() || {};
-      historyAll = Object.keys(val).map(k => indexMatch(k, val[k])).filter(Boolean).sort((x,y) => x.at - y.at);
+      historyAll = Object.keys(val).map(k => indexMatch(k, val[k])).filter(h => h && !h.m.unpub).sort((x,y) => x.at - y.at);   // versions non publiées : hors statistiques
       historyList = historyAll.filter(h => phaseOk(h.m, h.at));
       historyLoaded = true;
       renderHistory(); renderStats(); renderGoalies(); renderStandings(); renderPhaseUI();
@@ -5505,6 +5550,20 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function withHistory(fn){ if(historyLoaded) fn(); else { historyWaiters.push(fn); ensureHistory(); } }
 
+  function sameGame(h1, h2){
+    if(!h1 || !h2) return false;
+    if(h1.m.calId && h2.m.calId) return h1.m.calId === h2.m.calId;
+    return dateOf(h1.at) === dateOf(h2.at) && [h1.a, h1.b].sort().join("|") === [h2.a, h2.b].sort().join("|");
+  }
+  // Publie une version (et retire les autres versions de la même partie) ; le calendrier reprend son pointage
+  function publishEntry(org, cat, h, list){
+    const base = org + "/" + cat;
+    list.filter(x => x.key !== h.key && sameGame(x, h)).forEach(x => { ref(base + "/history/" + x.key + "/unpub").set(true); x.m.unpub = true; });
+    ref(base + "/history/" + h.key + "/unpub").remove(); delete h.m.unpub;
+    if(h.m.calId){ const c = ref(base + "/calendar/" + h.m.calId); c.child("scoreA").set(h.gA); c.child("scoreB").set(h.gB); c.child("end").set(h.s.period === 3 ? "OT" : ""); c.child("histKey").set(h.key); }
+    if(h.m.tour && h.m.phase === "tour"){ const p = String(h.m.tour).split("/"); if(p.length === 4){ const tb = org + "/" + p[0] + "/tournaments/" + p[1] + "/rounds/" + p[2] + "/games/" + p[3];
+      ref(tb).once("value").then(s2 => { const g = s2.val(); if(!g) return; const flip = tSame(h.a, g.b) && !tSame(h.a, g.a); ref(tb + "/sa").set(flip ? h.gB : h.gA); ref(tb + "/sb").set(flip ? h.gA : h.gB); ref(tb + "/histKey").set(h.key); }); } }
+  }
   function indexMatch(key, m){
     if(!m || typeof m !== "object") return null;
     const names = m.names || {}, events = toArr(m.events);
@@ -5518,7 +5577,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const li = el("li", "history-item"), box = el("div"), ctrls = el("div", "history-ctrls");
     box.className = "h-box";
     box.appendChild(el("strong", "h-line", h.a + " " + h.gA + " - " + h.gB + " " + h.b));
-    const sm = el("small", "h-sub", dateOf(h.at) || "—"); sm.appendChild(el("span", "ph-tag " + phaseOfM(h.m), PHASE_LABEL[phaseOfM(h.m)])); box.appendChild(sm);
+    const sm = el("small", "h-sub", dateOf(h.at) || "—"); sm.appendChild(el("span", "ph-tag " + phaseOfM(h.m), PHASE_LABEL[phaseOfM(h.m)]));
+    if(h.m.scorer === 2 || h.twin) sm.appendChild(el("span", "ph-tag scorer", "Marqueur " + (h.m.scorer === 2 ? 2 : 1)));
+    if(h.twin || h.m.unpub) sm.appendChild(el("span", "ph-tag " + (h.m.unpub ? "unpub" : "pub"), h.m.unpub ? "Non publiée" : "📊 Publiée"));
+    box.appendChild(sm);
     buttons.forEach(b => ctrls.appendChild(b));
     li.appendChild(box); li.appendChild(ctrls); return li;
   }
@@ -5952,7 +6014,12 @@ document.addEventListener("DOMContentLoaded", function(){
     $("hmCount").textContent = rows.length + (rows.length > 1 ? " parties" : " partie");
     if(!rows.length){ list.appendChild(el("li", "empty", "Aucune partie enregistrée.")); return; }
     const frag = document.createDocumentFragment();
-    rows.forEach(h => frag.appendChild(historyRow(h, [
+    rows.forEach(h => { h.twin = hmList.some(x => x.key !== h.key && sameGame(x, h)); });
+    rows.forEach(h => frag.appendChild(historyRow(h, [].concat(h.m.unpub ? [btn("btn-edit", "📊 Publier cette version", () => {
+        if(currentRole === "viewer" || !isAdmin()){ notify("Seul un administrateur choisit la version publiée.", "info"); return; }
+        publishEntry(hmOrg, hmCat, h, hmList); hmRender();
+        notify("Version du marqueur " + (h.m.scorer === 2 ? 2 : 1) + " publiée dans les statistiques.", "ok");
+      })] : []).concat([
       btn("btn-edit", "🏷 → " + PHASE_LABEL[{ pre: "reg", reg: "tour", tour: "pre" }[phaseOfM(h.m)]], () => {
         if(currentRole === "viewer") return;
         const np = { pre: "reg", reg: "tour", tour: "pre" }[phaseOfM(h.m)];
@@ -5972,7 +6039,7 @@ document.addEventListener("DOMContentLoaded", function(){
           hmList = hmList.filter(x => x.key !== h.key); hmFillTeams(); hmRender();
         });
       })
-    ])));
+    ]))));
     list.appendChild(frag);
   }
   function hmEdit(h){
@@ -6018,10 +6085,20 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!state.playedAt) state.playedAt = Date.now();
     state.closed = true;
     commit();
-    calSyncResult(); tourSyncResult();
-    dbHistory.child(state.histKey).set(state, err => {
-      if(err) notify("Échec de la sauvegarde : " + (err.message || err), "error");
-      else notify("Partie sauvegardée dans l'historique !\nLe tableau reste modifiable à l'écran.");
+    // Deux marqueurs : la version du marqueur 1 est publiée par défaut ; celle du marqueur 2 ne l'est que s'il n'y en a pas d'autre.
+    // L'administrateur peut changer la version publiée dans Gestion de l'historique.
+    const entry = JSON.parse(JSON.stringify(state)); entry.scorer = slot;
+    dbHistory.once("value").then(snap => {
+      const all = snap.val() || {}, me = indexMatch(state.histKey, entry), old = all[state.histKey];
+      const twins = Object.keys(all).filter(k => k !== state.histKey).map(k => indexMatch(k, all[k])).filter(h => h && sameGame(h, me));
+      if(old && typeof old === "object") entry.unpub = old.unpub || null;          // déjà sauvegardée : on garde le choix de l'administrateur
+      else if(slot === 2) entry.unpub = twins.some(h => !h.m.unpub) ? true : null;
+      else { entry.unpub = null; twins.forEach(h => { if(!h.m.unpub) dbHistory.child(h.key + "/unpub").set(true); }); }
+      if(!entry.unpub){ calSyncResult(); tourSyncResult(); }
+      dbHistory.child(state.histKey).set(entry, err => {
+        if(err) notify("Échec de la sauvegarde : " + (err.message || err), "error");
+        else notify("Partie sauvegardée dans l'historique !" + (entry.unpub ? "\nVersion du marqueur " + slot + " : pas publiée dans les statistiques (l'administrateur peut la choisir dans Gestion de l'historique)." : "") + "\nLe tableau reste modifiable à l'écran.");
+      });
     });
   });
 
@@ -6473,7 +6550,7 @@ document.addEventListener("DOMContentLoaded", function(){
     xHist[ck] = { list: null };
     ref(org + "/" + cat + "/history").once("value").then(s => {
       const v = s.val() || {};
-      xHist[ck] = { all: Object.keys(v).map(k => indexMatch(k, v[k])).filter(Boolean) };
+      xHist[ck] = { all: Object.keys(v).map(k => indexMatch(k, v[k])).filter(h => h && !h.m.unpub) };
       if(isOpen("rosterBlock")) renderRosters();
     }, () => { xHist[ck] = { all: [] }; });
     return null;
@@ -6795,7 +6872,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const o = keys.a === boardTeam ? keys.b : keys.a;
       if(o && boardTeams(currentCat).indexOf(o) !== -1) other = o;
     }
-    if(!other){ startGame(keys, ""); return; }
+    if(!other || slot === 2){ startGame(keys, ""); return; }   // le marqueur 2 a son propre tableau, sans confrontation
     ref(catBase() + "/boards/" + other).once("value").then(snap => {
       const v = snap.val() || {}, s = v.match ? sanitize(v.match) : null;
       const mine = v.link && v.link.team === boardTeam;      // son tableau affiche déjà une de nos parties
@@ -6828,7 +6905,7 @@ document.addEventListener("DOMContentLoaded", function(){
       state.staff[t] = toArr(p.staff).map(normStaff);
     });
     state.colors.a = hex($("wizColorA").value, DEF_A); state.colors.b = hex($("wizColorB").value, DEF_B);
-    if(boardTeam){
+    if(boardTeam && slot === 1){
       // La nouvelle partie appartient à ce tableau : on quitte une éventuelle confrontation précédente
       const hadLink = !!boardLink; boardLink = null; linkStale = false;
       if(hadLink) ref(boardBase + "/link").remove();
