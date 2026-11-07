@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611071451">
+<meta name="build" content="202611071507">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1654,6 +1654,15 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="scorerSheet">
+  <div class="sheet-in">
+    <h2>Qui marque cette partie ?</h2>
+    <p class="ctx">Votre nom apparaîtra dans l'historique et dans la comparaison des marqueurs.</p>
+    <input type="text" id="scName" maxlength="30" autocomplete="name" class="full-input" style="width:100%;font-size:1.05rem;padding:.6rem;">
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="scDefault">Garder « Marqueur 1 »</button><button type="button" class="act-1" id="scOk">OK</button></div>
+  </div>
+</dialog>
+
 <dialog id="cmpSheet">
   <div class="sheet-in">
     <h2>⚖ Comparer les deux marquages</h2>
@@ -2388,7 +2397,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611071451";
+  var BUILD = "202611071507";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2706,6 +2715,7 @@ document.addEventListener("DOMContentLoaded", function(){
     s.phase = (d.phase === "reg" || d.phase === "pre" || d.phase === "tour") ? d.phase : "";
     s.tour = typeof d.tour === "string" ? d.tour : "";
     s.periodSec = int(d.periodSec, 0, 5940);
+    s.scorerName = typeof d.scorerName === "string" ? d.scorerName.slice(0, 30) : "";
     if(d.plen) s.plen = toArr(d.plen).slice(0, 4).map(x => Math.max(0, Math.min(5999, Number(x) || 0)));
     s.stopOnGoal = [0, 1, 2].map(i => !!(Array.isArray(d.stopOnGoal) ? d.stopOnGoal[i] : (d.stopOnGoal && d.stopOnGoal[i])));
     if(d.penPause && typeof d.penPause === "object") s.penPause = { acc: Math.max(0, Number(d.penPause.acc) || 0), since: Number.isFinite(Number(d.penPause.since)) ? Number(d.penPause.since) : -1 };
@@ -3009,6 +3019,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(archiveKey) exitArchive();
     lastLocal = 0; state = blank(); watchMatch(); renderSlotBar(); render();
   }
+  const scorerLbl = (m, n) => (m && m.scorerName) || ("Marqueur " + n);
   const slotFresh = s => s && hasGame(s) && (now() - (Number(s.updatedAt) || 0)) < 12 * 3600e3;
   function renderSlotBar(){
     const bar = $("slotBar"); if(!bar) return;
@@ -3016,7 +3027,7 @@ document.addEventListener("DOMContentLoaded", function(){
     bar.hidden = !twoScorers || !(two || staff) || !!editEntry;
     bar.querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.slot) === slot));
     if(bar.hidden) return;
-    const lab = n => { const s = slotSum[n]; return "Marqueur " + n + (slotFresh(s) ? " · " + goalsOf("b", null, s.events) + "-" + goalsOf("a", null, s.events) + (s.finished ? " (fin)" : "") : (n === 2 ? " · libre" : "")); };
+    const lab = n => { const s = slotSum[n]; return (slotFresh(s) && s.scorerName && s.scorerName !== "Marqueur " + n ? s.scorerName + " (M" + n + ")" : "Marqueur " + n) + (slotFresh(s) ? " · " + goalsOf("b", null, s.events) + "-" + goalsOf("a", null, s.events) + (s.finished ? " (fin)" : "") : (n === 2 ? " · libre" : "")); };
     bar.querySelectorAll("button").forEach(b => { const n = Number(b.dataset.slot); b.textContent = lab(n); b.classList.toggle("on", n === slot); });
     $("slotHint").textContent = staff ? (slot === 2 ? "Vous marquez sur le tableau du marqueur 2 : il n'altère pas celui du marqueur 1." : "Deux marqueurs ? Le second choisit « Marqueur 2 » avant de commencer la partie.") : "Deux marqueurs suivent cette partie : choisissez lequel afficher.";
   }
@@ -5646,10 +5657,10 @@ document.addEventListener("DOMContentLoaded", function(){
     cmpCtx = { h1: h1, h2: h2, org: org, cat: cat, list: list, rows: rows, pick: rows.map(r => r.a ? 1 : 2), shots: {} };
     setText("cmpCtx", (m1.names.b || "") + " @ " + (m1.names.a || "") + " · " + (dateOf(h1.at) || "") + " — touchez la case à garder pour chaque action.");
     const sh = (m, t) => toArr(m.shots && m.shots[t]).map(x => Number(x) || 0);
-    let html = '<div class="cmp-sum"><div>Marqueur ' + (m1.scorer === 2 ? 2 : 1) + (m1.scorer === "fusion" ? " (fusion)" : "") + '<b>' + esc(m1.names.b) + " " + h1.gB + " – " + h1.gA + " " + esc(m1.names.a) + '</b></div><div>Marqueur ' + (m2.scorer === 2 ? 2 : (m2.scorer === "fusion" ? "fusion" : 1)) + '<b>' + esc(m2.names.b) + " " + h2.gB + " – " + h2.gA + " " + esc(m2.names.a) + '</b></div></div>';
+    let html = '<div class="cmp-sum"><div>' + esc(m1.scorer === "fusion" ? "Version choisie" : scorerLbl(m1, m1.scorer === 2 ? 2 : 1)) + '<b>' + esc(m1.names.b) + " " + h1.gB + " – " + h1.gA + " " + esc(m1.names.a) + '</b></div><div>' + esc(scorerLbl(m2, m2.scorer === 2 ? 2 : 1)) + '<b>' + esc(m2.names.b) + " " + h2.gB + " – " + h2.gA + " " + esc(m2.names.a) + '</b></div></div>';
     html += '<h3 class="cmp-h">Buts et punitions</h3>';
     if(!rows.length) html += '<p class="ctx">Aucun but ni punition.</p>';
-    else html += '<table class="cmp-tbl"><tr><th>Marqueur 1</th><th>Marqueur 2</th><th>Aucun</th></tr>' + rows.map((r, i) => {
+    else html += '<table class="cmp-tbl"><tr><th>' + esc(scorerLbl(m1, 1)) + '</th><th>' + esc(scorerLbl(m2, 2)) + '</th><th>Aucun</th></tr>' + rows.map((r, i) => {
       const diff = !(r.a && r.b) || (r.a.time !== r.b.time || (r.a.scorer || r.a.player) !== (r.b.scorer || r.b.player) || (r.a.a1 || "") !== (r.b.a1 || "") || (r.a.a2 || "") !== (r.b.a2 || ""));
       return '<tr class="' + (diff ? "cmp-diff" : "") + '" data-i="' + i + '"><td class="c"><span class="cmp-cell' + (r.a ? "" : " none") + '" data-p="1">' + cmpDesc(r.a, m1) + '</span></td><td class="c"><span class="cmp-cell' + (r.b ? "" : " none") + '" data-p="2">' + cmpDesc(r.b, m2) + '</span></td><td class="pick"><span class="cmp-cell" data-p="0">✕</span></td></tr>'; }).join("") + '</table>';
     html += '<h3 class="cmp-h">Lancers par période</h3><table class="cmp-tbl cmp-shots"><tr><th></th><th>Période</th><th>M1</th><th>M2</th><th>Garder</th></tr>';
@@ -5673,7 +5684,7 @@ document.addEventListener("DOMContentLoaded", function(){
   // Données du comparatif (servent au PDF et, à défaut, à la version imprimable)
   function cmpReport(C){
     const m1 = C.h1.m, m2 = C.h2.m;
-    const L1 = "Marqueur " + (m1.scorer === 2 ? 2 : m1.scorer === "fusion" ? "(version choisie)" : 1), L2 = "Marqueur " + (m2.scorer === 2 ? 2 : 1);
+    const L1 = m1.scorer === "fusion" ? "Version choisie" : scorerLbl(m1, m1.scorer === 2 ? 2 : 1), L2 = scorerLbl(m2, m2.scorer === 2 ? 2 : 1);
     const PER = ["1re", "2e", "3e", "Prol."], nm = t => m1.names[t] || (t === "a" ? "Local" : "Visiteur");
     const sh = (m, t) => { const a = toArr(m.shots && m.shots[t]).map(x => Number(x) || 0); while(a.length < 4) a.push(0); return a; };
     const sum2 = a => a.reduce((x, y) => x + y, 0);
@@ -5782,7 +5793,8 @@ document.addEventListener("DOMContentLoaded", function(){
     box.appendChild(el("strong", "h-line", h.a + " " + h.gA + " - " + h.gB + " " + h.b));
     const sm = el("small", "h-sub", dateOf(h.at) || "—"); sm.appendChild(el("span", "ph-tag " + phaseOfM(h.m), PHASE_LABEL[phaseOfM(h.m)]));
     if(h.m.scorer === "fusion") sm.appendChild(el("span", "ph-tag fusion", "⚖ Version choisie"));
-    else if(h.m.scorer === 2 || h.twin) sm.appendChild(el("span", "ph-tag scorer", "Marqueur " + (h.m.scorer === 2 ? 2 : 1)));
+    else if(h.m.scorer === 2 || h.twin) sm.appendChild(el("span", "ph-tag scorer", scorerLbl(h.m, h.m.scorer === 2 ? 2 : 1)));
+    else if(h.m.scorerName && !/^Marqueur \d$/.test(h.m.scorerName)) sm.appendChild(el("span", "ph-tag scorer", "✎ " + h.m.scorerName));
     if(h.twin || h.m.unpub) sm.appendChild(el("span", "ph-tag " + (h.m.unpub ? "unpub" : "pub"), h.m.unpub ? "Non publiée" : "📊 Publiée"));
     box.appendChild(sm);
     buttons.forEach(b => ctrls.appendChild(b));
@@ -7064,8 +7076,25 @@ document.addEventListener("DOMContentLoaded", function(){
   on("wizTeamA", "change", () => { renderPresenceList("a", $("wizTeamA").value); wizSyncColor("a"); });
   on("wizTeamB", "change", () => { renderPresenceList("b", $("wizTeamB").value); wizSyncColor("b"); });
 
+  // Nom du marqueur, demandé au démarrage de chaque partie (par défaut « Marqueur 1 » ou « Marqueur 2 »)
+  let pendingScorer = null;
+  const defScorer = () => "Marqueur " + (slot === 2 ? 2 : 1);
+  function askScorer(){
+    return new Promise(res => {
+      const d = $("scorerSheet"), last = store.get(localStorage, "hk_scorerName") || "";
+      $("scName").value = last; $("scName").placeholder = defScorer(); $("scDefault").textContent = "Garder « " + defScorer() + " »";
+      const done = v => { d.removeEventListener("cancel", onCancel); if(d.open) d.close(); res(v); };
+      const onCancel = e => { e.preventDefault(); done(defScorer()); };
+      d.addEventListener("cancel", onCancel);
+      $("scDefault").onclick = () => done(defScorer());
+      $("scOk").onclick = () => { const v = $("scName").value.trim().replace(/\s+/g, " ").slice(0, 30); if(v) store.set(localStorage, "hk_scorerName", v); done(v || defScorer()); };
+      $("scName").onkeydown = e => { if(e.key === "Enter") $("scOk").click(); };
+      d.showModal(); setTimeout(() => { try{ $("scName").focus(); $("scName").select(); }catch(e){} }, 50);
+    });
+  }
   on("wizStart", "click", () => {
     if(!canEdit()) return;
+    if(pendingScorer == null){ askScorer().then(n => { pendingScorer = n; $("wizStart").click(); }); return; }
     const keys = { a: $("wizTeamA").value, b: $("wizTeamB").value };
     // Partie non choisie dans le calendrier, mais une partie prévue oppose les mêmes équipes : on les relie
     const isTour = !!document.querySelector("input[name=wizPhase][value=tour]:checked");
@@ -7096,6 +7125,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function startGame(keys, other){
     const wasLinked = isLinked();
     state = blank(); state.id = uid(); delete $("statsTeamSelect").dataset.userTouched; openCardId = null;
+    state.scorerName = pendingScorer || defScorer(); pendingScorer = null;
     state.periodSec = int($("wizPeriodMin").value || Math.round(defaultPeriodSec / 60), 1, 99) * 60;   // durée choisie pour cette partie
     state.calId = $("wizCalSelect").value || "";
     const wp = document.querySelector("input[name=wizPhase]:checked"); state.phase = wp ? wp.value : defPhase();
