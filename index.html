@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611071439">
+<meta name="build" content="202611071451">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1659,7 +1659,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <h2>⚖ Comparer les deux marquages</h2>
     <p class="ctx" id="cmpCtx"></p>
     <div id="cmpBody"></div>
-    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="cmpCancel">Annuler</button><button type="button" class="act-1" id="cmpSave">Publier la version choisie</button></div>
+    <button type="button" class="act-2" id="cmpPdf" style="width:100%;min-height:2.4rem;margin-top:.8rem;">📄 Télécharger le PDF comparatif</button>
+    <div class="actions" style="margin-top:.6rem;"><button type="button" class="act-2" id="cmpCancel">Annuler</button><button type="button" class="act-1" id="cmpSave">Publier la version choisie</button></div>
   </div>
 </dialog>
 
@@ -2387,7 +2388,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611071439";
+  var BUILD = "202611071451";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5663,6 +5664,76 @@ document.addEventListener("DOMContentLoaded", function(){
     paint(); swapDlg("historyManageSheet", "cmpSheet");
   }
   on("cmpCancel", "click", () => swapDlg("cmpSheet", "historyManageSheet"));
+  /* ----- PDF comparatif des deux marqueurs (téléchargé directement) ----- */
+  function loadScript(src){ return new Promise((res, rej) => { const x = document.createElement("script"); x.src = src; x.onload = res; x.onerror = rej; document.head.appendChild(x); }); }
+  let pdfLib = null;
+  function needPdf(){ if(pdfLib) return pdfLib;
+    pdfLib = loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js").then(() => loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js")).catch(e => { pdfLib = null; throw e; });
+    return pdfLib; }
+  // Données du comparatif (servent au PDF et, à défaut, à la version imprimable)
+  function cmpReport(C){
+    const m1 = C.h1.m, m2 = C.h2.m;
+    const L1 = "Marqueur " + (m1.scorer === 2 ? 2 : m1.scorer === "fusion" ? "(version choisie)" : 1), L2 = "Marqueur " + (m2.scorer === 2 ? 2 : 1);
+    const PER = ["1re", "2e", "3e", "Prol."], nm = t => m1.names[t] || (t === "a" ? "Local" : "Visiteur");
+    const sh = (m, t) => { const a = toArr(m.shots && m.shots[t]).map(x => Number(x) || 0); while(a.length < 4) a.push(0); return a; };
+    const sum2 = a => a.reduce((x, y) => x + y, 0);
+    const cnt = (m, type, t) => (m.events || []).filter(e => e && e.type === type && e.team === t).length;
+    const pim = (m, t) => (m.events || []).filter(e => e && e.type === "pen" && e.team === t).reduce((x, e) => x + Number(e.min || 2), 0);
+    const lbl = (m, t, no) => no ? playerLabel((m.rosters && m.rosters[t]) || [], no) : "";
+    const act = (e, m) => !e ? "-" : e.type === "goal" ? "But " + nm(e.team) + " : " + (lbl(m, e.team, e.scorer) || "?") + (e.a1 ? " (passes : " + [e.a1, e.a2].filter(Boolean).map(x => lbl(m, e.team, x)).join(", ") + ")" : "")
+                                   : "Punition " + nm(e.team) + " : " + (lbl(m, e.team, e.player) || "banc") + " " + (e.min || 2) + " min" + (e.reason ? " - " + e.reason : "");
+    const same = r => r.a && r.b && r.a.time === r.b.time && (r.a.scorer || r.a.player) === (r.b.scorer || r.b.player) && (r.a.a1 || "") === (r.b.a1 || "") && (r.a.a2 || "") === (r.b.a2 || "");
+    const nSame = C.rows.filter(same).length;
+    const T = [];
+    const sumRows = [["Pointage", m1.names.b + " " + C.h1.gB + " - " + C.h1.gA + " " + m1.names.a, m2.names.b + " " + C.h2.gB + " - " + C.h2.gA + " " + m2.names.a]];
+    ["b", "a"].forEach(t => { sumRows.push(["Lancers " + nm(t), String(sum2(sh(m1, t))), String(sum2(sh(m2, t)))]); sumRows.push(["Buts " + nm(t), String(cnt(m1, "goal", t)), String(cnt(m2, "goal", t))]); sumRows.push(["Punitions " + nm(t) + " (min)", cnt(m1, "pen", t) + " (" + pim(m1, t) + ")", cnt(m2, "pen", t) + " (" + pim(m2, t) + ")"]); });
+    T.push({ head: ["Sommaire", L1, L2], body: sumRows, diff: r => r[1] !== r[2] ? [1, 2] : [] });
+    const shRows = []; ["b", "a"].forEach(t => [0, 1, 2, 3].forEach(p => { const v1 = sh(m1, t)[p], v2 = sh(m2, t)[p]; if(p === 3 && !v1 && !v2) return; shRows.push([p === 0 ? nm(t) : "", PER[p], String(v1), String(v2), (v1 - v2 > 0 ? "+" : "") + (v1 - v2), String(Math.round((v1 + v2) / 2))]); }));
+    T.push({ head: ["Équipe", "Période", L1, L2, "Écart", "Moyenne"], body: shRows, center: true, diff: r => r[2] !== r[3] ? [2, 3, 4] : [] });
+    const evRows = C.rows.map(r => { const e = r.a || r.b; return [PER[int(e.period, 0, 3)], r.a ? r.a.time : "-", act(r.a, m1), r.b ? r.b.time : "-", act(r.b, m2), !r.a || !r.b ? "Manquant" : same(r) ? "Identique" : "Différent"]; });
+    T.push({ head: ["Pér.", "Temps", L1, "Temps", L2, "Résultat"], body: evRows.length ? evRows : [["", "", "Aucun but ni punition", "", "", ""]], small: true, diff: r => r[5] && r[5] !== "Identique" ? [0, 1, 2, 3, 4, 5] : [], miss: r => r[5] === "Manquant" });
+    const stat = m => { const S = {}; (m.events || []).forEach(e => { if(!e) return; const k = no => { const id = e.team + "|" + no; S[id] = S[id] || { g: 0, a: 0, pim: 0 }; return S[id]; };
+      if(e.type === "goal"){ if(e.scorer) k(e.scorer).g++; [e.a1, e.a2].forEach(x => { if(x) k(x).a++; }); } else if(e.type === "pen" && e.player) k(e.player).pim += Number(e.min || 2); }); return S; };
+    const S1 = stat(m1), S2 = stat(m2), ids = Array.from(new Set(Object.keys(S1).concat(Object.keys(S2)))).sort(), z = { g: 0, a: 0, pim: 0 };
+    const plRows = ids.map(id => { const a = S1[id] || z, b = S2[id] || z, t = id.split("|")[0], no = id.split("|")[1];
+      return [nm(t), lbl(S1[id] ? m1 : m2, t, no), a.g + " / " + b.g, a.a + " / " + b.a, (a.g + a.a) + " / " + (b.g + b.a), a.pim + " / " + b.pim]; });
+    T.push({ head: ["Équipe", "Joueur", "Buts (M1 / M2)", "Passes", "Points", "Pun. (min)"], body: plRows.length ? plRows : [["", "Aucune statistique", "", "", "", ""]], diff: r => [2, 3, 4, 5].filter(i => { const v = String(r[i] || "").split(" / "); return v.length === 2 && v[0] !== v[1]; }) });
+    return { title: "Comparatif des marqueurs", sub: nm("b") + " @ " + nm("a") + "  -  " + (dateOf(C.h1.at) || "") + "  -  " + orgNameOf(C.org) + " " + String(C.cat || "").toUpperCase(),
+             note: "Actions identiques : " + nSame + " sur " + C.rows.length + (C.rows.length ? " (" + Math.round(nSame / C.rows.length * 100) + " %)" : "") + "  -  surligné : les deux marqueurs diffèrent",
+             tables: T, file: ("comparatif_" + nm("b") + "_vs_" + nm("a") + "_" + (dateOf(C.h1.at) || "")).replace(/[^\w\-À-ÿ]+/g, "_") + ".pdf" };
+  }
+  function cmpPdfDoc(R){
+    const J = window.jspdf, doc = new J.jsPDF({ unit: "pt", format: "letter" });
+    doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.text(R.title, 40, 46);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.text(R.sub, 40, 64);
+    doc.setFontSize(9); doc.setTextColor(110); doc.text(R.note, 40, 78); doc.setTextColor(0);
+    let y = 90;
+    R.tables.forEach(t => {
+      doc.autoTable({ startY: y, head: [t.head], body: t.body, headStyles: { fillColor: [24, 52, 96], textColor: 255, fontStyle: "bold" },
+        styles: { fontSize: t.small ? 8 : 9, cellPadding: 3, halign: t.center ? "center" : "left" }, columnStyles: t.center ? { 0: { halign: "left" } } : {},
+        didParseCell: d => { if(d.section !== "body") return; const raw = t.body[d.row.index]; if(raw && t.diff(raw).indexOf(d.column.index) >= 0) d.cell.styles.fillColor = t.miss && t.miss(raw) ? [255, 220, 216] : [255, 236, 204]; } });
+      y = doc.lastAutoTable.finalY + 16;
+    });
+    const n = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= n; i++){ doc.setPage(i); doc.setFontSize(8); doc.setTextColor(130); doc.text("Généré le " + new Date().toLocaleString("fr-CA") + "  -  page " + i + " / " + n, 40, doc.internal.pageSize.getHeight() - 24); }
+    return doc;
+  }
+  // Version imprimable (si l'outil PDF ne se charge pas) : « Enregistrer en PDF » dans la fenêtre d'impression
+  function cmpPrint(R){
+    const e2 = v => String(v == null ? "" : v).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const html = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>' + e2(R.file) + '</title><style>body{font:12px/1.35 Helvetica,Arial,sans-serif;margin:24px;color:#111}h1{font-size:18px;margin:0 0 4px}p{margin:0 0 4px}.n{color:#666;font-size:11px;margin-bottom:12px}table{width:100%;border-collapse:collapse;margin:0 0 14px}th{background:#183460;color:#fff;text-align:left;padding:4px}td{border-bottom:1px solid #ddd;padding:4px}td.d{background:#FFECCC}td.m{background:#FFDCD8}</style></head><body>' +
+      '<h1>' + e2(R.title) + '</h1><p>' + e2(R.sub) + '</p><p class="n">' + e2(R.note) + '</p>' +
+      R.tables.map(t => '<table><tr>' + t.head.map(x => '<th>' + e2(x) + '</th>').join("") + '</tr>' + t.body.map(r => { const d = t.diff(r), ms = t.miss && t.miss(r); return '<tr>' + r.map((c, i) => '<td' + (d.indexOf(i) >= 0 ? ' class="' + (ms ? "m" : "d") + '"' : "") + '>' + e2(c) + '</td>').join("") + '</tr>'; }).join("") + '</table>').join("") + '</body></html>';
+    const f = document.createElement("iframe"); f.style.cssText = "position:fixed;width:0;height:0;border:0;right:0;bottom:0"; document.body.appendChild(f);
+    f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close();
+    setTimeout(() => { try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(() => f.remove(), 60000); }, 300);
+  }
+  on("cmpPdf", "click", () => {
+    if(!cmpCtx) return;
+    const R = cmpReport(cmpCtx); notify("Préparation du PDF…", "ok");
+    needPdf().then(() => { cmpPdfDoc(R).save(R.file); notify("PDF comparatif téléchargé.", "ok"); },
+      () => { notify("L'outil PDF n'a pas pu se charger : la page d'impression s'ouvre, choisissez « Enregistrer en PDF ».", "info"); cmpPrint(R); });
+  });
   on("cmpSave", "click", () => {
     if(!cmpCtx || !isAdmin()) return;
     const C = cmpCtx, m1 = C.h1.m, m2 = C.h2.m, m = JSON.parse(JSON.stringify(m1));
