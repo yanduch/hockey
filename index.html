@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611071118">
+<meta name="build" content="202611071301">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2360,7 +2360,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611071118";
+  var BUILD = "202611071301";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6949,7 +6949,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(raw); if(!m){ notify("Temps invalide : écrivez-le comme au chrono (ex. 12:45 ou 0:00).", "info"); return null; }
     const total = m[2] != null ? Number(m[1]) * 60 + Number(m[2]) : Number(m[1]) * 60;
     if(m[2] != null && Number(m[2]) > 59){ notify("Les secondes vont de 00 à 59.", "info"); return null; }
-    if(total > perSec(state)){ notify("Le temps dépasse la durée d'une période (" + formatTime(perSec(state)) + ").", "info"); return null; }
+    // Le chrono d'une période peut dépasser la durée prévue (ex. 3e période plus longue ou chrono ajusté) : on l'accepte
+    if(total > 99 * 60 + 59){ notify("Temps invalide (99:59 au maximum).", "info"); return null; }
     return { period: per, time: formatTime(total) };
   }
   // Après un changement de moment : événements remis dans l'ordre du match (période, puis temps écoulé)
