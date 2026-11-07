@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611071301">
+<meta name="build" content="202611071304">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2360,7 +2360,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611071301";
+  var BUILD = "202611071304";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2678,6 +2678,7 @@ document.addEventListener("DOMContentLoaded", function(){
     s.phase = (d.phase === "reg" || d.phase === "pre" || d.phase === "tour") ? d.phase : "";
     s.tour = typeof d.tour === "string" ? d.tour : "";
     s.periodSec = int(d.periodSec, 0, 5940);
+    if(d.plen) s.plen = toArr(d.plen).slice(0, 4).map(x => Math.max(0, Math.min(5999, Number(x) || 0)));
     s.stopOnGoal = [0, 1, 2].map(i => !!(Array.isArray(d.stopOnGoal) ? d.stopOnGoal[i] : (d.stopOnGoal && d.stopOnGoal[i])));
     if(d.penPause && typeof d.penPause === "object") s.penPause = { acc: Math.max(0, Number(d.penPause.acc) || 0), since: Number.isFinite(Number(d.penPause.since)) ? Number(d.penPause.since) : -1 };
     const last = s.events[s.events.length - 1];
@@ -2765,6 +2766,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function commit(){
     if(!canEdit()) return;
     state.updatedAt = now(); lastLocal = state.updatedAt;
+    if(!editEntry && !archiveKey && !state.finished && hasGame(state)) try{ notePerLen(); }catch(e){}   // durée réelle de la période en cours
     if(editEntry){ editEntry.m = state; calSyncResult(); tourSyncResult(); }   // correction d'une partie archivée : le calendrier suit
     db.set(state, err => { if(err) notify("Échec de l'enregistrement : " + (err.message || err), "error"); });
     updateLiveIndex();
@@ -5377,7 +5379,15 @@ document.addEventListener("DOMContentLoaded", function(){
   /* ============ Punitions : temps qui reste ============ */
   // Temps de match écoulé (en secondes) à partir de la période et du chrono (qui descend)
   const mmss = t => { const m = /^(\d+):(\d\d)$/.exec(String(t || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : 0; };
-  const gameSec = (period, clock) => { const P = perSec(state); return period * P + (P - clock); };
+  // Durée réelle de chaque période : le chrono peut avoir été mis au-delà de la durée prévue (ex. 3e de 20:00 avec des périodes de 15:00).
+  // Sans cela, le temps écoulé « recule » au début d'une période plus longue et une punition terminée réapparaît.
+  function perLen(i){
+    let L = Math.max(perSec(state), Number(toArr(state.plen)[i]) || 0);
+    state.events.forEach(e => { if(int(e.period, 0, 3) === i) L = Math.max(L, mmss(e.time)); });
+    return L;
+  }
+  const gameSec = (period, clock) => { let g = 0; for(let i = 0; i < period; i++) g += perLen(i); return g + perLen(period) - clock; };
+  function notePerLen(){ const p = int(state.period, 0, 3), a = toArr(state.plen).slice(0, 4); while(a.length < 4) a.push(0); a[p] = Math.max(Number(a[p]) || 0, remaining()); state.plen = a; }
   const gNow = () => gameSec(state.period, remaining());
   const pausedAt = g => { const pp = state.penPause || { acc: 0, since: -1 }; return pp.acc + (pp.since >= 0 ? Math.max(0, g - pp.since) : 0); };
   const penShort = e => Number(e.min || 2) !== 10;          // l'inconduite (10 min) ne met pas l'équipe en désavantage numérique
@@ -5521,7 +5531,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const d = Number(b.dataset.tnudge), r = remaining();
     if(r + d < 0 || r + d > 99 * 60 + 59) return;
     state.timer.sec += d; if(!state.timer.running) state.timer.sec = Math.max(0, state.timer.sec);
-    if(remaining() > 0) state.finished = false;
+    if(remaining() > 0) state.finished = false; notePerLen();
     penSig = ""; commit(); tsEdited = false; tsFill(); paintTimer();
   }));
   // ±1 s dans un champ mm:ss (punition qui reste, moment d'un but ou d'une punition)
@@ -5543,7 +5553,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!canEdit()) return;
     state.timer.sec = (int($("timerMin").value,0,99) * 60) + int($("timerSec").value,0,59);
     state.timer.lastUpdate = now();
-    if(state.timer.sec > 0) state.finished = false;
+    if(state.timer.sec > 0) state.finished = false; notePerLen();
     commit(); closeDlg("timerSheet");
   });
 
@@ -6955,8 +6965,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   // Après un changement de moment : événements remis dans l'ordre du match (période, puis temps écoulé)
   function sortEvents(){
-    const P = perSec(state);
-    state.events = state.events.map((e, i) => ({ e: e, i: i, g: int(e.period, 0, 3) * P + (P - mmss(e.time)) }))
+    state.events = state.events.map((e, i) => ({ e: e, i: i, g: gameSec(int(e.period, 0, 3), mmss(e.time)) }))
       .sort((x, y) => x.g - y.g || x.i - y.i).map(x => x.e);
   }
 
