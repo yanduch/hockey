@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611071812">
+<meta name="build" content="202611072001">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2397,7 +2397,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611071812";
+  var BUILD = "202611072001";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2866,7 +2866,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   document.querySelectorAll("#slotBar [data-slot]").forEach(b => b.addEventListener("click", () => setSlot(Number(b.dataset.slot), true)));
   function updateRoleUI(){
-    try{ renderSlotBar(); }catch(e){}
+    try{ slotAuto(); }catch(e){}
     document.body.className = (isGerant() ? "role-marqueur role-gerant" : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
     if(isStaff() && !statLogged){ statLogged = true; try{ statOnLogin(); }catch(e){ statLogged = false; } }
     if(!isStaff()) statLogged = false;
@@ -3020,12 +3020,13 @@ document.addEventListener("DOMContentLoaded", function(){
     lastLocal = 0; state = blank(); watchMatch(); renderSlotBar(); render();
   }
   const scorerLbl = (m, n) => (m && m.scorerName) || ("Marqueur " + n);
+  const slotLive = s => slotFresh(s) && !s.finished && !s.closed && ((s.timer && s.timer.running) || (now() - (Number(s.updatedAt) || 0)) < 45 * 60e3);
   const slotFresh = s => s && hasGame(s) && (now() - (Number(s.updatedAt) || 0)) < 12 * 3600e3;
   // Visiteur : sans choix affiché, on montre la partie en cours (sinon celle du marqueur 1)
   function slotAuto(){
     if(!twoScorers){ if(slot === 2) setSlot(1); }
     else if(!isStaff()){
-      const live = k => slotFresh(slotSum[k]) && !slotSum[k].finished && !slotSum[k].closed;
+      const live = k => slotLive(slotSum[k]);
       const shown = slotFresh(slotSum[1]) && slotFresh(slotSum[2]) && (live(1) || live(2));
       if(!shown || !slotChosen){ const want = (live(2) && !live(1)) || (!slotFresh(slotSum[1]) && slotFresh(slotSum[2])) ? 2 : 1; if(want !== slot) setSlot(want); }
     }
@@ -3034,7 +3035,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderSlotBar(){
     const bar = $("slotBar"); if(!bar) return;
     // Visiteur : le choix n'apparaît que si les deux marqueurs ont une partie aujourd'hui et qu'au moins une est en cours
-    const live = n => slotFresh(slotSum[n]) && !slotSum[n].finished && !slotSum[n].closed;
+    const live = n => slotLive(slotSum[n]);
     const two = slotFresh(slotSum[1]) && slotFresh(slotSum[2]) && (live(1) || live(2)), staff = isStaff();
     bar.hidden = !twoScorers || !(two || staff) || !!editEntry;
     bar.querySelectorAll("button").forEach(b => b.classList.toggle("on", Number(b.dataset.slot) === slot));
