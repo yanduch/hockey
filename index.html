@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611081409">
+<meta name="build" content="202611081858">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1669,6 +1669,15 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="pairSheet">
+  <div class="sheet-in">
+    <h2>🔗 Jumeler deux marquages</h2>
+    <p class="ctx" id="pairCtx"></p>
+    <div id="pairList" style="display:grid;gap:.4rem;"></div>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="pairCancel">Annuler</button></div>
+  </div>
+</dialog>
+
 <dialog id="tourTeamsSheet">
   <div class="sheet-in">
     <h2>Nouvelles équipes du tournoi</h2>
@@ -2421,7 +2430,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611081409";
+  var BUILD = "202611081858";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5683,6 +5692,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function sameGame(h1, h2){
     if(!h1 || !h2) return false;
+    if(h1.m.pair || h2.m.pair) return !!h1.m.pair && h1.m.pair === h2.m.pair;   // jumelées à la main par l'administrateur
     if(h1.m.calId && h2.m.calId) return h1.m.calId === h2.m.calId;
     return dateOf(h1.at) === dateOf(h2.at) && [h1.a, h1.b].sort().join("|") === [h2.a, h2.b].sort().join("|");
   }
@@ -5708,6 +5718,21 @@ document.addEventListener("DOMContentLoaded", function(){
     const t = e.type === "goal" ? "🥅 But · " + esc(e.scorer ? playerLabel(r, e.scorer) : "?") + (e.a1 ? "<small>Passes : " + esc([e.a1, e.a2].filter(Boolean).map(x => playerLabel(r, x)).join(", ")) + "</small>" : "<small>Sans passe</small>")
                                 : "⛔ Punition · " + esc(e.player ? playerLabel(r, e.player) : "Banc") + " · " + (e.min || 2) + " min" + (e.reason ? "<small>" + esc(e.reason) + "</small>" : "");
     return '<b>' + esc(nm) + '</b> · ' + (["1re","2e","3e","Prol."][int(e.period, 0, 3)]) + " " + esc(e.time || "") + "<br>" + t;
+  }
+  // Deux parties marquées séparément (hors calendrier, sur deux tableaux…) : l'administrateur les déclare comme la même partie
+  function openPair(h, cands){
+    setText("pairCtx", "Choisissez l'autre marquage de la même partie que « " + (h.m.names.b || "") + " " + h.gB + " - " + h.gA + " " + (h.m.names.a || "") + " »" + (h.m.scorerName ? " (" + h.m.scorerName + ")" : "") + ". Une seule version restera publiée ; vous pourrez ensuite les comparer.");
+    const box = $("pairList"); box.textContent = "";
+    cands.forEach(x => { const b = btn("act-2", (x.m.names.b || "") + " " + x.gB + " - " + x.gA + " " + (x.m.names.a || "") + (x.m.scorerName ? " · " + x.m.scorerName : "") + (x.m.unpub ? " · non publiée" : ""), () => {
+        const pid = h.m.pair || x.m.pair || h.key, base = hmOrg + "/" + hmCat + "/history/";
+        [h, x].forEach(y => { y.m.pair = pid; ref(base + y.key + "/pair").set(pid); });
+        // une seule version publiée : on garde celle qui l'était (sinon la première)
+        if(!h.m.unpub && !x.m.unpub){ x.m.unpub = true; ref(base + x.key + "/unpub").set(true); }
+        else if(h.m.unpub && x.m.unpub){ publishEntry(hmOrg, hmCat, h, hmList); }
+        closeDlg("pairSheet"); hmRender(); openCompare(h, x, hmOrg, hmCat, hmList);
+      }); b.style.textAlign = "left"; box.appendChild(b); });
+    $("pairCancel").onclick = () => swapDlg("pairSheet", "historyManageSheet");
+    swapDlg("historyManageSheet", "pairSheet");
   }
   function openCompare(h1, h2, org, cat, list){
     if(h1.m.scorer === 2 && h2.m.scorer !== 2){ const t = h1; h1 = h2; h2 = t; }
@@ -5817,7 +5842,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("cmpBody").querySelectorAll("select[data-t]").forEach(sel => { const t = sel.dataset.t, p = Number(sel.dataset.p), v1 = sh(m1, t)[p] || 0, v2 = sh(m2, t)[p] || 0;
       m.shots = m.shots || { a: [0,0,0,0], b: [0,0,0,0] }; const arrS = toArr(m.shots[t]).map(x => Number(x) || 0); while(arrS.length < 4) arrS.push(0);
       arrS[p] = sel.value === "1" ? v1 : sel.value === "2" ? v2 : Math.round((v1 + v2) / 2); m.shots[t] = arrS; });
-    m.scorer = "fusion"; m.unpub = null; m.mergedFrom = [C.h1.key, C.h2.key]; m.updatedAt = Date.now();
+    m.scorer = "fusion"; m.unpub = null; m.mergedFrom = [C.h1.key, C.h2.key]; m.updatedAt = Date.now(); if(m1.pair || m2.pair) m.pair = m1.pair || m2.pair;
     const key = (C.h1.m.scorer === "fusion" ? C.h1.key : C.h1.key + "_f");
     m.histKey = key;
     ref(C.org + "/" + C.cat + "/history/" + key).set(m).then(() => {
@@ -6337,7 +6362,8 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!rows.length){ list.appendChild(el("li", "empty", "Aucune partie enregistrée.")); return; }
     const frag = document.createDocumentFragment();
     rows.forEach(h => { h.twin = hmList.some(x => x.key !== h.key && sameGame(x, h)); });
-    rows.forEach(h => frag.appendChild(historyRow(h, [].concat(h.twin && isAdmin() ? [btn("btn-edit", "⚖ Comparer", () => {
+    const sameDay = h => hmList.filter(x => x.key !== h.key && dateOf(x.at) === dateOf(h.at) && x.m.scorer !== "fusion");
+    rows.forEach(h => frag.appendChild(historyRow(h, [].concat(!h.twin && isAdmin() && h.m.scorer !== "fusion" && sameDay(h).length ? [btn("btn-edit", "🔗 Jumeler…", () => openPair(h, sameDay(h)))] : []).concat(h.twin && isAdmin() ? [btn("btn-edit", "⚖ Comparer", () => {
         const others = hmList.filter(x => x.key !== h.key && sameGame(x, h) && x.m.scorer !== "fusion");
         const base = h.m.scorer === "fusion" ? hmList.find(x => x.key === (h.m.mergedFrom || [])[0]) || others[0] : h;
         const other = h.m.scorer === "fusion" ? hmList.find(x => x.key === (h.m.mergedFrom || [])[1]) || others[1] : others[0];
