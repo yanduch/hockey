@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611081220">
+<meta name="build" content="202611081344">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1655,6 +1655,15 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="tourTeamsSheet">
+  <div class="sheet-in">
+    <h2>Nouvelles équipes du tournoi</h2>
+    <p class="ctx" id="ttCtx"></p>
+    <div id="ttList" class="ja-list"></div>
+    <div class="actions" style="margin-top:1rem;"><button type="button" class="act-2" id="ttNo">Non merci</button><button type="button" class="act-1" id="ttAdd">Ajouter</button></div>
+  </div>
+</dialog>
+
 <dialog id="scorerSheet">
   <div class="sheet-in">
     <h2>Qui marque cette partie ?</h2>
@@ -2398,7 +2407,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611081220";
+  var BUILD = "202611081344";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6090,6 +6099,30 @@ document.addEventListener("DOMContentLoaded", function(){
     addTourRound(k === "pool" ? { name: "Poule " + String.fromCharCode(65 + pools), pool: true, games: [] } : { name: k, pool: false, games: [] });
   }));
   on("trCancel", "click", () => swapDlg("tourEdit", "tourSheet"));
+  const TOUR_PLACEHOLDER = /position|gagnant|perdant|vainqueur|d[ée]terminer|^\s*\d|^\?$|^[A-H]\d$/i;
+  function tourUnknownTeams(rounds, cat){
+    const known = Object.keys(calPresets).filter(k => calPresets[k] && calPresets[k].name && (!calPresets[k].category || calPresets[k].category === cat)).map(k => calPresets[k].name);
+    const seen = {}, out = [];
+    rounds.forEach(r => r.games.forEach(g => [g.a, g.b].forEach(n => { n = String(n || "").trim(); const k = n.toLowerCase();
+      if(!n || seen[k] || TOUR_PLACEHOLDER.test(n) || known.some(x => tSame(n, x))) return; seen[k] = 1; out.push(n); })));
+    return out.sort((a, b) => a.localeCompare(b, "fr"));
+  }
+  function offerTourTeams(names, cat){
+    setText("ttCtx", "Ces équipes du tournoi ne sont pas encore dans " + String(cat).toUpperCase() + ". Cochez celles à ajouter aux équipes de la catégorie : elles seront offertes pour la saison régulière (calendrier, classement, parties).");
+    const box = $("ttList"); box.textContent = "";
+    names.forEach(n => { const l = el("label", "check-row"), c = el("input"); c.type = "checkbox"; c.value = n; c.checked = true; l.appendChild(c); l.appendChild(el("span", null, n)); box.appendChild(l); });
+    $("ttNo").onclick = () => { closeDlg("tourTeamsSheet"); notify("Tournoi enregistré !", "ok"); };
+    $("ttAdd").onclick = () => {
+      const pick = [...box.querySelectorAll("input:checked")].map(c => c.value); let n = 0;
+      pick.forEach(name => { let key = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_");
+        if(calPresets[key]) key += "_" + cat; if(calPresets[key]) key += "_" + uid().slice(-4);
+        const t = { name: str(name, ""), category: cat, own: false, roster: [], staff: [] }; calPresets[key] = t;
+        ref(calOrg + "/teams_presets/" + key).set(t); n++; });
+      closeDlg("tourTeamsSheet");
+      notify("Tournoi enregistré !" + (n ? "\n" + n + " équipe" + (n > 1 ? "s ajoutées" : " ajoutée") + " à " + String(cat).toUpperCase() + "." : ""), "ok");
+    };
+    openDlg("tourTeamsSheet");
+  }
   on("trSave", "click", () => {
     if(!isAdmin() || !calCat) return;
     const name = str($("trName").value, ""); if(!name){ notify("Le nom du tournoi est obligatoire.", "info"); return; }
@@ -6102,7 +6135,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const id = tourEditId || (calCat + "/" + uid()), teams = {};
     $("trTeams").querySelectorAll("input:checked").forEach(c => { teams[c.value] = true; });
     ref(tourPath(id)).set({ name: name, start: start, end: end, place: str($("trPlace").value, ""), teams: teams, rounds: rounds, updatedAt: Date.now() });
-    notify("Tournoi enregistré !"); swapDlg("tourEdit", "tourSheet");
+    // Équipes du tournoi qui ne sont pas encore dans la catégorie : proposer de les ajouter (pour la saison régulière)
+    const tcat = id.split("/")[0], unknown = tourUnknownTeams(rounds, tcat);
+    if(unknown.length){ swapDlg("tourEdit", "tourSheet"); offerTourTeams(unknown, tcat); }
+    else { notify("Tournoi enregistré !"); swapDlg("tourEdit", "tourSheet"); }
   });
 
   function teamPracCard(x, p){
