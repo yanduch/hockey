@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611072001">
+<meta name="build" content="202611081220">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -493,7 +493,7 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tr-round{border:1px solid var(--line,#D5DEE8);border-radius:10px;padding:.5rem;margin-bottom:.6rem;background:rgba(127,127,127,.06)}
 .tr-rhead{display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem}
 .tr-rhead input{flex:1 1 auto;min-width:0}
-.tr-game{display:grid;grid-template-columns:minmax(0,1fr) 2.6rem 2.6rem minmax(0,1fr) 2rem;gap:.25rem;align-items:center;margin-bottom:.25rem}
+.tr-game{display:grid;grid-template-columns:4.6rem minmax(0,1fr) 2.3rem 2.3rem minmax(0,1fr) 2rem;gap:.25rem;align-items:center;margin-bottom:.25rem}
 .tr-game input{min-width:0;padding:.35rem .4rem;font-size:.85rem}
 .tr-game .tr-s{text-align:center}
 .tr-addround{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
@@ -513,6 +513,7 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tour-g>div{display:flex;justify-content:space-between;gap:.4rem;padding:.25rem .45rem;font-size:.82rem}
 .tour-g>div+div{border-top:1px solid rgba(127,127,127,.25)}
 .tour-g .w{font-weight:800}
+.tour-g>div.tour-when{font-size:.7rem;opacity:.75;padding:.15rem .45rem;justify-content:flex-start;background:rgba(127,127,127,.12)}
 .tour-g .me{background:rgba(240,179,90,.25)}
 .tour-g b{min-width:1.2rem;text-align:right}
 .tour-col:not(:last-child) .tour-g::after{content:"";position:absolute;right:-.9rem;top:50%;width:.9rem;border-top:2px solid rgba(127,127,127,.45)}
@@ -2397,7 +2398,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611072001";
+  var BUILD = "202611081220";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5400,8 +5401,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const me = boardTeam && presets[boardTeam] ? presets[boardTeam].name : "";
     if(t) t.rounds.forEach((r, ri) => r.games.forEach((g, gi) => { if(!g.a && !g.b) return;
       const done = g.sa !== "" && g.sb !== "", mine = !me || tSame(g.a, me) || tSame(g.b, me);
-      items.push({ value: ri + "/" + gi, label: (r.name || (r.pool ? "Poule" : "Ronde")) + " : " + (g.a || "?") + " vs " + (g.b || "?") + (done ? " (" + g.sa + "-" + g.sb + ")" : ""), o: (done ? 2 : 0) + (mine ? 0 : 1), i: items.length }); }));
-    items.sort((x, y) => x.o - y.o || x.i - y.i);
+      items.push({ value: ri + "/" + gi, label: (g.when ? g.when + " · " : "") + (r.name || (r.pool ? "Poule" : "Ronde")) + " : " + (g.b || "?") + " @ " + (g.a || "?") + (done ? " (" + g.sb + "-" + g.sa + ")" : ""), o: (done ? 2 : 0) + (mine ? 0 : 1), w: g.when || "99", i: items.length }); }));
+    items.sort((x, y) => x.o - y.o || String(x.w).localeCompare(String(y.w)) || x.i - y.i);
     fillSelect($("wizTourGame"), items, null, items.length ? "Choisir la partie…" : (t ? "Ajoutez d'abord les parties du tournoi (Gestion calendrier → Tournois)" : "—"));
   }
   on("wizTourSel", "change", wizFillTourGames);
@@ -5949,7 +5950,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function tourTeams(t){ const o = {}; if(t && t.team) o[t.team] = 1; const m = t && t.teams; if(m && typeof m === "object") Object.keys(m).forEach(k => { if(m[k]) o[k] = 1; }); return o; }
   function tourOf(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), teams: tourTeams(t),
-    rounds: toArr(t && t.rounds).filter(Boolean).map(r => ({ name: String(r.name || ""), pool: !!r.pool, games: toArr(r.games).filter(Boolean).map(g => ({ a: String(g.a || ""), b: String(g.b || ""), sa: g.sa === "" || g.sa == null ? "" : Number(g.sa), sb: g.sb === "" || g.sb == null ? "" : Number(g.sb) })) })) }; }
+    rounds: toArr(t && t.rounds).filter(Boolean).map(r => ({ name: String(r.name || ""), pool: !!r.pool, games: toArr(r.games).filter(Boolean).map(g => ({ when: String(g.when || ""), a: String(g.a || ""), b: String(g.b || ""), sa: g.sa === "" || g.sa == null ? "" : Number(g.sa), sb: g.sb === "" || g.sb == null ? "" : Number(g.sb) })) })) }; }
   const tSame = (a, b) => !!a && !!b && (a === b || !!sameTeamName(a, [b]));
   function tourHasTeam(t, key){
     const p = presets[key]; if(!p) return false; if(t.teams[key]) return true;
@@ -5977,7 +5978,8 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function tourGameBox(g, meName){
     const box = el("div", "tour-g"), done = g.sa !== "" && g.sb !== "";
-    [["a", "sa"], ["b", "sb"]].forEach((s, i) => { const nm = g[s[0]] || "À déterminer", sc = g[s[1]], other = i ? g.sa : g.sb;
+    if(g.when) box.appendChild(el("div", "tour-when", "🕒 " + g.when.replace(":", " h ")));
+    [["b", "sb"], ["a", "sa"]].forEach((s, i) => { const nm = g[s[0]] || "À déterminer", sc = g[s[1]], other = s[0] === "b" ? g.sa : g.sb;
       const line = el("div", (done && sc > other ? "w" : "") + (meName && tSame(nm, meName) ? " me" : ""));
       line.appendChild(el("span", null, nm)); line.appendChild(el("b", null, sc === "" ? "" : String(sc))); box.appendChild(line); });
     return box;
@@ -6075,7 +6077,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const games = el("div", "tr-games"); box.appendChild(games);
     const addG = g => { const row = el("div", "tr-game");
       const mk = (cls, v, ph, num) => { const i = el("input"); i.type = num ? "number" : "text"; i.className = cls; i.value = v === "" || v == null ? "" : v; i.placeholder = ph; if(num){ i.min = 0; i.inputMode = "numeric"; } else { i.setAttribute("list", "trTeamNames"); i.maxLength = 30; } return i; };
-      row.appendChild(mk("tr-a", g.a, "Équipe 1")); row.appendChild(mk("tr-s tr-sa", g.sa, "–", 1)); row.appendChild(mk("tr-s tr-sb", g.sb, "–", 1)); row.appendChild(mk("tr-b", g.b, "Équipe 2"));
+      const w = el("input"); w.type = "time"; w.className = "tr-w"; w.value = g.when || ""; w.setAttribute("aria-label", "Heure"); row.appendChild(w);
+      row.appendChild(mk("tr-b", g.b, "Visiteur")); row.appendChild(mk("tr-s tr-sb", g.sb, "–", 1)); row.appendChild(mk("tr-s tr-sa", g.sa, "–", 1)); row.appendChild(mk("tr-a", g.a, "Receveur"));
       row.appendChild(btn("row-del", "✕", () => row.remove())); games.appendChild(row); };
     r.games.forEach(addG);
     const ab = btn("act-2 tr-addg", "+ Ajouter une partie", () => addG({ a: "", b: "", sa: "", sb: "" })); ab.style.width = "100%"; box.appendChild(ab);
@@ -6094,7 +6097,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!start){ notify("Choisissez la date de début.", "info"); return; }
     const sc = v => v === "" ? "" : Math.max(0, Math.min(99, Number(v) || 0));
     const rounds = [...$("trRounds").querySelectorAll(".tr-round")].map(b => ({ name: str(b.querySelector(".tr-rname").value, ""), pool: b.dataset.pool === "1" || null,
-      games: [...b.querySelectorAll(".tr-game")].map(r => ({ a: str(r.querySelector(".tr-a").value, ""), b: str(r.querySelector(".tr-b").value, ""), sa: sc(r.querySelector(".tr-sa").value), sb: sc(r.querySelector(".tr-sb").value) }))
+      games: [...b.querySelectorAll(".tr-game")].map(r => ({ when: (r.querySelector(".tr-w") || {}).value || "", a: str(r.querySelector(".tr-a").value, ""), b: str(r.querySelector(".tr-b").value, ""), sa: sc(r.querySelector(".tr-sa").value), sb: sc(r.querySelector(".tr-sb").value) }))
         .filter(g => g.a || g.b) }));
     const id = tourEditId || (calCat + "/" + uid()), teams = {};
     $("trTeams").querySelectorAll("input:checked").forEach(c => { teams[c.value] = true; });
