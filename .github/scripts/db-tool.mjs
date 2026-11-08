@@ -18,6 +18,9 @@ if (MODE === "find") {
       for (const c of (Array.isArray(cats) ? cats : Object.values(cats)).filter(Boolean)) { const tr = await get(o.id + "/" + c + "/tournaments"); if (tr) console.log("  TOURNAMENTS " + c + " " + JSON.stringify(Object.fromEntries(Object.entries(tr).map(([k, v]) => [k, v && v.name + " " + v.start])))); }
     }
   }
+} else if (MODE === "get") {
+  if (!/^[a-z0-9_\/]+$/i.test(Q)) throw new Error("chemin invalide");
+  console.log("DATA " + JSON.stringify(await get(Q)));
 } else if (MODE === "tournament") {
   const [org, cat] = Q.split("/"); if (!/^[a-z0-9_]+$/.test(org + cat)) throw new Error("org/cat invalide");
   const t = JSON.parse(process.env.DATA || "{}"); if (!t.name || !t.start) throw new Error("tournoi incomplet");
