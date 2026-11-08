@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611081344">
+<meta name="build" content="202611081352">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -493,13 +493,24 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tr-round{border:1px solid var(--line,#D5DEE8);border-radius:10px;padding:.5rem;margin-bottom:.6rem;background:rgba(127,127,127,.06)}
 .tr-rhead{display:flex;gap:.4rem;align-items:center;margin-bottom:.4rem}
 .tr-rhead input{flex:1 1 auto;min-width:0}
-.tr-game{display:grid;grid-template-columns:4.6rem minmax(0,1fr) 2.3rem 2.3rem minmax(0,1fr) 2rem;gap:.25rem;align-items:center;margin-bottom:.25rem}
-.tr-game input{min-width:0;padding:.35rem .4rem;font-size:.85rem}
+.tr-game{display:grid;grid-template-columns:4.6rem minmax(0,1fr) 3.2rem;grid-template-areas:"w w x" "lv b sb" "lr a sa";gap:.3rem .35rem;align-items:center;margin-bottom:.5rem;padding:.45rem;border:1px solid var(--line, rgba(127,127,127,.3));border-radius:10px;background:rgba(127,127,127,.06)}
+.tr-game input{min-width:0;padding:.45rem .5rem;font-size:.95rem}
+.tr-game .tr-w{grid-area:w;width:7.5rem}
+.tr-game .tr-b{grid-area:b}.tr-game .tr-a{grid-area:a}
+.tr-game .tr-sb{grid-area:sb;text-align:center}.tr-game .tr-sa{grid-area:sa;text-align:center}
+.tr-game .row-del{grid-area:x;justify-self:end}
+.tr-game .tr-lv,.tr-game .tr-lr{font-size:.72rem;font-weight:700;opacity:.75}
+.tr-game .tr-lv{grid-area:lv}.tr-game .tr-lr{grid-area:lr}
 .tr-game .tr-s{text-align:center}
 .tr-addround{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
 .tr-addround button,.tr-round .tr-addg{min-height:2.1rem;font-size:.82rem}
 .tour-card{margin:.4rem 0 1rem}
 .tour-card h3{margin:.2rem 0;font-size:1.05rem}
+.tour-card h3.tour-h{cursor:pointer;display:flex;align-items:center;gap:.35rem}
+.tour-card h3.tour-h::after{content:"▾";margin-left:auto;font-size:.9rem;opacity:.7;transition:transform .15s}
+.tour-card.closed h3.tour-h::after{transform:rotate(-90deg)}
+.tour-card.closed .tour-body{display:none}
+.tour-card{border:1px solid var(--line, rgba(127,127,127,.3));border-radius:12px;padding:.5rem .7rem}
 .tour-meta{font-size:.82rem;color:var(--muted);margin-bottom:.5rem}
 .tour-pool h4,.tour-tree-h{margin:.6rem 0 .3rem;font-size:.9rem}
 .tour-pool table{width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:.4rem}
@@ -2407,7 +2418,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611081344";
+  var BUILD = "202611081352";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6020,8 +6031,21 @@ document.addEventListener("DOMContentLoaded", function(){
     btnT.style.display = ""; btnT.textContent = "Tournois (" + ids.length + ")";
     if(!isOpen("tourBlock")) return;
     const key = teamCalKey(), meName = key && presets[key] ? presets[key].name : "", box = $("tourView"); box.textContent = "";
-    ids.forEach(id => { const c = tourCard(id, tourOf(catTours[id]), meName), cat = id.split("/")[0];
-      if(cat !== currentCat) c.querySelector("h3").appendChild(el("small", "tour-cat", " " + cat.toUpperCase())); box.appendChild(c); });
+    const td = todayStr(), near = t => { const s0 = String(t.start || ""), e0 = String(t.end || t.start || ""); if(!s0) return false;
+      const d = (a, b) => (new Date(a + "T12:00") - new Date(b + "T12:00")) / 864e5; return d(s0, td) <= 3 && d(td, e0) <= 1; };
+    const anyNear = ids.some(id => near(tourOf(catTours[id])));
+    const nextId = ids.filter(id => String(catTours[id].start || "") >= td).sort((x, y) => String(catTours[x].start).localeCompare(String(catTours[y].start)))[0];
+    ids.forEach(id => { const t = tourOf(catTours[id]), c = tourCard(id, t, meName), cat = id.split("/")[0], h3 = c.querySelector("h3");
+      if(cat !== currentCat) h3.appendChild(el("small", "tour-cat", " " + cat.toUpperCase()));
+      // repliable : le tournoi du moment (ou le seul) est ouvert, les autres fermés ; le choix est retenu
+      const body = el("div", "tour-body");
+      [...c.children].filter(x => x !== h3 && !x.classList.contains("tour-meta")).forEach(x => body.appendChild(x)); c.appendChild(body);
+      const sk = "hk_tour_open_" + id, saved = store.get(sessionStorage, sk);
+      const open = saved != null ? saved === "1" : (ids.length === 1 || near(t) || (!anyNear && id === nextId));
+      c.classList.toggle("closed", !open); h3.classList.add("tour-h"); h3.setAttribute("role", "button"); h3.tabIndex = 0;
+      const tog = () => { const o = c.classList.toggle("closed"); store.set(sessionStorage, sk, o ? "0" : "1"); };
+      h3.addEventListener("click", tog); h3.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); tog(); } });
+      box.appendChild(c); });
   }
   // ----- Gestion des tournois (dans Gestion calendrier) : toutes les catégories de l'organisation -----
   let tourMgr = {}, tourRefs = [], tourEditId = null;      // tourEditId = « catégorie/id »
@@ -6087,7 +6111,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const addG = g => { const row = el("div", "tr-game");
       const mk = (cls, v, ph, num) => { const i = el("input"); i.type = num ? "number" : "text"; i.className = cls; i.value = v === "" || v == null ? "" : v; i.placeholder = ph; if(num){ i.min = 0; i.inputMode = "numeric"; } else { i.setAttribute("list", "trTeamNames"); i.maxLength = 30; } return i; };
       const w = el("input"); w.type = "time"; w.className = "tr-w"; w.value = g.when || ""; w.setAttribute("aria-label", "Heure"); row.appendChild(w);
-      row.appendChild(mk("tr-b", g.b, "Visiteur")); row.appendChild(mk("tr-s tr-sb", g.sb, "–", 1)); row.appendChild(mk("tr-s tr-sa", g.sa, "–", 1)); row.appendChild(mk("tr-a", g.a, "Receveur"));
+      row.appendChild(el("span", "tr-lv", "Visiteur")); row.appendChild(mk("tr-b", g.b, "Nom de l'équipe")); row.appendChild(mk("tr-s tr-sb", g.sb, "–", 1));
+      row.appendChild(el("span", "tr-lr", "Receveur")); row.appendChild(mk("tr-a", g.a, "Nom de l'équipe")); row.appendChild(mk("tr-s tr-sa", g.sa, "–", 1));
       row.appendChild(btn("row-del", "✕", () => row.remove())); games.appendChild(row); };
     r.games.forEach(addG);
     const ab = btn("act-2 tr-addg", "+ Ajouter une partie", () => addG({ a: "", b: "", sa: "", sb: "" })); ab.style.width = "100%"; box.appendChild(ab);
