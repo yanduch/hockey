@@ -18,6 +18,13 @@ if (MODE === "find") {
       for (const c of (Array.isArray(cats) ? cats : Object.values(cats)).filter(Boolean)) { const tr = await get(o.id + "/" + c + "/tournaments"); if (tr) console.log("  TOURNAMENTS " + c + " " + JSON.stringify(Object.fromEntries(Object.entries(tr).map(([k, v]) => [k, v && v.name + " " + v.start])))); }
     }
   }
+} else if (MODE === "hist") {
+  const h = (await get(Q + "/history")) || {};
+  for (const [k, m] of Object.entries(h)) { if (!m) continue;
+    const g = t => (m.events || []).filter(e => e && e.type === "goal" && e.team === t).length;
+    console.log("HIST " + JSON.stringify({ k, at: m.playedAt || m.updatedAt, b: m.names && m.names.b, a: m.names && m.names.a, sb: g("b"), sa: g("a"), scorer: m.scorer, name: m.scorerName, unpub: !!m.unpub, pair: m.pair || "", cal: m.calId || "", phase: m.phase || "" })); }
+  const cal = (await get(Q + "/calendar")) || {};
+  for (const [k, c] of Object.entries(cal)) if (c && c.histKey) console.log("CAL " + JSON.stringify({ k, date: c.date, a: c.a, b: c.b, sa: c.scoreA, sb: c.scoreB, hk: c.histKey }));
 } else if (MODE === "get") {
   if (!/^[a-z0-9_\/]+$/i.test(Q)) throw new Error("chemin invalide");
   console.log("DATA " + JSON.stringify(await get(Q)));
