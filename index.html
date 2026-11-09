@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611082016">
+<meta name="build" content="202611082148">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2430,7 +2430,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611082016";
+  var BUILD = "202611082148";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5884,11 +5884,6 @@ document.addEventListener("DOMContentLoaded", function(){
     box.className = "h-box";
     box.appendChild(el("strong", "h-line", h.a + " " + h.gA + " - " + h.gB + " " + h.b));
     const sm = el("small", "h-sub", dateOf(h.at) || "—"); sm.appendChild(el("span", "ph-tag " + phaseOfM(h.m), PHASE_LABEL[phaseOfM(h.m)]));
-    // buts en avantage / désavantage numérique de cette partie
-    try{ const gs = goalStrengths(h.m), c = { pp: { a: 0, b: 0 }, sh: { a: 0, b: 0 } };
-      (h.m.events || []).forEach(e => { if(e && gs[e.id]) c[gs[e.id]][e.team]++; });
-      ["pp", "sh"].forEach(k => { const parts = ["b", "a"].filter(t => c[k][t]).map(t => (h.m.names[t] || "") + " " + c[k][t]);
-        if(parts.length){ const tg = el("span", "str-tag " + k, (k === "pp" ? "AN : " : "DN : ") + parts.join(", ")); tg.title = "Buts en " + STR_LABEL[k].toLowerCase(); sm.appendChild(tg); } }); }catch(e){}
     if(h.m.scorer === "fusion") sm.appendChild(el("span", "ph-tag fusion", "⚖ Version choisie"));
     else if(h.m.scorer === 2 || h.twin) sm.appendChild(el("span", "ph-tag scorer", scorerLbl(h.m, h.m.scorer === 2 ? 2 : 1)));
     else if(h.m.scorerName && !/^Marqueur \d$/.test(h.m.scorerName)) sm.appendChild(el("span", "ph-tag scorer", "✎ " + h.m.scorerName));
