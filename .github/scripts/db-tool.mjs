@@ -25,6 +25,16 @@ if (MODE === "find") {
     console.log("HIST " + JSON.stringify({ k, at: m.playedAt || m.updatedAt, b: m.names && m.names.b, a: m.names && m.names.a, sb: g("b"), sa: g("a"), scorer: m.scorer, name: m.scorerName, unpub: !!m.unpub, pair: m.pair || "", cal: m.calId || "", phase: m.phase || "" })); }
   const cal = (await get(Q + "/calendar")) || {};
   for (const [k, c] of Object.entries(cal)) if (c && c.histKey) console.log("CAL " + JSON.stringify({ k, date: c.date, a: c.a, b: c.b, sa: c.scoreA, sb: c.scoreB, hk: c.histKey }));
+} else if (MODE === "set") {
+  // DATA = { "chemin relatif à QUERY": valeur (null = supprimer) }
+  if (!/^[a-z0-9_]+\/[a-z0-9_]+$/i.test(Q)) throw new Error("org/cat invalide");
+  const ops = JSON.parse(process.env.DATA || "{}");
+  for (const [p, v] of Object.entries(ops)) {
+    if (!/^[A-Za-z0-9_\-\/]+$/.test(p)) throw new Error("chemin invalide " + p);
+    if (v === null) { const r = await fetch(DB + "/" + Q + "/" + p + ".json", { method: "DELETE" }); if (!r.ok) throw new Error("suppression " + p); }
+    else await put(Q + "/" + p, v);
+    console.log("SET " + p + " = " + JSON.stringify(v));
+  }
 } else if (MODE === "get") {
   if (!/^[a-z0-9_\/]+$/i.test(Q)) throw new Error("chemin invalide");
   console.log("DATA " + JSON.stringify(await get(Q)));

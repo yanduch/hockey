@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611081858">
+<meta name="build" content="202611082016">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2430,7 +2430,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611081858";
+  var BUILD = "202611082016";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -3042,6 +3042,7 @@ document.addEventListener("DOMContentLoaded", function(){
   /* ============ Deux marqueurs en même temps : chacun a son propre tableau (match / match2) ============
      Les visiteurs choisissent qui suivre ; l'administrateur choisit la version publiée dans les statistiques. */
   let slot = 1, slotChosen = false, slotSum = { 1: null, 2: null };
+  var histKeysAll = {};
   var twoScorers = false;   // l'administrateur active 1 ou 2 marqueurs pour son organisation
   const slotKey = () => "hk_slot_" + boardBase;
   function slotPath(){ return slot === 2 ? boardBase + "/match2" : (isLinked() ? catBase() + "/boards/" + boardLink.team + "/match" : boardBase + "/match"); }
@@ -5679,6 +5680,7 @@ document.addEventListener("DOMContentLoaded", function(){
     historyOn = true;
     sub(dbHistory, snap => {
       const val = snap.val() || {};
+      histKeysAll = {}; Object.keys(val).forEach(k => { histKeysAll[k] = true; });
       historyAll = Object.keys(val).map(k => indexMatch(k, val[k])).filter(h => h && !h.m.unpub).sort((x,y) => x.at - y.at);   // versions non publiées : hors statistiques
       historyList = historyAll.filter(h => phaseOk(h.m, h.at));
       historyLoaded = true;
@@ -5857,6 +5859,13 @@ document.addEventListener("DOMContentLoaded", function(){
     const base = org + "/" + cat;
     list.filter(x => x.key !== h.key && sameGame(x, h)).forEach(x => { ref(base + "/history/" + x.key + "/unpub").set(true); x.m.unpub = true; });
     ref(base + "/history/" + h.key + "/unpub").remove(); delete h.m.unpub;
+    const twins = list.filter(x => x.key !== h.key && sameGame(x, h)), day = dateOf(h.at);
+    const cals = Array.from(new Set([h.m.calId].concat(twins.map(x => x.m.calId)).filter(Boolean)));
+    const onDay = cals.find(id => { const c = calendarList.find(cc => cc.id === id); return c && c.date === day; });
+    if(onDay && onDay !== h.m.calId){ h.m.calId = onDay; ref(base + "/history/" + h.key + "/calId").set(onDay); }
+    cals.filter(id => id !== h.m.calId).forEach(id => { const c = calendarList.find(cc => cc.id === id);
+      if(c && c.histKey && (c.histKey === h.key || twins.some(x => x.key === c.histKey)) && c.date !== day){
+        ["scoreA", "scoreB", "end", "histKey", "started"].forEach(f => ref(base + "/calendar/" + id + "/" + f).remove()); } });
     if(h.m.calId){ const c = ref(base + "/calendar/" + h.m.calId); c.child("scoreA").set(h.gA); c.child("scoreB").set(h.gB); c.child("end").set(h.s.period === 3 ? "OT" : ""); c.child("histKey").set(h.key); }
     if(h.m.tour && h.m.phase === "tour"){ const p = String(h.m.tour).split("/"); if(p.length === 4){ const tb = org + "/" + p[0] + "/tournaments/" + p[1] + "/rounds/" + p[2] + "/games/" + p[3];
       ref(tb).once("value").then(s2 => { const g = s2.val(); if(!g) return; const flip = tSame(h.a, g.b) && !tSame(h.a, g.a); ref(tb + "/sa").set(flip ? h.gB : h.gA); ref(tb + "/sb").set(flip ? h.gA : h.gB); ref(tb + "/histKey").set(h.key); }); } }
@@ -5899,6 +5908,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!historyLoaded){ tbl.appendChild(el("tr", null, "Chargement…")); return; }
     const keys = {}, games = [];
     const sy = seasonOf(Date.now());
+    Object.assign(keys, histKeysAll);
     historyAll.forEach(h => { keys[h.key] = true; if(phaseOfM(h.m) === "reg" && seasonOf(h.at) === sy) games.push({ a: h.a, b: h.b, gA: h.gA, gB: h.gB, ot: h.s.period === 3 }); });
     calendarList.forEach(c => { if(c.played && c.phase === "reg" && seasonOf(c.at) === sy && !(c.histKey && keys[c.histKey])) games.push({ a: c.a, b: c.b, gA: Number(c.scoreA), gB: Number(c.scoreB), ot: !!c.end }); });
     const T = {}, row = n => T[n] || (T[n] = { n: n, pj: 0, v: 0, d: 0, dp: 0, nu: 0, bp: 0, bc: 0 });
@@ -6491,7 +6501,7 @@ document.addEventListener("DOMContentLoaded", function(){
     let pj = 0, v = 0, d = 0, ega = 0, bp = 0, bc = 0, shotsAgainst = 0, gaShots = 0; const res = [];
     // Parties marquées sur le tableau (historique) + résultats inscrits au calendrier, sans compter deux fois la même partie
     const keys = {}; historyList.forEach(h => { keys[h.key] = true; });
-    historyAll.forEach(h => { keys[h.key] = true; });
+    historyAll.forEach(h => { keys[h.key] = true; }); Object.assign(keys, histKeysAll);
     const games = historyList.concat(calendarList.filter(c => c.played && !(c.histKey && keys[c.histKey]) && phaseOk(c, c.at))
                                                  .map(c => ({ a: c.a, b: c.b, gA: c.scoreA, gB: c.scoreB, sA: null, sB: null, at: c.at })))
                              .sort((x, y) => x.at - y.at);
