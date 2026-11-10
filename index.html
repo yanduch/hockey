@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611082148">
+<meta name="build" content="202611091926">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -281,6 +281,9 @@ td.cur,th.cur{background:var(--crease)}
 
 .feed-header{display:flex;align-items:center;justify-content:space-between;margin:1.6rem 0 .5rem}
 .feed-header h2{margin:0}
+.feed-title{cursor:pointer;user-select:none;display:flex;align-items:center;gap:.4rem}
+.feed-title::after{content:"▾";font-size:.8em;opacity:.7;transition:transform .15s}
+.feed-title.closed::after{transform:rotate(-90deg)}
 .feed-filter{padding:.3rem .5rem;border-radius:6px;border:1px solid var(--line);background:var(--surface);font-size:.85rem;max-width:11rem}
 
 .events-list{list-style:none;margin:0;padding:0;display:grid;gap:.4rem}
@@ -1005,7 +1008,7 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 
   <div id="feedSection">
   <div class="feed-header">
-    <h2>Match pas à pas</h2>
+    <h2 id="feedTitle" class="feed-title" role="button" tabindex="0" title="Toucher pour fermer ou ouvrir">Match pas à pas</h2>
     <select id="feedFilter" class="feed-filter">
       <option value="none">Aucun (Masquer)</option>
       <option value="all" selected>Tous les événements</option>
@@ -2430,7 +2433,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611082148";
+  var BUILD = "202611091926";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -7128,7 +7131,15 @@ document.addEventListener("DOMContentLoaded", function(){
     list.textContent = "";
     if(!count) list.appendChild(el("li", "empty", "Aucun événement.")); else list.appendChild(frag);
   }
-  on("feedFilter", "change", renderEvents);
+  // Toucher « Match pas à pas » : fermer / rouvrir d'un coup (on revient au dernier filtre choisi)
+  let feedLast = "all";
+  const paintFeedTitle = () => $("feedTitle").classList.toggle("closed", $("feedFilter").value === "none");
+  function toggleFeed(){ const f = $("feedFilter");
+    if(f.value === "none") f.value = feedLast || "all"; else { feedLast = f.value; f.value = "none"; }
+    paintFeedTitle(); renderEvents(); }
+  on("feedTitle", "click", toggleFeed);
+  on("feedTitle", "keydown", e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggleFeed(); } });
+  on("feedFilter", "change", () => { if($("feedFilter").value !== "none") feedLast = $("feedFilter").value; paintFeedTitle(); renderEvents(); });
   on("eventsList", "click", e => {
     if(!canEdit()) return;
     const b = e.target.closest("button[data-id]"); if(!b) return;
