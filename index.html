@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611091926">
+<meta name="build" content="202611152157">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -590,6 +590,9 @@ body.role-viewer .staff-only{display:none !important}
 @media (prefers-reduced-motion: reduce){.confetti{display:none}}
 .archive-bar{display:flex;align-items:center;justify-content:space-between;gap:.5rem;background:var(--warn);color:#FFF;border-radius:8px;padding:.4rem .6rem;margin-bottom:.8rem;font-size:.85rem;font-weight:600}
 .archive-bar[hidden]{display:none}
+.pts-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;margin:.4rem 0 0}
+.pts-grid label{display:flex;flex-direction:column;gap:.2rem;font-size:.72rem;font-weight:700;text-align:center}
+.pts-grid input{width:100%;padding:.45rem .2rem;font-size:1.05rem;text-align:center;border-radius:8px;border:1px solid var(--line, rgba(127,127,127,.35));background:#fff;color:#111}
 .slot-bar{margin:0 0 .7rem;text-align:center}
 .slot-bar[hidden]{display:none}
 .slot-seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--surface2, rgba(127,127,127,.15));border:1px solid var(--line, rgba(127,127,127,.3))}
@@ -1777,6 +1780,15 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       <label><input type="radio" name="scorersN" value="2"><span>2 marqueurs</span></label>
     </div>
     <p class="ctx" style="margin-top:0;">Avec 2 marqueurs, chacun marque sur son propre tableau ; les visiteurs choisissent lequel suivre et l'administrateur choisit la version publiée (Gestion de l'historique).</p>
+    <h3 class="sheet-sub">Points au classement</h3>
+    <div class="pts-grid">
+      <label>Victoire<input type="number" id="ptsW" min="0" max="9" inputmode="numeric"></label>
+      <label>Nulle<input type="number" id="ptsT" min="0" max="9" inputmode="numeric"></label>
+      <label>Défaite<input type="number" id="ptsL" min="0" max="9" inputmode="numeric"></label>
+      <label>Défaite en prol.<input type="number" id="ptsO" min="0" max="9" inputmode="numeric"></label>
+    </div>
+    <p class="ctx" id="ptsSaved" style="margin:.3rem 0 0;color:#2E9E5B;font-weight:700;min-height:1em;" aria-live="polite"></p>
+    <p class="ctx" style="margin-top:.2rem;">Pour toute l'organisation. Le classement est recalculé tout de suite, pour toutes les parties de la saison.</p>
     </div>
 
     <div class="super-only" id="odExports">
@@ -2433,7 +2445,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611091926";
+  var BUILD = "202611152157";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -3046,7 +3058,12 @@ document.addEventListener("DOMContentLoaded", function(){
      Les visiteurs choisissent qui suivre ; l'administrateur choisit la version publiée dans les statistiques. */
   let slot = 1, slotChosen = false, slotSum = { 1: null, 2: null };
   var histKeysAll = {};
-  var twoScorers = false;   // l'administrateur active 1 ou 2 marqueurs pour son organisation
+  var twoScorers = false;
+  // Points au classement (par organisation) : par défaut victoire 2, défaite en prolongation 1, nulle 1, défaite 0
+  const PTS_DEF = { w: 2, t: 1, l: 0, o: 1 };
+  var ptsCfg = Object.assign({}, PTS_DEF);
+  const normPts = v => { const o = Object.assign({}, PTS_DEF); if(v && typeof v === "object") ["w", "t", "l", "o"].forEach(k => { if(v[k] !== undefined && v[k] !== null && v[k] !== "") o[k] = Math.max(0, Math.min(9, int(v[k], 0, 9))); }); return o; };
+  const ptsTxt = (n, w) => n + " pt" + (n > 1 ? "s" : "");   // l'administrateur active 1 ou 2 marqueurs pour son organisation
   const slotKey = () => "hk_slot_" + boardBase;
   function slotPath(){ return slot === 2 ? boardBase + "/match2" : (isLinked() ? catBase() + "/boards/" + boardLink.team + "/match" : boardBase + "/match"); }
   function setSlot(n, user){
@@ -3210,6 +3227,7 @@ document.addEventListener("DOMContentLoaded", function(){
       AUTO_CD_MS = cdHoursOk(cfg.autoCdHours) * 3600000; try{ updateTickerDisplay(); }catch(e){}
       exportCfg = normExports(cfg.exports); applyExports();
       twoScorers = cfg.scorers === 2; try{ slotAuto(); }catch(e){}
+      ptsCfg = normPts(cfg.points); try{ if(isOpen("standBlock")) renderStandings(); }catch(e){}
       cfgPhases = (cfg.phases && typeof cfg.phases === "object") ? cfg.phases : {};
       cfgRegStart = (cfg.regStart && typeof cfg.regStart === "object") ? cfg.regStart : {};
       evtTypes = normTypes(cfg.eventTypes);
@@ -3885,6 +3903,9 @@ document.addEventListener("DOMContentLoaded", function(){
     $("odCats").style.display = can("categories") ? "" : "none";
     $("odTeams").style.display = can("teams") ? "" : "none";
     $("odScorers").style.display = isAdmin() ? "" : "none";
+    const showP = p => { $("ptsW").value = p.w; $("ptsT").value = p.t; $("ptsL").value = p.l; $("ptsO").value = p.o; };
+    showP(orgKey === currentOrg ? ptsCfg : PTS_DEF);
+    if(orgKey !== currentOrg) ref(orgKey + "/config/points").once("value").then(s3 => { if(orgKey === manageOrgKey) showP(normPts(s3.val())); });
     const showS = n => document.querySelectorAll("input[name=scorersN]").forEach(x => { x.checked = Number(x.value) === n; });
     showS(orgKey === currentOrg ? (twoScorers ? 2 : 1) : 1);
     if(orgKey !== currentOrg) ref(orgKey + "/config/scorers").once("value").then(s2 => { if(orgKey === manageOrgKey) showS(s2.val() === 2 ? 2 : 1); });
@@ -3916,6 +3937,16 @@ document.addEventListener("DOMContentLoaded", function(){
     box.style.display = exportCfg.pdf || exportCfg.csv ? "" : "none";
     box.classList.toggle("one", exportCfg.pdf !== exportCfg.csv);
   }
+  ["ptsW", "ptsT", "ptsL", "ptsO"].forEach(id => on(id, "change", () => {
+    if(!isAdmin()) return;
+    const p = normPts({ w: $("ptsW").value, t: $("ptsT").value, l: $("ptsL").value, o: $("ptsO").value });
+    ["W", "T", "L", "O"].forEach(k => { $("pts" + k).value = p[k.toLowerCase()]; });
+    ref(manageOrgKey + "/config/points").set(p);
+    if(manageOrgKey === currentOrg){ ptsCfg = p; try{ if(isOpen("standBlock")) renderStandings(); }catch(e){} }
+    // confirmation discrète (sans fenêtre, pour pouvoir changer les 4 cases de suite)
+    const st = $("ptsSaved"); st.textContent = "✓ Enregistré : victoire " + ptsTxt(p.w) + ", nulle " + ptsTxt(p.t) + ", défaite " + ptsTxt(p.l) + ", défaite en prolongation " + ptsTxt(p.o) + ".";
+    clearTimeout(st._t); st._t = setTimeout(() => { st.textContent = ""; }, 5000);
+  }));
   document.querySelectorAll("input[name=scorersN]").forEach(x => x.addEventListener("change", () => {
     if(!isAdmin() || !x.checked) return;
     const n = Number(x.value) === 2 ? 2 : 1;
@@ -5902,7 +5933,8 @@ document.addEventListener("DOMContentLoaded", function(){
     try{ renderTeamCal(); }catch(e){}
     if(!isOpen("standBlock")) return;
     const tbl = $("standTable"); tbl.textContent = "";
-    setText("standSub", "Saison " + seasonLabel(seasonOf(Date.now())) + " · " + String(currentCat).toUpperCase() + " · victoire 2 pts, défaite en prolongation 1 pt, nulle 1 pt");
+    const P = ptsCfg;
+    setText("standSub", "Saison " + seasonLabel(seasonOf(Date.now())) + " · " + String(currentCat).toUpperCase() + " · victoire " + ptsTxt(P.w) + ", nulle " + ptsTxt(P.t) + ", défaite " + ptsTxt(P.l) + ", défaite en prolongation " + ptsTxt(P.o));
     if(!historyLoaded){ tbl.appendChild(el("tr", null, "Chargement…")); return; }
     const keys = {}, games = [];
     const sy = seasonOf(Date.now());
@@ -5918,7 +5950,7 @@ document.addEventListener("DOMContentLoaded", function(){
     });
     // Toutes les équipes de la catégorie paraissent, même sans partie jouée (ordre alphabétique avant le début de la saison)
     Object.keys(presets).forEach(k => { const p = presets[k]; if(p && p.name && p.category === currentCat) row(p.name); });
-    const rows = Object.keys(T).map(k => T[k]); rows.forEach(r => { r.pts = r.v * 2 + r.dp + r.nu; r.dif = r.bp - r.bc; });
+    const rows = Object.keys(T).map(k => T[k]); rows.forEach(r => { r.pts = r.v * P.w + r.dp * P.o + r.nu * P.t + r.d * P.l; r.dif = r.bp - r.bc; });
     rows.sort((x, y) => y.pts - x.pts || y.v - x.v || y.dif - x.dif || x.pj - y.pj || x.n.localeCompare(y.n, "fr", { numeric: true }));
     if(!games.length) setText("standSub", "La saison n'est pas encore commencée · " + String(currentCat).toUpperCase() + " · équipes en ordre alphabétique");
     if(!rows.length){ const tr = el("tr"), td = el("td", null, "Aucune équipe dans cette catégorie."); td.colSpan = 13; td.style.textAlign = "center"; tr.appendChild(td); tbl.appendChild(tr); return; }
