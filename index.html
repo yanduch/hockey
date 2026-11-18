@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611181014">
+<meta name="build" content="202611181030">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2122,6 +2122,25 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
   </div>
 </dialog>
 
+<dialog id="phaseDlg">
+  <div class="sheet-in">
+    <h2>Type de partie</h2>
+    <p class="ctx" id="phaseCtx"></p>
+    <div class="ph-choice" id="phaseChoice">
+      <label class="check-row"><input type="radio" name="phPick" value="pre"><span>Pré-saison</span></label>
+      <label class="check-row"><input type="radio" name="phPick" value="reg"><span>Saison régulière</span></label>
+      <label class="check-row"><input type="radio" name="phPick" value="tour"><span>Tournoi</span></label>
+    </div>
+    <div id="phTourBox" style="display:none;margin-top:.6rem">
+      <label for="phTourSel">Tournoi :</label>
+      <select id="phTourSel" class="full-input"></select>
+      <label for="phTourGame" style="margin-top:.5rem;display:block">Partie du tournoi (pour y inscrire le pointage) :</label>
+      <select id="phTourGame" class="full-input"></select>
+    </div>
+    <div class="actions"><button type="button" class="act-2" id="phCancel">Annuler</button><button type="button" class="act-1" id="phSave">Enregistrer</button></div>
+  </div>
+</dialog>
+
 <dialog id="installSheet">
   <div class="sheet-in">
     <h2>Installer sur l'écran d'accueil</h2>
@@ -2460,7 +2479,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611181014";
+  var BUILD = "202611181030";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6399,6 +6418,58 @@ document.addEventListener("DOMContentLoaded", function(){
       hmLoad();
     });
   }
+  // Changer le type d'une partie enregistrée (pré-saison, saison régulière, tournoi) et, pour un tournoi, la relier à sa partie
+  let phEntry = null;
+  function phToursFor(h){
+    if(hmOrg !== currentOrg) return [];
+    return Object.keys(catTours).filter(id => { const t = tourOf(catTours[id]); const has = n => Object.keys(t.teams || {}).some(k => presets[k] && tSame(presets[k].name, n)) || t.rounds.some(r => r.games.some(g => tSame(g.a, n) || tSame(g.b, n)));
+        return has(h.a) || has(h.b) || id.split("/")[0] === hmCat; })
+      .sort((x, y) => { const d = t => Math.abs((new Date(tourOf(catTours[t]).start).getTime() || 0) - h.at); return d(x) - d(y); });
+  }
+  function phFillGames(){
+    const h = phEntry, id = $("phTourSel").value, t = id && catTours[id] ? tourOf(catTours[id]) : null, items = [];
+    let pick = null;
+    if(t) t.rounds.forEach((r, ri) => r.games.forEach((g, gi) => { if(!g.a && !g.b) return;
+      const match = (tSame(g.a, h.a) && tSame(g.b, h.b)) || (tSame(g.a, h.b) && tSame(g.b, h.a)), done = g.sa !== "" && g.sb !== "";
+      const v = ri + "/" + gi, cur = h.m.tour === id + "/" + v;
+      if(cur || (match && !pick && !(done && g.histKey && g.histKey !== h.key))) pick = cur ? v : (pick || v);
+      items.push({ value: v, label: (match ? "✓ " : "") + (g.when ? g.when + " · " : "") + (r.name || (r.pool ? "Poule" : "Ronde")) + " : " + (g.b || "?") + " @ " + (g.a || "?") + (done ? " (" + g.sb + "-" + g.sa + ")" : ""), o: match ? 0 : 1, i: items.length }); }));
+    items.sort((x, y) => x.o - y.o || x.i - y.i);
+    fillSelect($("phTourGame"), items, pick, t ? "Aucune (seulement le type)" : "—");
+  }
+  function phShow(){
+    const v = (document.querySelector("input[name=phPick]:checked") || {}).value, tours = phToursFor(phEntry);
+    $("phTourBox").style.display = v === "tour" && tours.length ? "" : "none";
+  }
+  function openPhaseDlg(h){
+    phEntry = h; const cur = phaseOfM(h.m);
+    $("phaseCtx").textContent = h.b + " @ " + h.a + " · " + h.gB + "-" + h.gA + " · " + (dateOf(h.at) || "—");
+    document.querySelectorAll("input[name=phPick]").forEach(r => { r.checked = r.value === cur; });
+    const tours = phToursFor(h), curT = h.m.tour ? String(h.m.tour).split("/").slice(0, 2).join("/") : "";
+    fillSelect($("phTourSel"), tours.map(id => ({ value: id, label: "🏆 " + tourOf(catTours[id]).name })), tours.indexOf(curT) >= 0 ? curT : (tours[0] || null), tours.length ? null : "Aucun tournoi");
+    phFillGames(); phShow(); openDlg("phaseDlg");
+  }
+  document.querySelectorAll("input[name=phPick]").forEach(r => r.addEventListener("change", phShow));
+  on("phTourSel", "change", phFillGames);
+  on("phCancel", "click", () => closeDlg("phaseDlg"));
+  on("phSave", "click", () => {
+    const h = phEntry; if(!h || currentRole === "viewer") return;
+    const np = (document.querySelector("input[name=phPick]:checked") || {}).value || "pre";
+    const tid = $("phTourSel").value, gv = $("phTourGame").value;
+    const tour = np === "tour" && tid && gv && $("phTourBox").style.display !== "none" ? tid + "/" + gv : "";
+    const base = hmOrg + "/" + hmCat + "/history/" + h.key;
+    // ancienne partie de tournoi reliée : on retire le pointage qui venait de cette partie
+    if(h.m.tour && h.m.tour !== tour){ const p = String(h.m.tour).split("/"); if(p.length === 4){ const tb = hmOrg + "/" + p[0] + "/tournaments/" + p[1] + "/rounds/" + p[2] + "/games/" + p[3];
+      ref(tb).once("value").then(s2 => { const g = s2.val(); if(g && g.histKey === h.key){ ref(tb + "/sa").set(""); ref(tb + "/sb").set(""); ref(tb + "/histKey").remove(); } }); } }
+    ref(base + "/phase").set(np); ref(base + "/tour").set(tour);
+    h.m.phase = np; h.m.tour = tour;
+    if(tour){ const p = tour.split("/"), tb = hmOrg + "/" + p[0] + "/tournaments/" + p[1] + "/rounds/" + p[2] + "/games/" + p[3];
+      ref(tb).once("value").then(s2 => { const g = s2.val(); if(!g) return; const flip = tSame(h.a, g.b) && !tSame(h.a, g.a);
+        ref(tb + "/sa").set(flip ? h.gB : h.gA); ref(tb + "/sb").set(flip ? h.gA : h.gB); ref(tb + "/histKey").set(h.key); }); }
+    if(hmOrg === currentOrg && hmCat === currentCat && state.histKey === h.key){ state.phase = np; state.tour = tour; commit(); }
+    closeDlg("phaseDlg"); hmRender();
+    notify("Partie classée en " + PHASE_LONG[np].toLowerCase().replace(/s$/, "") + (tour ? ", pointage inscrit dans le tournoi" : "") + ".", "ok");
+  });
   function hmLoad(){
     const token = ++hmToken, path = hmOrg + "/" + hmCat + "/history";
     hmList = []; hmRender(true);
@@ -6437,14 +6508,7 @@ document.addEventListener("DOMContentLoaded", function(){
         publishEntry(hmOrg, hmCat, h, hmList); hmRender();
         notify("Version du marqueur " + (h.m.scorer === 2 ? 2 : 1) + " publiée dans les statistiques.", "ok");
       })] : []).concat([
-      btn("btn-edit", "🏷 → " + PHASE_LABEL[{ pre: "reg", reg: "tour", tour: "pre" }[phaseOfM(h.m)]], () => {
-        if(currentRole === "viewer") return;
-        const np = { pre: "reg", reg: "tour", tour: "pre" }[phaseOfM(h.m)];
-        ref(hmOrg + "/" + hmCat + "/history/" + h.key + "/phase").set(np);
-        h.m.phase = np; hmRender();
-        if(hmOrg === currentOrg && hmCat === currentCat && state.histKey === h.key){ state.phase = np; commit(); }
-        notify("Partie classée en " + PHASE_LABEL[np].toLowerCase() + ".", "ok");
-      }),
+      btn("btn-edit", "🏷 Type : " + PHASE_LABEL[phaseOfM(h.m)] + "…", () => { if(currentRole !== "viewer") openPhaseDlg(h); }),
       btn("btn-edit", "✏️ Modifier", () => hmEdit(h)),
       btn("btn-hist-del", "🗑 Supprimer", () => {
         if(currentRole === "viewer") return;
