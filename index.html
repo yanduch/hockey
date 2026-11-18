@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611181045">
+<meta name="build" content="202611181331">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2484,7 +2484,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611181045";
+  var BUILD = "202611181331";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5706,6 +5706,8 @@ document.addEventListener("DOMContentLoaded", function(){
     if(state.timer.running){ state.timer.sec = remaining(); state.timer.running = false; }
     else {
       if(state.timer.sec <= 0){ openTimerSheet(); return; }     // chrono à zéro : on demande le temps à remettre
+      // le temps des punitions suspendu repart avec le chrono
+      const pp = state.penPause; if(pp && pp.since >= 0){ pp.acc += Math.max(0, gNow() - pp.since); pp.since = -1; penSig = ""; }
       state.timer.running = true; state.timer.lastUpdate = now(); state.finished = false; state.closed = false;
     }
     commit();
