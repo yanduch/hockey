@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611180929">
+<meta name="build" content="202611180932">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2460,7 +2460,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611180929";
+  var BUILD = "202611180932";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2917,14 +2917,14 @@ document.addEventListener("DOMContentLoaded", function(){
     if(st.dataset.full !== txt){
       st.dataset.full = txt; st.textContent = "";
       st.appendChild(el("span", "sr", txt));
-      if(currentRole !== "viewer"){ const v = el("span", null, roleLabel()); v.setAttribute("aria-hidden", "true"); st.appendChild(v);
-        // personnel connecté : nombre d'appareils qui regardent ce tableau en ce moment, bien visible
+      if(currentRole !== "viewer"){ const v = el("span", null, roleLabel()); v.setAttribute("aria-hidden", "true"); st.appendChild(v); }
+      { // tout le monde : nombre d'appareils qui regardent ce tableau en ce moment, bien visible
         const c = el("span", "st-count", "👁 " + onlineCount); c.setAttribute("aria-hidden", "true"); c.title = onlineCount + (onlineCount > 1 ? " appareils regardent" : " appareil regarde") + " ce tableau en ce moment"; st.appendChild(c); }
       st.title = txt;
     }
     st.dataset.s = live && !simOn ? "live" : "idle";
   }
-  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + (currentRole !== "viewer" ? "\n👁 " + onlineCount + (onlineCount > 1 ? " appareils regardent" : " appareil regarde") + " ce tableau en ce moment (vous compris)." : ""), "info"); });
+  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + (true ? "\n👁 " + onlineCount + (onlineCount > 1 ? " appareils regardent" : " appareil regarde") + " ce tableau en ce moment (vous compris)." : ""), "info"); });
   function applyInv(){
     document.documentElement.classList.toggle("inv", invOn());
     $("btnSwapSides").setAttribute("aria-pressed", String(invOn()));
