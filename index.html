@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611152157">
+<meta name="build" content="202611180848">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -673,6 +673,10 @@ body:not(.role-viewer) .g-who{display:none}
 .str-tag{display:inline-block;margin-left:.4rem;padding:0 .35rem;border-radius:5px;font-size:.68rem;font-weight:800;vertical-align:middle;letter-spacing:.03em}
 .str-tag.pp{background:#2E9E5B;color:#fff}
 .str-tag.sh{background:#D0473F;color:#fff}
+.str-tag.fd{background:#6B5BD6;color:#fff}
+.btn.goalie.en{background:#6B5BD6 !important;color:#fff !important;border-color:#6B5BD6 !important}
+.en-btn{justify-content:center;font-weight:800;border-style:dashed !important}
+.en-btn.on{background:rgba(107,91,214,.18) !important}
 /* --- Punitions bien visibles dans le pas à pas --- */
 .event-row.pen{--team:#C4202E;background:rgba(196,32,46,.12);box-shadow:inset 0 0 0 1px rgba(196,32,46,.35)}
 .event-row.pen .info strong, .event-row.pen .time{color:#C4202E}
@@ -2445,7 +2449,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611152157";
+  var BUILD = "202611180848";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2710,6 +2714,7 @@ document.addEventListener("DOMContentLoaded", function(){
       rosters: { a: [], b: [] },
       staff: { a: [], b: [] },
       goalies: { a: "", b: "" },         // gardien devant le filet (identifiant du joueur)
+      en: { a: false, b: false },        // filet désert : gardien retiré pour un attaquant de plus
       teamKeys: { a: "", b: "" },        // équipes enregistrées choisies au lancement de la partie
       closed: false,                     // partie terminée ET décision prise sur la sauvegarde (enregistrée ou refusée)
       shots: { a: [0,0,0,0], b: [0,0,0,0] },
@@ -2748,6 +2753,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(d.staff && typeof d.staff === "object"){ s.staff.a = toArr(d.staff.a).map(normStaff); s.staff.b = toArr(d.staff.b).map(normStaff); }
     if(d.teamKeys && typeof d.teamKeys === "object"){ s.teamKeys.a = cleanKey(d.teamKeys.a); s.teamKeys.b = cleanKey(d.teamKeys.b); }
     if(d.goalies && typeof d.goalies === "object"){ s.goalies.a = String(d.goalies.a || ""); s.goalies.b = String(d.goalies.b || ""); }
+    s.en = { a: !!(d.en && d.en.a), b: !!(d.en && d.en.b) };
     s.period = int(d.period,0,3);
     ["a","b"].forEach(t => { for(let i = 0; i < 4; i++) s.shots[t][i] = int(d.shots && d.shots[t] && d.shots[t][i], 0, 999); });
     s.events = toArr(d.events).filter(e => e && typeof e === "object" && e.type).map(e => {
@@ -2819,6 +2825,7 @@ document.addEventListener("DOMContentLoaded", function(){
     for(let i = 0; i < s.events.length; i++){
       const e = s.events[i];
       if(e.team !== opp || (e.type !== "shot" && e.type !== "goal")) continue;
+      if(e.g === "__en"){ total++; continue; }                // filet désert : ne compte pas contre le gardien
       const l = line(e.g || def); l.sa++; total++; if(e.type === "goal") l.ga++;
     }
     const diff = sum(s.shots[opp]) - total;                 // anciens matchs : compteur et fil pas toujours alignés
@@ -6668,7 +6675,10 @@ document.addEventListener("DOMContentLoaded", function(){
       const U = side.toUpperCase(), roster = state.rosters[side], cur = goalieOf(state, side);
       setText("gName" + U, state.names[side]);
       setText("gWho" + U, cur ? "Gardien : " + playerLabel(roster, cur) : "Gardien");
-      setText("padGoalie" + U, "🥅 " + (cur ? playerLabel(roster, cur) : "Gardien"));
+      const enS = !!(state.en && state.en[side]);
+      setText("padGoalie" + U, enS ? "🚫 Filet désert" : "🥅 " + (cur ? playerLabel(roster, cur) : "Gardien"));
+      $("padGoalie" + U).classList.toggle("en", enS);
+      if(enS) setText("gWho" + U, "Filet désert (gardien retiré)");
       const l = goalieLines(state, side)[cur] || { sa: 0, ga: 0 };
       if(!l.sa){ setText("sv" + U, "–"); setText("svSub" + U, "Aucun lancer reçu"); }
       else { setText("sv" + U, svPct(l.sa, l.ga)); const sv = Math.max(0, l.sa - l.ga); setText("svSub" + U, sv + (sv > 1 ? " arrêts / " : " arrêt / ") + l.sa + (l.sa > 1 ? " lancers" : " lancer")); }
@@ -6710,7 +6720,7 @@ document.addEventListener("DOMContentLoaded", function(){
     gFixSide = side;
     const r = state.rosters[side], lab = pid => playerLabel(r, pid) || "Gardien", used = [];
     const add = pid => { if(pid && used.indexOf(pid) === -1) used.push(pid); };
-    add(goalieOf(state, side)); Object.keys(goalieLines(state, side)).forEach(add);
+    add(goalieOf(state, side)); Object.keys(goalieLines(state, side)).filter(k => k !== "__en").forEach(add);
     state.events.forEach(e => { if(e.type === "goalie" && e.team === side){ add(e.player); add(e.prev); } });
     if(!used.length){ notify("Aucun gardien n'est inscrit pour cette équipe.", "info"); return; }
     $("gFixCtx").textContent = state.names[side];
@@ -6762,6 +6772,17 @@ document.addEventListener("DOMContentLoaded", function(){
     return true;
   }
   ["a","b"].forEach(side => on("gSel" + side.toUpperCase(), "change", e => { if(!setGoalie(side, e.target.value)) render(); }));
+  // Filet désert : retirer le gardien (6e attaquant), puis le remettre
+  function setEmptyNet(side, out){
+    if(!canEdit()) return;
+    const cur = goalieOf(state, side), opp = side === "a" ? "b" : "a";
+    if(!!(state.en && state.en[side]) === out) return;
+    state.events.forEach(ev => { if(ev.team === opp && (ev.type === "shot" || ev.type === "goal") && !ev.g) ev.g = cur; });
+    state.en = state.en || { a: false, b: false }; state.en[side] = out;
+    if(isStarted(state)) state.events.push({ id: uid(), type: "goalie", team: side, period: state.period, time: formatTime(remaining()), player: cur || "", prev: "", en: out ? 1 : 0, back: out ? 0 : 1, t: now() });
+    commit();
+    notify(out ? state.names[side] + " : gardien retiré, filet désert." : state.names[side] + " : le gardien est de retour devant le filet.", "ok");
+  }
 
   function openGoalieSheet(side){
     if(!canEdit()) return;
@@ -6772,17 +6793,25 @@ document.addEventListener("DOMContentLoaded", function(){
       const p = el("p", "empty", "Aucun gardien dans cette équipe. Ajoutez un joueur à la position G dans la fiche de l'équipe (Gestion).");
       p.style.gridColumn = "1/-1"; grid.appendChild(p);
     }
+    // retirer / remettre le gardien (filet désert)
+    const en = !!(state.en && state.en[side]), enB = el("button", "btn-player en-btn" + (en ? " on" : "")); enB.type = "button"; enB.dataset.en = en ? "back" : "out";
+    enB.style.gridColumn = "1/-1";
+    enB.appendChild(el("span", null, en ? "↩ Remettre le gardien" + (cur ? " (" + playerLabel(state.rosters[side], cur) + ")" : "") : "🚫 Retirer le gardien (filet désert)"));
+    if(isStarted(state) && (cur || en)) grid.appendChild(enB);
     items.forEach(it => {
-      const b = el("button", "btn-player" + (it.value === cur ? " buteur" : "")); b.type = "button"; b.dataset.val = it.value;
+      const b = el("button", "btn-player" + (it.value === cur && !en ? " buteur" : "")); b.type = "button"; b.dataset.val = it.value;
       b.appendChild(el("span", null, it.label));
-      if(it.value === cur) b.appendChild(el("span", "role-tag", "🥅 En poste"));
+      if(it.value === cur) b.appendChild(el("span", "role-tag", en ? "Retiré" : "🥅 En poste"));
       grid.appendChild(b);
     });
     openDlg("goalieSheet");
   }
   on("goaliePickGrid", "click", e => {
+    const side0 = $("goaliePickGrid").dataset.side, be = e.target.closest("button[data-en]");
+    if(be){ closeDlg("goalieSheet"); setEmptyNet(side0, be.dataset.en === "out"); return; }
     const b = e.target.closest("button[data-val]"); if(!b) return;
-    setGoalie($("goaliePickGrid").dataset.side, b.dataset.val); closeDlg("goalieSheet");
+    if(state.en && state.en[side0]){ state.en[side0] = false; }   // choisir un gardien le remet devant le filet
+    setGoalie(side0, b.dataset.val) || commit(); closeDlg("goalieSheet");
   });
   on("goalieCancel", "click", () => closeDlg("goalieSheet"));
 
@@ -7138,6 +7167,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const st = el("strong"), subl = el("span"), team = state.names[e.team] || "";
       if(e.type === "goal"){
         st.textContent = "BUT - " + team + " (" + getPlayerName(e.team, e.scorer) + ")";
+        if(e.g === "__en"){ const tg = el("span", "str-tag fd", "FD"); tg.title = "But dans un filet désert"; st.appendChild(tg); }
         if(strg[e.id]){ const tg = el("span", "str-tag " + strg[e.id], strg[e.id] === "pp" ? "AN" : "DN"); tg.title = STR_LABEL[strg[e.id]]; st.appendChild(tg); }
         if(e.a1 || e.a2){
           subl.appendChild(document.createTextNode((e.a1 && e.a2) ? "Passes : " : "Passe : "));
@@ -7148,6 +7178,9 @@ document.addEventListener("DOMContentLoaded", function(){
       } else if(e.type === "pen"){
         st.textContent = "PUNITION - " + team + " (" + getPlayerName(e.team, e.player) + ")";
         subl.textContent = (e.min || 2) + " min - " + (e.reason || "Infraction");
+      } else if(e.type === "goalie" && (e.en || e.back)){
+        st.textContent = (e.en ? "FILET DÉSERT - " : "GARDIEN DE RETOUR - ") + team + (e.player ? " (" + getPlayerName(e.team, e.player) + ")" : "");
+        subl.textContent = e.en ? "Gardien retiré pour un attaquant de plus" : "Le gardien revient devant le filet";
       } else if(e.type === "goalie"){
         st.textContent = "GARDIEN - " + team + " (" + getPlayerName(e.team, e.player) + ")";
         subl.textContent = e.prev ? "Changement de gardien, remplace " + getPlayerName(e.team, e.prev) : "Entre devant le filet";
@@ -7523,7 +7556,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!hasGame(state)){ notify("Lancez d'abord une partie avec « Commencer une nouvelle partie ».", "info"); return; }
     const b = e.target.closest("button[data-act]"); if(!b) return;
     const t = b.dataset.team, p = state.period, act = b.dataset.act, curTime = formatTime(remaining());
-    const net = goalieOf(state, t === "a" ? "b" : "a");        // gardien adverse en poste au moment de l'action
+    const net = state.en && state.en[t === "a" ? "b" : "a"] ? "__en" : goalieOf(state, t === "a" ? "b" : "a");   // gardien adverse en poste (ou filet désert)
 
     if(act === "shot"){
       state.shots[t][p] = Math.min(999, state.shots[t][p] + 1);
