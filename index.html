@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611180932">
+<meta name="build" content="202611181014">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2460,7 +2460,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611180932";
+  var BUILD = "202611181014";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6815,7 +6815,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const en = !!(state.en && state.en[side]), enB = el("button", "btn-player en-btn" + (en ? " on" : "")); enB.type = "button"; enB.dataset.en = en ? "back" : "out";
     enB.style.gridColumn = "1/-1";
     enB.appendChild(el("span", null, en ? "↩ Remettre le gardien" + (cur ? " (" + playerLabel(state.rosters[side], cur) + ")" : "") : "🚫 Retirer le gardien (filet désert)"));
-    if(isStarted(state) && (cur || en)) grid.appendChild(enB);
+    if(isStarted(state)) grid.appendChild(enB);   // toujours offert pendant la partie, même sans gardien désigné
     items.forEach(it => {
       const b = el("button", "btn-player" + (it.value === cur && !en ? " buteur" : "")); b.type = "button"; b.dataset.val = it.value;
       b.appendChild(el("span", null, it.label));
