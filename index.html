@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611180848">
+<meta name="build" content="202611180856">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -675,6 +675,8 @@ body:not(.role-viewer) .g-who{display:none}
 .str-tag.sh{background:#D0473F;color:#fff}
 .str-tag.fd{background:#6B5BD6;color:#fff}
 .btn.goalie.en{background:#6B5BD6 !important;color:#fff !important;border-color:#6B5BD6 !important}
+.en-row{display:flex;gap:.5rem;align-items:center;padding:.5rem .6rem;border:1px dashed rgba(107,91,214,.6);border-radius:10px;font-weight:700;font-size:.9rem}
+.en-row small{font-weight:500;opacity:.75}
 .en-btn{justify-content:center;font-weight:800;border-style:dashed !important}
 .en-btn.on{background:rgba(107,91,214,.18) !important}
 /* --- Punitions bien visibles dans le pas à pas --- */
@@ -2094,6 +2096,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
       </div>
     </div>
     
+    <label class="check-row en-row" style="margin-top:.7rem;"><input type="checkbox" id="gsEN"><span>🚫 But dans un filet désert <small>(ne compte pas contre le gardien)</small></span></label>
+
     <div class="actions" style="margin-top:1rem;">
       <button type="button" class="act-2" id="gsCancel">Annuler</button>
       <button type="button" class="act-1" id="gsSave">Terminer / Enregistrer</button>
@@ -2449,7 +2453,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611180848";
+  var BUILD = "202611180856";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -7389,6 +7393,13 @@ document.addEventListener("DOMContentLoaded", function(){
       .sort((x, y) => x.g - y.g || x.i - y.i).map(x => x.e);
   }
 
+  // But dans un filet désert (coché à la main, aussi après la partie) : il ne compte pas contre le gardien
+  function setGoalEN(g, on){
+    const opp = g.team === "a" ? "b" : "a";
+    if(on) g.g = "__en";
+    else if(g.g === "__en") g.g = goalieOf(state, opp) || "";
+    if(g.g === "") delete g.g;
+  }
   function openGoal(id, isNew, pend){
     const g = pend || findEvent(id); if(!g) return;
     curGoal = { id: id, isNew: isNew, pend: pend || null, team: g.team, scorer: g.scorer || "", a1: g.a1 || "", a2: g.a2 || "" };
@@ -7396,6 +7407,7 @@ document.addEventListener("DOMContentLoaded", function(){
     $("gsTitle").textContent = (isNew ? "But de " : "But, ") + state.names[g.team];
     $("gsCtx").textContent = PLONG[g.period] + " (" + g.time + ")"; whenFill("gs", g.period, g.time);
     $("gsDelete").hidden = isNew;
+    $("gsEN").checked = g.g === "__en";
     renderPlayerPickGrid(); openDlg("goalSheet");
   }
 
@@ -7468,7 +7480,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(pg){
         pg.period = w.period; pg.time = w.time;
         // Nouveau but : inscrit maintenant, avec le temps noté quand on a touché « But »
-        pg.scorer = curGoal.scorer; pg.a1 = curGoal.a1; pg.a2 = curGoal.a2;
+        pg.scorer = curGoal.scorer; pg.a1 = curGoal.a1; pg.a2 = curGoal.a2; setGoalEN(pg, $("gsEN").checked);
         let i = state.events.length; while(i > 0 && (state.events[i - 1].t || 0) > pg.t) i--;
         state.events.splice(i, 0, pg);
         state.shots[pg.team][pg.period] = Math.min(999, (state.shots[pg.team][pg.period] || 0) + 1);
@@ -7478,7 +7490,7 @@ document.addEventListener("DOMContentLoaded", function(){
         if(g){
           // Période changée : le lancer du but suit
           if(w.period !== g.period){ state.shots[g.team][g.period] = Math.max(0, (state.shots[g.team][g.period] || 0) - 1); state.shots[g.team][w.period] = Math.min(999, (state.shots[g.team][w.period] || 0) + 1); }
-          g.scorer = curGoal.scorer; g.a1 = curGoal.a1; g.a2 = curGoal.a2; g.period = w.period; g.time = w.time; sortEvents(); commit();
+          g.scorer = curGoal.scorer; g.a1 = curGoal.a1; g.a2 = curGoal.a2; g.period = w.period; g.time = w.time; setGoalEN(g, $("gsEN").checked); sortEvents(); commit();
         }
       }
     }
