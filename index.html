@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611181037">
+<meta name="build" content="202611181045">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2484,7 +2484,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611181037";
+  var BUILD = "202611181045";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -4728,14 +4728,25 @@ document.addEventListener("DOMContentLoaded", function(){
 
   // Partie marquée en direct puis enregistrée : son résultat est reporté sur la partie du calendrier
   function calSyncResult(){
-    if(!state.calId || !state.histKey) return;
+    if(!state.calId || !state.histKey || state.phase === "tour") return;      // partie de tournoi : le résultat va dans le tournoi
     const r = ref(catBase() + "/calendar/" + state.calId);
     r.child("scoreA").set(goalsOf("a")); r.child("scoreB").set(goalsOf("b"));
     r.child("end").set(state.period === 3 ? "OT" : ""); r.child("histKey").set(state.histKey);
   }
   // Partie de tournoi : le pointage est inscrit dans le tournoi (poule ou arbre)
+  // Partie lancée en « Tournoi » sans choisir la partie : on trouve celle du jour avec les mêmes équipes
+  function tourFind(na, nb, day, hk){
+    let found = "";
+    Object.keys(catTours).forEach(id => { if(found) return; const t = tourOf(catTours[id]); if(!t.start || t.start > day || (t.end || t.start) < day) return;
+      t.rounds.forEach((r, ri) => r.games.forEach((g, gi) => { if(found) return; const raw = toArr(toArr(catTours[id].rounds)[ri].games)[gi] || {};
+        const same = (tSame(g.a, na) && tSame(g.b, nb)) || (tSame(g.a, nb) && tSame(g.b, na));
+        if(same && (g.sa === "" || !raw.histKey || raw.histKey === hk)) found = id + "/" + ri + "/" + gi; })); });
+    return found;
+  }
   function tourSyncResult(){
-    if(!state.tour || state.phase !== "tour") return;
+    if(state.phase !== "tour") return;
+    if(!state.tour){ const f = tourFind(state.names.a, state.names.b, (dateOf(state.playedAt || state.updatedAt || Date.now()) || todayStr()), state.histKey); if(!f) return;
+      state.tour = f; if(state.histKey) ref(catBase() + "/history/" + state.histKey + "/tour").set(f); }
     const p = state.tour.split("/"); if(p.length !== 4) return;
     const base = currentOrg + "/" + p[0] + "/tournaments/" + p[1] + "/rounds/" + p[2] + "/games/" + p[3];
     ref(base).once("value").then(s => { const g = s.val(); if(!g) return;
@@ -5978,8 +5989,8 @@ document.addEventListener("DOMContentLoaded", function(){
   // Classement de la catégorie : parties de SAISON seulement (V = 2 pts, défaite en prolongation ou fusillade = 1, nulle = 1)
   // Tournoi de la partie en cours (clé « catégorie/id ») : le classement montre alors le tournoi par défaut
   function liveTourId(){
-    if(state.phase !== "tour" || !state.tour || !isStarted(state)) return "";
-    const p = String(state.tour).split("/"); const id = p[0] + "/" + p[1];
+    if(state.phase !== "tour" || !isStarted(state)) return "";
+    const p = String(state.tour || tourFind(state.names.a, state.names.b, todayStr(), state.histKey)).split("/"); const id = p[0] + "/" + p[1];
     return p.length === 4 && catTours[id] ? id : "";
   }
   // Tournoi en cours aujourd'hui dans la catégorie (pour offrir l'onglet même sans partie en direct)
@@ -6604,7 +6615,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(old && typeof old === "object") entry.unpub = old.unpub || null;          // déjà sauvegardée : on garde le choix de l'administrateur
       else if(slot === 2) entry.unpub = twins.some(h => !h.m.unpub) ? true : null;
       else { entry.unpub = null; twins.forEach(h => { if(!h.m.unpub) dbHistory.child(h.key + "/unpub").set(true); }); }
-      if(!entry.unpub){ calSyncResult(); tourSyncResult(); }
+      if(!entry.unpub){ calSyncResult(); tourSyncResult(); if(state.tour) entry.tour = state.tour; }
       dbHistory.child(state.histKey).set(entry, err => {
         if(err) notify("Échec de la sauvegarde : " + (err.message || err), "error");
         else notify("Partie sauvegardée dans l'historique !" + (entry.unpub ? "\nVersion du marqueur " + slot + " : pas publiée dans les statistiques (l'administrateur peut la choisir dans Gestion de l'historique)." : "") + "\nLe tableau reste modifiable à l'écran.");
