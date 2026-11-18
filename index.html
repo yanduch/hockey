@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611181030">
+<meta name="build" content="202611181037">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -509,6 +509,9 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tr-addround{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
 .tr-addround button,.tr-round .tr-addg{min-height:2.1rem;font-size:.82rem}
 .tour-card{margin:.4rem 0 1rem}
+.stand-tabs{display:flex;gap:.4rem;margin:.2rem 0 .6rem}
+.stand-tabs button{flex:1;min-height:2.2rem;border-radius:999px;border:1px solid var(--line, rgba(127,127,127,.35));background:transparent;color:inherit;font-weight:700;font-size:.85rem;padding:0 .6rem}
+.stand-tabs button.on{background:var(--accent, #5b8def);border-color:transparent;color:#fff}
 .tour-card h3{margin:.2rem 0;font-size:1.05rem}
 .tour-card h3.tour-h{cursor:pointer;display:flex;align-items:center;gap:.35rem}
 .tour-card h3.tour-h::after{content:"▾";margin-left:auto;font-size:.9rem;opacity:.7;transition:transform .15s}
@@ -1110,9 +1113,11 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
 
   <h2 class="toggle-title collapsed" id="toggleStandBtn">Classement</h2>
   <div class="toggle-block hidden" id="standBlock">
+    <div class="stand-tabs" id="standTabs" style="display:none"></div>
+    <div id="standTour"></div>
     <p class="stand-sub" id="standSub"></p>
-    <div class="stand-wrap"><table class="stand" id="standTable"></table></div>
-    <p class="stand-legend">PJ parties jouées · V victoires · D défaites · DP défaites en prolongation · N nulles · PTS points · BP buts pour · BC buts contre · DIF différentiel · BP/MJ et BC/MJ : buts pour et contre par match. Glissez le tableau vers la gauche pour tout voir.</p>
+    <div class="stand-wrap" id="standWrap"><table class="stand" id="standTable"></table></div>
+    <p class="stand-legend" id="standLegend">PJ parties jouées · V victoires · D défaites · DP défaites en prolongation · N nulles · PTS points · BP buts pour · BC buts contre · DIF différentiel · BP/MJ et BC/MJ : buts pour et contre par match. Glissez le tableau vers la gauche pour tout voir.</p>
   </div>
 
   <h2 class="toggle-title collapsed" id="toggleTeamCalBtn" style="display:none">Calendrier</h2>
@@ -2479,7 +2484,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611181030";
+  var BUILD = "202611181037";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5971,9 +5976,33 @@ document.addEventListener("DOMContentLoaded", function(){
 
   // Liste publique : consultation seulement (la suppression et la modification sont dans Gestion)
   // Classement de la catégorie : parties de SAISON seulement (V = 2 pts, défaite en prolongation ou fusillade = 1, nulle = 1)
+  // Tournoi de la partie en cours (clé « catégorie/id ») : le classement montre alors le tournoi par défaut
+  function liveTourId(){
+    if(state.phase !== "tour" || !state.tour || !isStarted(state)) return "";
+    const p = String(state.tour).split("/"); const id = p[0] + "/" + p[1];
+    return p.length === 4 && catTours[id] ? id : "";
+  }
+  // Tournoi en cours aujourd'hui dans la catégorie (pour offrir l'onglet même sans partie en direct)
+  function todayTourId(){
+    const td = todayStr();
+    return Object.keys(catTours).filter(id => { const t = tourOf(catTours[id]); if(!t.start || t.start > td || (t.end || t.start) < td) return false;
+      if(id.split("/")[0] === currentCat) return true; return Object.keys(t.teams).some(k => presets[k] && presets[k].category === currentCat); })[0] || "";
+  }
+  let standMode = "", standAutoFor = null;          // "" = automatique : tournoi si la partie en cours est de tournoi, sinon saison
   function renderStandings(){
     try{ renderTeamCal(); }catch(e){}
     if(!isOpen("standBlock")) return;
+    const ltid = liveTourId(), tid = ltid || todayTourId();
+    if(standAutoFor !== ltid){ standAutoFor = ltid; standMode = ""; }      // la partie en cours change de type : on revient au choix automatique
+    const mode = tid ? (standMode || (ltid ? "tour" : "reg")) : "reg";
+    const tabs = $("standTabs"); tabs.textContent = ""; tabs.style.display = tid ? "" : "none";
+    if(tid){ [["tour", "🏆 " + tourOf(catTours[tid]).name], ["reg", "Saison régulière"]].forEach(x => {
+        const b = el("button", mode === x[0] ? "on" : null, x[1]); b.type = "button"; b.setAttribute("aria-pressed", mode === x[0] ? "true" : "false");
+        b.addEventListener("click", () => { standMode = x[0]; renderStandings(); }); tabs.appendChild(b); }); }
+    const tv = $("standTour"); tv.textContent = "";
+    ["standSub", "standWrap", "standLegend"].forEach(id => { $(id).style.display = mode === "tour" ? "none" : ""; });
+    if(mode === "tour"){ const key = teamCalKey(), meName = key && presets[key] ? presets[key].name : "";
+      tv.appendChild(tourCard(tid, tourOf(catTours[tid]), meName)); return; }
     const tbl = $("standTable"); tbl.textContent = "";
     const P = ptsCfg;
     setText("standSub", "Saison " + seasonLabel(seasonOf(Date.now())) + " · " + String(currentCat).toUpperCase() + " · victoire " + ptsTxt(P.w) + ", nulle " + ptsTxt(P.t) + ", défaite " + ptsTxt(P.l) + ", défaite en prolongation " + ptsTxt(P.o));
@@ -6104,7 +6133,7 @@ document.addEventListener("DOMContentLoaded", function(){
       sub(ref(org + "/" + c + "/tournaments"), snap => { if(org !== currentOrg) return;
         Object.keys(catTours).forEach(k => { if(k.indexOf(c + "/") === 0) delete catTours[k]; });
         const v = obj(snap.val()); Object.keys(v).forEach(id => { if(v[id]) catTours[c + "/" + id] = v[id]; });
-        try{ renderTours(); renderTeamCal(); updateTickerDisplay(); }catch(e){} }); });
+        try{ renderTours(); renderTeamCal(); updateTickerDisplay(); if(isOpen("standBlock")) renderStandings(); }catch(e){} }); });
   }
   function tourTeams(t){ const o = {}; if(t && t.team) o[t.team] = 1; const m = t && t.teams; if(m && typeof m === "object") Object.keys(m).forEach(k => { if(m[k]) o[k] = 1; }); return o; }
   function tourOf(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), teams: tourTeams(t),
@@ -6700,6 +6729,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function render(){
     const n = state.names, started = isStarted(state), game = hasGame(state);
+    try{ if(isOpen("standBlock") && liveTourId() !== standAutoFor) renderStandings(); }catch(e){}
     if($("nameA").value !== n.a) $("nameA").value = n.a;      // les noms viennent des équipes choisies au lancement de la partie
     if($("nameB").value !== n.b) $("nameB").value = n.b;      // (« Local » et « Visiteur » par défaut)
     $("btnTimerToggle").disabled = !game;
