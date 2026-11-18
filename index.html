@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611181331">
+<meta name="build" content="202611181334">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2484,7 +2484,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611181331";
+  var BUILD = "202611181334";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -7451,6 +7451,21 @@ document.addEventListener("DOMContentLoaded", function(){
       if(m) $("wizCalSelect").value = m.id;
     }
     if(keys.a && keys.a === keys.b){ notify("Choisissez deux équipes différentes.", "info"); return; }
+    // Partie d'une autre équipe de l'organisation (ex. on est sur Lions 2 et on lance Lions 1 contre X) :
+    // elle va sur le tableau de cette équipe, pas sur celui affiché
+    if(boardTeam && slot === 1 && keys.a !== boardTeam && keys.b !== boardTeam){
+      const bt = boardTeams(currentCat), tgt = [keys.a, keys.b].filter(k => k && bt.indexOf(k) !== -1)[0];
+      if(tgt){
+        ref(catBase() + "/boards/" + tgt + "/match").once("value").then(snap => {
+          const s = snap.val() ? sanitize(snap.val()) : null;
+          if(s && isStarted(s) && !s.finished){ notify(presets[tgt].name + " a déjà une partie en cours sur son tableau.\nTerminez-la avant d'en lancer une autre.", "error"); return; }
+          switchBoard(tgt);
+          const t0 = Date.now(), go = () => { if(boardTeam !== tgt) return; if(linkKnown || Date.now() - t0 > 4000) $("wizStart").click(); else setTimeout(go, 100); };
+          setTimeout(go, 100);
+        }, () => notify("Connexion impossible au tableau de " + presets[tgt].name + ".", "error"));
+        return;
+      }
+    }
     // Confrontation entre deux équipes de l'organisation : une seule partie, affichée sur les deux tableaux
     let other = "";
     if(boardTeam && (keys.a === boardTeam || keys.b === boardTeam)){
