@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611180904">
+<meta name="build" content="202611180929">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -78,6 +78,7 @@ button:disabled{cursor:not-allowed;opacity:.4}
 .status[data-s="live"]::before{background:var(--ok)}
 .status[data-s="offline"]::before{background:var(--warn)}
 .status[data-s="live"]{color:var(--ok);font-weight:700}
+.status .st-count{margin-left:.3rem;padding:.05rem .4rem;border-radius:999px;background:rgba(127,127,127,.18);color:var(--ink, inherit);font-weight:800;font-variant-numeric:tabular-nums}
 
 .ticker-wrap{width:100%;overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.35rem .6rem;margin-bottom:.8rem;display:none;align-items:center;}
 .ticker-wrap.active{display:flex;}
@@ -2459,7 +2460,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611180904";
+  var BUILD = "202611180929";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2916,12 +2917,14 @@ document.addEventListener("DOMContentLoaded", function(){
     if(st.dataset.full !== txt){
       st.dataset.full = txt; st.textContent = "";
       st.appendChild(el("span", "sr", txt));
-      if(currentRole !== "viewer"){ const v = el("span", null, roleLabel()); v.setAttribute("aria-hidden", "true"); st.appendChild(v); }
+      if(currentRole !== "viewer"){ const v = el("span", null, roleLabel()); v.setAttribute("aria-hidden", "true"); st.appendChild(v);
+        // personnel connecté : nombre d'appareils qui regardent ce tableau en ce moment, bien visible
+        const c = el("span", "st-count", "👁 " + onlineCount); c.setAttribute("aria-hidden", "true"); c.title = onlineCount + (onlineCount > 1 ? " appareils regardent" : " appareil regarde") + " ce tableau en ce moment"; st.appendChild(c); }
       st.title = txt;
     }
     st.dataset.s = live && !simOn ? "live" : "idle";
   }
-  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + (onlineCount > 1 ? "\n(nombre entre parenthèses : appareils qui regardent cette page)" : ""), "info"); });
+  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + (currentRole !== "viewer" ? "\n👁 " + onlineCount + (onlineCount > 1 ? " appareils regardent" : " appareil regarde") + " ce tableau en ce moment (vous compris)." : ""), "info"); });
   function applyInv(){
     document.documentElement.classList.toggle("inv", invOn());
     $("btnSwapSides").setAttribute("aria-pressed", String(invOn()));
