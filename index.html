@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611180856">
+<meta name="build" content="202611180904">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2007,7 +2007,13 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     </div>
 
     <div class="preset-box">
-      <label for="wizPeriodMin">3. Durée d'une période (minutes) :</label>
+      <label>3. Nombre de périodes :</label>
+      <div class="ph-choice" role="radiogroup" aria-label="Nombre de périodes" style="margin:.3rem 0 .7rem;">
+        <label><input type="radio" name="wizNper" value="1"><span>1</span></label>
+        <label><input type="radio" name="wizNper" value="2"><span>2</span></label>
+        <label><input type="radio" name="wizNper" value="3" checked><span>3</span></label>
+      </div>
+      <label for="wizPeriodMin">Durée d'une période (minutes) :</label>
       <input type="number" id="wizPeriodMin" min="1" max="99" inputmode="numeric" class="full-input" style="background:#FFF;color:#0F2236;">
       <small style="display:block;margin-top:.3rem;color:var(--muted);font-size:.78rem;">Pour cette partie seulement. Le temps reste modifiable en touchant le chronomètre.</small>
     </div>
@@ -2453,7 +2459,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611180856";
+  var BUILD = "202611180904";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2729,6 +2735,7 @@ document.addEventListener("DOMContentLoaded", function(){
       id: "",
       periodSec: 0,                      // durée d'une période pour cette partie (0 = durée par défaut de l'organisation)
       stopOnGoal: [false, false, false], // arrêt du chronomètre sur but, par période
+      nper: 3,                           // nombre de périodes réglementaires (1, 2 ou 3)
       penPause: { acc: 0, since: -1 },   // temps des punitions suspendu (périodes à temps continu), en secondes de match
       playedAt: 0,
       phase: "",                         // "pre" = pré-saison, "reg" = saison
@@ -2773,6 +2780,7 @@ document.addEventListener("DOMContentLoaded", function(){
     s.phase = (d.phase === "reg" || d.phase === "pre" || d.phase === "tour") ? d.phase : "";
     s.tour = typeof d.tour === "string" ? d.tour : "";
     s.periodSec = int(d.periodSec, 0, 5940);
+    s.nper = d.nper ? int(d.nper, 1, 3) : 3;
     s.scorerName = typeof d.scorerName === "string" ? d.scorerName.slice(0, 30) : "";
     if(d.plen) s.plen = toArr(d.plen).slice(0, 4).map(x => Math.max(0, Math.min(5999, Number(x) || 0)));
     s.stopOnGoal = [0, 1, 2].map(i => !!(Array.isArray(d.stopOnGoal) ? d.stopOnGoal[i] : (d.stopOnGoal && d.stopOnGoal[i])));
@@ -5629,9 +5637,10 @@ document.addEventListener("DOMContentLoaded", function(){
 
   function handleTimerEnd(){
     state.timer.running = false;
-    if(state.period < 2){
+    const last = (state.nper || 3) - 1;                 // dernière période réglementaire
+    if(state.period < last){
       state.period++; state.timer.sec = perSec(state); commit();
-    } else if(state.period === 2 && goalsOf("a") === goalsOf("b")){
+    } else if(state.period === last && goalsOf("a") === goalsOf("b")){
       state.timer.sec = 0; commit(); openDlg("overtimeSheet");
     } else {
       finishGame();
@@ -6660,8 +6669,10 @@ document.addEventListener("DOMContentLoaded", function(){
     // Partie terminée mais question de sauvegarde restée sans réponse (fenêtre fermée, autre appareil) : on peut la rouvrir
     $("askSave").style.display = (state.finished && !state.closed && started && !simOn) ? "block" : "none";
 
-    const segBtns = $("seg").children;
-    for(let i = 0; i < segBtns.length; i++) segBtns[i].setAttribute("aria-pressed", String(Number(segBtns[i].dataset.p) === state.period));
+    const segBtns = $("seg").children, nper = state.nper || 3;
+    for(let i = 0; i < segBtns.length; i++){ const pp = Number(segBtns[i].dataset.p);
+      segBtns[i].setAttribute("aria-pressed", String(pp === state.period));
+      segBtns[i].hidden = pp < 3 && pp >= nper && pp !== state.period; }
 
     renderGoalies();
 
@@ -7284,6 +7295,8 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     renderPresenceList("a", $("wizTeamA").value); renderPresenceList("b", $("wizTeamB").value);
     $("wizPeriodMin").value = Math.round(defaultPeriodSec / 60);
+    document.querySelectorAll("input[name=wizNper]").forEach(x => { x.checked = x.value === "3"; });   // 3 périodes par défaut
+    wizNperPaint();
     setWizPhase(defPhase());
     const sg = String(store.get(localStorage, "ohmtro_stopgoal") || "");     // dernier choix retenu sur cet appareil
     [0, 1, 2].forEach(i => { $("wizStop" + i).checked = sg.charAt(i) === "1"; });
@@ -7310,6 +7323,11 @@ document.addEventListener("DOMContentLoaded", function(){
       d.showModal(); setTimeout(() => { try{ $("scName").focus(); $("scName").select(); }catch(e){} }, 50);
     });
   }
+  function wizNperPaint(){
+    const np = document.querySelector("input[name=wizNper]:checked"), n = np ? Number(np.value) : 3;
+    [0, 1, 2].forEach(i => { const lb = $("wizStop" + i).closest("label"); if(lb) lb.style.display = i < n ? "" : "none"; });
+  }
+  document.querySelectorAll("input[name=wizNper]").forEach(x => x.addEventListener("change", wizNperPaint));
   on("wizStart", "click", () => {
     if(!canEdit()) return;
     if(pendingScorer == null){ askScorer().then(n => { pendingScorer = n; $("wizStart").click(); }); return; }
@@ -7345,6 +7363,7 @@ document.addEventListener("DOMContentLoaded", function(){
     state = blank(); state.id = uid(); delete $("statsTeamSelect").dataset.userTouched; openCardId = null;
     state.scorerName = pendingScorer || defScorer(); pendingScorer = null;
     state.periodSec = int($("wizPeriodMin").value || Math.round(defaultPeriodSec / 60), 1, 99) * 60;   // durée choisie pour cette partie
+    const np = document.querySelector("input[name=wizNper]:checked"); state.nper = np ? int(np.value, 1, 3) : 3;
     state.calId = $("wizCalSelect").value || "";
     const wp = document.querySelector("input[name=wizPhase]:checked"); state.phase = wp ? wp.value : defPhase();
     state.tour = state.phase === "tour" && $("wizTourSel").value && $("wizTourGame").value ? $("wizTourSel").value + "/" + $("wizTourGame").value : "";
