@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611212115">
+<meta name="build" content="202611212122">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1675,6 +1675,10 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <div class="stand-wrap"><table class="stand vis-table" id="visGames"></table></div>
     <h3 class="sheet-sub">Par jour</h3>
     <div class="stand-wrap"><table class="stand vis-table" id="visDaysTbl"></table></div>
+    <h3 class="sheet-sub">Heures de connexion <small style="font-weight:400">(heure de Montréal)</small></h3>
+    <div class="stand-wrap"><table class="stand vis-table" id="visHours"></table></div>
+    <h3 class="sheet-sub">Dernières connexions <small style="font-weight:400">(heure de Montréal)</small></h3>
+    <div class="stand-wrap" style="max-height:22rem;overflow:auto"><table class="stand vis-table" id="visLog"></table></div>
     <div class="preset-box" id="visSuperBox" hidden style="margin-top:1rem;">
       <label style="font-weight:700;">Gestion (super administrateur) :</label>
       <label class="check-row"><input type="checkbox" id="visExcludeSA"><span>Ne pas compter les connexions du super administrateur</span></label>
@@ -2484,7 +2488,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611212115";
+  var BUILD = "202611212122";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2961,7 +2965,7 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     st.dataset.s = live && !simOn ? "live" : "idle";
   }
-  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + "\n👁 " + onlineCount + (onlineCount > 1 ? " visiteurs regardent" : " visiteur regarde") + " ce tableau en ce moment (administrateurs et marqueurs non comptés)." + (currentRole !== "viewer" ? "\n\n" + visitorList() : ""), "info"); });
+  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + "\n👁 " + onlineCount + (onlineCount > 1 ? " visiteurs regardent" : " visiteur regarde") + " ce tableau en ce moment (administrateurs et marqueurs non comptés).", "info"); });
   function applyInv(){
     document.documentElement.classList.toggle("inv", invOn());
     $("btnSwapSides").setAttribute("aria-pressed", String(invOn()));
@@ -8340,7 +8344,11 @@ document.addEventListener("DOMContentLoaded", function(){
     visCounted[currentOrg] = true;
     const r = ref(currentOrg + "/stats/days/" + todayStr() + "/" + visitorId), role = statRole(), staff = isStaff() || staffDev();
     r.once("value").then(s => { const v = obj(s.val()), roles = obj(v.roles); if(role) roles[role] = 1;
-      r.set(staff ? { n: 0, sn: (Number(v.sn) || 0) + (Number(v.n) || 0) + 1, roles: roles } : { n: (Number(v.n) || 0) + 1, sn: Number(v.sn) || 0, roles: roles }); }, () => {});
+      // heures de connexion (au plus 40 par appareil et par jour) : t = comme visiteur, ts = personne connectée
+      const t = toArr(v.t).filter(Number), ts = toArr(v.ts).filter(Number);
+      if(staff) ts.push(now()); else t.push(now());
+      const o = staff ? { n: 0, sn: (Number(v.sn) || 0) + (Number(v.n) || 0) + 1, roles: roles, t: [], ts: ts.concat(t).sort().slice(-40) } : { n: (Number(v.n) || 0) + 1, sn: Number(v.sn) || 0, roles: roles, t: t.slice(-40), ts: ts.slice(-40) };
+      r.set(o); }, () => {});
   }
   function statGame(){
     if(simOn || editEntry || archiveKey || !state.id || !hasGame(state) || statSkip()) return;
@@ -8361,7 +8369,7 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     Object.keys(visCounted).forEach(o => { const r = ref(o + "/stats/days/" + todayStr() + "/" + visitorId);
       r.once("value").then(s => { const v = obj(s.val()), roles = obj(v.roles); if(role) roles[role] = 1;
-        r.set({ n: 0, sn: (Number(v.sn) || 0) + (Number(v.n) || 0), roles: roles }); }, () => {}); });
+        r.set({ n: 0, sn: (Number(v.sn) || 0) + (Number(v.n) || 0), roles: roles, t: [], ts: toArr(v.ts).concat(toArr(v.t)).filter(Number).sort().slice(-40) }); }, () => {}); });
     Object.keys(gameCounted).forEach(k => { const i = k.indexOf("|"); ref(k.slice(0, i) + "/stats/games/" + cleanKey(k.slice(i + 1)) + "/v/" + visitorId).set("s"); });
   }
   // Fenêtre des statistiques (administrateur d'organisation : la sienne ; super administrateur : toutes)
@@ -8403,10 +8411,12 @@ document.addEventListener("DOMContentLoaded", function(){
   function visRender(){
     const nd = Number($("visDays").value) || 30, d0 = new Date(); d0.setDate(d0.getDate() - nd + 1);
     const from = d0.getFullYear() + "-" + pad2(d0.getMonth() + 1) + "-" + pad2(d0.getDate()), all = $("visOrg").value === "*";
-    const days = {}, uV = {}, uS = {}, roles = {}; let nV = 0, nS = 0;
+    const days = {}, uV = {}, uS = {}, roles = {}, log = []; let nV = 0, nS = 0;
     Object.keys(visData).forEach(o => { const D = obj(visData[o].days);
       Object.keys(D).forEach(day => { if(day < from) return; const row = days[day] || (days[day] = { v: {}, s: {}, nv: 0, ns: 0 });
         Object.keys(obj(D[day])).forEach(vid => { const x = obj(D[day][vid]);
+          toArr(x.t).filter(Number).forEach(t => log.push({ t: Number(t), s: 0, o: o, vid: vid }));
+          toArr(x.ts).filter(Number).forEach(t => log.push({ t: Number(t), s: 1, o: o, vid: vid, r: Object.keys(obj(x.roles)).map(r => ROLE_LBL[r]).filter(Boolean).join(", ") }));
           const n = Number(x.n) || 0, sn = (Number(x.sn) || 0) + (x.s && !x.sn ? n : 0), vis = x.s && !x.sn ? 0 : n;   // anciennes données : « s » = connecté
           if(vis > 0){ row.v[vid] = 1; uV[vid] = 1; row.nv += vis; nV += vis; }
           if(sn > 0){ row.s[vid] = 1; uS[vid] = 1; row.ns += sn; nS += sn; Object.keys(obj(x.roles)).forEach(r => { (roles[r] = roles[r] || {})[vid] = 1; }); }
@@ -8434,6 +8444,25 @@ document.addEventListener("DOMContentLoaded", function(){
     else { head(gt, ["Date", "Match", "Cat.", "Visit.", "Conn."]);
       games.forEach(g => { const tr = el("tr"); [g.date ? calWhen({ date: g.date }) : "–", g.title + (all ? " · " + orgName(g.org) : ""), g.cat, String(g.v), String(g.s)].forEach((c, i) => tr.appendChild(el("td", i === 3 ? "pts" : null, c))); gt.appendChild(tr); }); }
     // Par jour
+    // Heures de connexion, heure de Montréal
+    const MTL = { timeZone: "America/Toronto" };
+    const fHr = new Intl.DateTimeFormat("en-US", Object.assign({ hour: "numeric", hourCycle: "h23" }, MTL)),
+          hOf = t => Number((fHr.formatToParts(new Date(t)).find(p => p.type === "hour") || {}).value) % 24;
+    const ht = $("visHours"); ht.textContent = "";
+    if(!log.length) empty(ht, "Aucune heure enregistrée pour cette période (les heures sont notées depuis le 21 novembre 2026).", 3);
+    else { const H = {}; log.forEach(x => { const h = hOf(x.t), b = H[h] || (H[h] = [0, 0]); b[x.s]++; });
+      const mx = Math.max.apply(null, Object.keys(H).map(h => H[h][0] + H[h][1]));
+      head(ht, ["Heure", "Visiteurs", "Connectés"]);
+      Object.keys(H).map(Number).sort((a, b) => a - b).forEach(h => { const tr = el("tr"), tot = H[h][0] + H[h][1];
+        const c0 = el("td", null, h + " h – " + (h + 1) + " h"); if(tot === mx) c0.style.fontWeight = "800";
+        tr.appendChild(c0); tr.appendChild(el("td", "pts", String(H[h][0]))); tr.appendChild(el("td", null, String(H[h][1]))); ht.appendChild(tr); }); }
+    const lt = $("visLog"); lt.textContent = "";
+    if(!log.length) empty(lt, "Aucune connexion enregistrée pour cette période.", 3);
+    else { head(lt, ["Date", "Heure", "Qui"]);
+      const fD = new Intl.DateTimeFormat("fr-CA", Object.assign({ weekday: "short", day: "numeric", month: "short" }, MTL)),
+            fH = new Intl.DateTimeFormat("fr-CA", Object.assign({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" }, MTL));
+      log.sort((a, b) => b.t - a.t).slice(0, 200).forEach(x => { const tr = el("tr");
+        [fD.format(new Date(x.t)), fH.format(new Date(x.t)).replace(":", " h "), (x.s ? "🔑 " + (x.r || "Connecté") : "👥 Visiteur") + (all ? " · " + orgName(x.o) : "")].forEach(c => tr.appendChild(el("td", null, c))); lt.appendChild(tr); }); }
     const dt = $("visDaysTbl"); dt.textContent = "";
     const ks = Object.keys(days).sort().reverse();
     if(!ks.length){ empty(dt, "Aucune visite pendant cette période.", 5); return; }
