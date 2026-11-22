@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611181334">
+<meta name="build" content="202611212115">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2484,7 +2484,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611181334";
+  var BUILD = "202611212115";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2653,7 +2653,7 @@ document.addEventListener("DOMContentLoaded", function(){
   let db, dbHistory, dbPresets, dbPasswords, dbConfig, dbPresence, dbCategories;
   const dbOrgs = ref("global/organizations");
   let subs = [];                       // écouteurs liés à l'organisation / catégorie courante
-  let myPresenceRef = null, onlineCount = 1, connected = false, serverOffset = 0;
+  let myPresenceRef = null, onlineCount = 1, visitorTimes = [], presStaff = null, connected = false, serverOffset = 0;
   let defaultPeriodSec = 1200;
   let cfgPhases = {};                  // type de parties par défaut, par catégorie : "pre" (pré-saison) ou "reg" (saison)
   const PHASE_LABEL = { pre: "Pré-saison", reg: "Saison", tour: "Tournoi" };
@@ -2924,14 +2924,27 @@ document.addEventListener("DOMContentLoaded", function(){
   function announcePresence(){
     if(!myPresenceRef) return;
     myPresenceRef.onDisconnect().remove();
-    myPresenceRef.set(true);
+    // heure de connexion + personnel ou non : l'œil ne compte que les visiteurs
+    presStaff = currentRole !== "viewer";
+    myPresenceRef.set({ at: now(), s: presStaff ? 1 : 0 });
+  }
+  // Connexion / déconnexion du personnel : on met à jour notre présence (sans changer l'heure d'arrivée)
+  function presenceRole(){
+    if(!myPresenceRef || !connected || presStaff === null) return;
+    const st = currentRole !== "viewer"; if(st === presStaff) return;
+    presStaff = st; myPresenceRef.child("s").set(st ? 1 : 0);
+  }
+  const hm = t => { const d = new Date(t); return d.getHours() + " h " + String(d.getMinutes()).padStart(2, "0"); };
+  function visitorList(){
+    if(!visitorTimes.length) return "Aucun visiteur en ce moment.";
+    return "Visiteurs connectés (" + visitorTimes.length + ") :\n" + visitorTimes.map(t => t ? "• depuis " + hm(t) + " (" + Math.max(0, Math.round((now() - t) / 60000)) + " min)" : "• heure inconnue").join("\n");
   }
 
   function updateStatusDisplay(){
     if(simOn && !simAllowed()){ simStop(false); return; }       // ex. : connexion d'un marqueur pendant la simulation
     const st = $("status");
     if(!connected){ st.textContent = ""; st.appendChild(el("span", "sr", "Hors ligne")); st.dataset.full = "Hors ligne"; st.title = "Hors ligne"; st.dataset.s = "offline"; return; }
-    const connText = onlineCount > 1 ? " (" + onlineCount + ")" : "";
+    const connText = " (" + onlineCount + ")";
     // « En direct » (voyant vert) seulement quand une partie est en cours sur ce tableau
     const live = isLive(state) && !editEntry && !archiveKey;
     $("ambBox").hidden = !live || simOn;                                   // console d'ambiance : seulement pendant le match en cours
@@ -2943,12 +2956,12 @@ document.addEventListener("DOMContentLoaded", function(){
       st.appendChild(el("span", "sr", txt));
       if(currentRole !== "viewer"){ const v = el("span", null, roleLabel()); v.setAttribute("aria-hidden", "true"); st.appendChild(v); }
       { // tout le monde : nombre d'appareils qui regardent ce tableau en ce moment, bien visible
-        const c = el("span", "st-count", "👁 " + onlineCount); c.setAttribute("aria-hidden", "true"); c.title = onlineCount + (onlineCount > 1 ? " appareils regardent" : " appareil regarde") + " ce tableau en ce moment"; st.appendChild(c); }
+        const c = el("span", "st-count", "👁 " + onlineCount); c.setAttribute("aria-hidden", "true"); c.title = onlineCount + (onlineCount > 1 ? " visiteurs regardent" : " visiteur regarde") + " ce tableau en ce moment (administrateurs et marqueurs non comptés)"; st.appendChild(c); }
       st.title = txt;
     }
     st.dataset.s = live && !simOn ? "live" : "idle";
   }
-  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + (true ? "\n👁 " + onlineCount + (onlineCount > 1 ? " appareils regardent" : " appareil regarde") + " ce tableau en ce moment (vous compris)." : ""), "info"); });
+  on("status", "click", () => { const t = $("status").dataset.full || $("status").textContent; if(t) notify(t + "\n👁 " + onlineCount + (onlineCount > 1 ? " visiteurs regardent" : " visiteur regarde") + " ce tableau en ce moment (administrateurs et marqueurs non comptés)." + (currentRole !== "viewer" ? "\n\n" + visitorList() : ""), "info"); });
   function applyInv(){
     document.documentElement.classList.toggle("inv", invOn());
     $("btnSwapSides").setAttribute("aria-pressed", String(invOn()));
@@ -2960,6 +2973,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
   document.querySelectorAll("#slotBar [data-slot]").forEach(b => b.addEventListener("click", () => setSlot(Number(b.dataset.slot), true)));
   function updateRoleUI(){
+    try{ presenceRole(); }catch(e){}
     try{ slotAuto(); }catch(e){}
     document.body.className = (isGerant() ? "role-marqueur role-gerant" : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
     if(isStaff() && !statLogged){ statLogged = true; try{ statOnLogin(); }catch(e){ statLogged = false; } }
@@ -3160,7 +3174,9 @@ document.addEventListener("DOMContentLoaded", function(){
     dbPresence = ref(boardBase + "/presence");
     myPresenceRef = dbPresence.push();
     if(connected) announcePresence();
-    bsub(dbPresence, snap => { onlineCount = snap.numChildren() || 1; updateStatusDisplay(); });
+    bsub(dbPresence, snap => {
+      const v = [], all = snap.val() || {}; Object.keys(all).forEach(k => { const x = all[k]; if(x && typeof x === "object" && x.s) return; v.push(x && typeof x === "object" ? Number(x.at) || 0 : 0); });
+      visitorTimes = v.sort((a, b) => (a || 9e15) - (b || 9e15)); onlineCount = v.length; updateStatusDisplay(); });
     ambAttach();
 
     // Confrontation entre deux équipes de l'organisation : ce tableau peut pointer vers la partie de l'autre équipe
