@@ -96,16 +96,6 @@ CATEGORIES:Game
 STATUS:Active
 END:VEVENT
 BEGIN:VEVENT
-UID:game-1009967
-DTSTART:20261122T210000Z
-DTEND:20261122T223000Z
-SUMMARY:(U15 C) AIGLES TROIS-RIVIERES-OUEST VS (U15 C) BOUM
-LOCATION:Aréna Saint-Boniface - Glace 1, 180 Rue Langevin, Saint-Boniface, G0X 2L0
-DESCRIPTION:Game\nhttps://page.spordle.com/en/ligue-de-hockey-de-la-mauricie/schedule/1009967
-CATEGORIES:Game
-STATUS:Active
-END:VEVENT
-BEGIN:VEVENT
 UID:game-980342
 DTSTART:20261025T213000Z
 DTEND:20261025T230000Z
@@ -132,6 +122,16 @@ DTEND:20261128T011000Z
 SUMMARY:(U15 C) AIGLES TROIS-RIVIERES-OUEST VS (U15 C) COMMANDEURS-1 POINTE-LÉVY
 LOCATION:Complexe sportif de Saint-Augustin-de-Desmaures - Glace B, 230 Rte de Fossambault, Saint-Augustin-de-Desmaures, G3A 0R3
 DESCRIPTION:Game\nhttps://page.spordle.com/en/tournoi-m11-m13-m15-banque-scotia-de-saint-augustin-de-desmaures/schedule/1003080
+CATEGORIES:Game
+STATUS:Active
+END:VEVENT
+BEGIN:VEVENT
+UID:game-1009967
+DTSTART:20261122T210000Z
+DTEND:20261122T223000Z
+SUMMARY:(U15 C) AIGLES TROIS-RIVIERES-OUEST VS (U15 C) BOUM
+LOCATION:Aréna Saint-Boniface - Glace 1, 180 Rue Langevin, Saint-Boniface, G0X 2L0
+DESCRIPTION:Game\nhttps://page.spordle.com/en/ligue-de-hockey-de-la-mauricie/schedule/1009967
 CATEGORIES:Game
 STATUS:Active
 END:VEVENT
