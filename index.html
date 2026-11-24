@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611212122">
+<meta name="build" content="202611232232">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1192,7 +1192,9 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <h2>Tournois</h2>
     <p class="ctx" id="tourCtx"></p>
     <ul class="cal-list" id="tourList"></ul>
-    <button type="button" class="act-1" id="tourNew" style="width:100%;min-height:2.4rem;margin:.6rem 0;">➕ Nouveau tournoi</button>
+    <button type="button" class="act-1" id="tourNew" style="width:100%;min-height:2.4rem;margin:.6rem 0 .4rem;">➕ Nouveau tournoi</button>
+    <button type="button" class="act-2" id="tourIcs" style="width:100%;min-height:2.4rem;margin:0 0 .6rem;">📥 Importer un tournoi (.ics)</button>
+    <input type="file" id="tourIcsFile" accept=".ics,text/calendar" hidden>
     <div class="actions"><button type="button" class="act-2" id="tourBack">Retour</button></div>
   </div>
 </dialog>
@@ -2488,7 +2490,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611212122";
+  var BUILD = "202611232232";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5197,7 +5199,7 @@ document.addEventListener("DOMContentLoaded", function(){
       const at = sum.split(/\s+@\s+/);
       // Abonnement Spordle : « VISITEUR VS LOCAL » (le 2e nom joue à domicile)
       if(at.length !== 2) { const vs = sum.split(/\s+(?:vs\.?|contre)\s+/i); if(vs.length !== 2) return null; at[0] = vs[0]; at[1] = vs[1]; }
-      return { uid: uidv, date: date, time: time, b: at[0].trim(), a: at[1].trim(), arenaName: arenaFull, city: city, address: address };
+      return { uid: uidv, date: date, time: time, b: at[0].trim(), a: at[1].trim(), arenaName: arenaFull, city: city, address: address, sum: String(e.SUMMARY || ""), desc: String(e.DESCRIPTION || "") };
     }).filter(Boolean);
   }
   // NOM EN MAJUSCULES → Nom en majuscules (les sigles courts restent en majuscules)
@@ -6284,11 +6286,44 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   on("tourBack", "click", () => { tourStop(); swapDlg("tourSheet", "calendarSheet"); });
   on("tourNew", "click", () => openTourEdit(null));
-  function openTourEdit(id){
-    tourEditId = id; const t = tourOf(id ? tourMgr[id] : { start: todayStr() }), cat = id ? id.split("/")[0] : calCat;
-    if(!id){ const tm = calTeamKey(); if(tm) t.teams[tm] = 1; }
+  // Importer un tournoi d'un fichier .ics : l'éditeur s'ouvre déjà rempli, à vérifier avant d'enregistrer
+  on("tourIcs", "click", () => { if(!isAdmin()) return; $("tourIcsFile").value = ""; $("tourIcsFile").click(); });
+  on("tourIcsFile", "change", () => {
+    const f = $("tourIcsFile").files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { try{ const t = tourFromIcs(String(rd.result || ""), f.name);
+        if(!t){ notify("Aucune partie trouvée dans ce fichier.\nVérifiez qu'il s'agit bien d'un horaire au format .ics (parties « Visiteur @ Local » ou « Équipe vs Équipe »).", "info"); return; }
+        openTourEdit(null, t);
+        notify(t._n + " partie" + (t._n > 1 ? "s importées" : " importée") + (t._skip ? " (" + t._skip + " événement" + (t._skip > 1 ? "s ignorés" : " ignoré") + ")" : "") + ".\nVérifiez le nom, les dates et les parties, puis touchez Enregistrer.", "ok");
+      }catch(e){ notify("Ce fichier n'a pas pu être lu.", "error"); } };
+    rd.readAsText(f);
+  });
+  function tourFromIcs(text, fileName){
+    const nEv = (String(text).match(/BEGIN:VEVENT/gi) || []).length;
+    const games = icsParse(text, false).filter(g => g.a && g.b).sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time));
+    if(!games.length) return null;
+    const cal = /^X-WR-CALNAME[^:]*:(.+)$/im.exec(String(text).replace(/\r/g, ""));
+    const name = str((cal ? cal[1].replace(/\\([,;\\])/g, "$1") : String(fileName || "").replace(/\.ics$/i, "").replace(/[_-]+/g, " ")).trim(), "Tournoi").slice(0, 40);
+    // Partie éliminatoire : le titre ou la description le dit, ou les équipes ne sont pas encore connues (« Gagnant A1 »…)
+    const ELIM = [["Finale", /(^|[^-])\bfinale?\b|\bfinal\b|championnat/i], ["Demi-finale", /demi|semi/i], ["Quart de finale", /quart|quarter/i]];
+    const roundOf = g => { const txt = g.sum + " " + g.desc;
+      for(const e of [ELIM[2], ELIM[1], ELIM[0]]) if(e[1].test(txt)) return e[0];
+      if(TOUR_PLACEHOLDER.test(g.a) || TOUR_PLACEHOLDER.test(g.b)) return "Éliminatoires";
+      return ""; };
+    const pool = { name: "Poule A", pool: true, games: [] }, elim = {};
+    games.forEach(g => { const r = roundOf(g), gg = { when: g.time || "", a: niceName(g.a), b: niceName(String(g.b).replace(/^.*\s[-:–]\s+/, "")), sa: "", sb: "" };   // « Demi-finale - SSM » → SSM
+      if(r) (elim[r] = elim[r] || []).push(gg); else pool.games.push(gg); });
+    const rounds = (pool.games.length ? [pool] : []).concat(["Éliminatoires", "Quart de finale", "Demi-finale", "Finale"].filter(k => elim[k]).map(k => ({ name: k, pool: false, games: elim[k] })));
+    const places = {}; games.forEach(g => { if(g.arenaName) places[g.arenaName + (g.city ? ", " + g.city : "")] = 1; });
+    const teams = {};
+    Object.keys(calPresets).forEach(k => { const p = calPresets[k]; if(p && p.own && p.name && games.some(g => tSame(g.a, p.name) || tSame(g.b, p.name))) teams[k] = true; });
+    return { name: name, start: games[0].date, end: games[games.length - 1].date, place: Object.keys(places).slice(0, 2).join(" / ").slice(0, 80), teams: teams, rounds: rounds, _n: games.length, _skip: Math.max(0, nEv - games.length) };
+  }
+  function openTourEdit(id, data){
+    tourEditId = id; const t = tourOf(id ? tourMgr[id] : data || { start: todayStr() }), cat = id ? id.split("/")[0] : calCat;
+    if(!id && !data){ const tm = calTeamKey(); if(tm) t.teams[tm] = 1; }
     setText("tourEditTitle", (id ? "Modifier le tournoi" : "Nouveau tournoi") + " · " + cat.toUpperCase());
-    $("trName").value = id ? t.name : ""; $("trStart").value = t.start; $("trEnd").value = t.end; $("trPlace").value = t.place;
+    $("trName").value = id || data ? t.name : ""; $("trStart").value = t.start; $("trEnd").value = t.end; $("trPlace").value = t.place;
     // Nos équipes inscrites : toutes les catégories, cochées si inscrites
     const box = $("trTeams"); box.textContent = "";
     Object.keys(calPresets).filter(k => calPresets[k] && calPresets[k].name && calPresets[k].own)
