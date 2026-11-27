@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611232232">
+<meta name="build" content="202611270916">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -433,6 +433,8 @@ html.booting .wrap::after{content:"Chargement…";display:block;text-align:cente
 .pen-chip{display:inline-flex;align-items:center;gap:.25rem;padding:.1rem .45rem;border-radius:999px;background:#D2453A;color:#FFF;font-size:.72rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.4}
 .pen-chip.paused{background:#8A5A00}
 .pen-chip.paused::after{content:"⏸";font-size:.65rem}
+.pen-chip.wait::after{content:"⏳";font-size:.65rem}
+.pen-chip.paused{filter:saturate(.55) brightness(.9)}
 .btn-pen-pause{font-size:.75rem;font-weight:800;padding:.35rem .55rem;border-radius:8px;border:1px solid #D2453A;background:transparent;color:#D2453A}
 .btn-pen-pause.on,.pm-penp.on{background:#D2453A;color:#FFF;animation:penBlink 1s ease-in-out infinite}
 @keyframes penBlink{50%{opacity:.6}}
@@ -474,7 +476,7 @@ html.sim-on .board{outline:3px dashed #F0B35A;outline-offset:3px}
 #playMode .pm-penrow:has(#pmPenPause[hidden]):has(#pmPens[hidden]){display:none}
 #playMode .pm-pens{display:inline-flex;flex-wrap:wrap;gap:.3rem;align-items:center;font-size:1rem}
 .pen-chip.btn{border:0;cursor:pointer;font-family:inherit}
-.pen-chip.ta{box-shadow:inset 0 0 0 2px var(--pa,#6FA2EE)}.pen-chip.tb{box-shadow:inset 0 0 0 2px var(--pb,#F2707A)}
+.pen-chip.ta,.pen-chip.tb{box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
 #playMode .pen-chip{font-size:1rem;padding:.25rem .6rem}
 .app-row{display:flex;gap:.5rem;margin-top:.5rem}
 .app-row:not(:has(button:not([hidden]))){display:none}
@@ -2490,7 +2492,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611232232";
+  var BUILD = "202611270916";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5596,7 +5598,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const pens = [];
     const served = (p, g, pacc) => (g - p.g) - (pacc - p.pacc);
     evs.forEach(x => {
-      if(x.e.type === "pen"){ pens.push({ e: x.e, team: x.e.team, g: x.g, pacc: Number(x.e.pacc) || 0, dur: Number(x.e.min || 2) * 60 + (Number(x.e.adj) || 0) }); return; }
+      if(x.e.type === "pen"){ const w = x.e.wait, g0 = w ? gNow() : x.e.sg != null ? Number(x.e.sg) : x.g;
+        pens.push({ e: x.e, team: x.e.team, g: g0, wait: !!w, pacc: w ? pausedAt(g0) : x.e.sg != null ? Number(x.e.spacc) || 0 : Number(x.e.pacc) || 0, dur: Number(x.e.min || 2) * 60 + (Number(x.e.adj) || 0) }); return; }
       const T = x.e.team, O = T === "a" ? "b" : "a", gp = Number(x.e.pacc) || 0;
       const act = t => pens.filter(p => p.team === t && penShort(p.e) && p.g <= x.g && served(p, x.g, gp) < p.dur);
       const oA = act(O); if(oA.length <= act(T).length) return;
@@ -5607,7 +5610,7 @@ document.addEventListener("DOMContentLoaded", function(){
     });
     const g = gNow(), pa = pausedAt(g), out = { a: [], b: [] };
     // chrono corrigé un peu avant le moment de la punition : elle reste affichée, temps complet
-    pens.forEach(p => { const left = Math.ceil(p.dur - Math.max(0, served(p, g, pa))); if(left > 0 && p.g <= g + 60) out[p.team].push({ e: p.e, left: Math.min(left, Math.ceil(p.dur)) }); });
+    pens.forEach(p => { const left = p.wait ? Math.ceil(p.dur) : Math.ceil(p.dur - Math.max(0, served(p, g, pa))); if(left > 0 && p.g <= g + 60) out[p.team].push({ e: p.e, left: Math.min(left, Math.ceil(p.dur)), wait: p.wait }); });
     ["a", "b"].forEach(t => out[t].sort((x, y) => x.left - y.left));
     return out;
   }
@@ -5621,7 +5624,7 @@ document.addEventListener("DOMContentLoaded", function(){
     const evs = evs0.map((e, i) => ({ e: e, i: i, g: gs(int(e.period, 0, 3), mmss(e.time)) })).filter(x => x.e.type === "pen" || x.e.type === "goal").sort((x, y) => x.g - y.g || x.i - y.i);
     const pens = [], served = (p, g, pacc) => (g - p.g) - (pacc - p.pacc);
     evs.forEach(x => {
-      if(x.e.type === "pen"){ pens.push({ e: x.e, team: x.e.team, g: x.g, pacc: Number(x.e.pacc) || 0, dur: Number(x.e.min || 2) * 60 + (Number(x.e.adj) || 0) }); return; }
+      if(x.e.type === "pen"){ pens.push({ e: x.e, team: x.e.team, g: x.e.sg != null ? Number(x.e.sg) : x.g, pacc: x.e.sg != null ? Number(x.e.spacc) || 0 : Number(x.e.pacc) || 0, dur: Number(x.e.min || 2) * 60 + (Number(x.e.adj) || 0) }); return; }
       const T = x.e.team, O = T === "a" ? "b" : "a", gp = Number(x.e.pacc) || 0;
       const act = t => pens.filter(p => p.team === t && penShort(p.e) && p.g <= x.g && served(p, x.g, gp) < p.dur);
       const oA = act(O), tA = act(T);
@@ -5640,11 +5643,14 @@ document.addEventListener("DOMContentLoaded", function(){
     const ap = activePens(), paused = !!(state.penPause && state.penPause.since >= 0);
     const label = (t, x) => { const pl = x.e.player ? playerLabel(state.rosters[t] || [], x.e.player) : ""; const no = (pl.match(/^#?(\d+)/) || [])[1];
       return (no ? "#" + no : (pl ? pl.split(" ")[0] : "Banc")) + " " + formatTime(x.left); };
-    const sig = JSON.stringify([ap.a.map(x => label("a", x)), ap.b.map(x => label("b", x)), paused, canEdit(), state.period, state.stopOnGoal]);
+    const sig = JSON.stringify([ap.a.map(x => label("a", x) + (x.wait ? "w" : "")), ap.b.map(x => label("b", x) + (x.wait ? "w" : "")), paused, canEdit(), state.period, state.stopOnGoal, state.colors]);
+    const ink = c => { const m = /^#?([0-9a-f]{6})$/i.exec(String(c || "")); if(!m) return "#FFF"; const n = parseInt(m[1], 16); return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 > 160 ? "#0B1724" : "#FFF"; };
     if(sig === penSig) return; penSig = sig;
     // Pastilles : sous le pointage de l'équipe, et en mode En jeu à côté du bouton des punitions ; touchées par un marqueur : temps à corriger
-    const chip = (t, x) => { const ed = canEdit(), c = el(ed ? "button" : "span", "pen-chip t" + t + (paused ? " paused" : "") + (ed ? " btn" : ""), label(t, x));
-      c.title = (x.e.min || 2) + " min" + (x.e.reason ? " · " + x.e.reason : "") + (ed ? " — toucher pour corriger le temps" : "");
+    const chip = (t, x) => { const ed = canEdit(), c = el(ed ? "button" : "span", "pen-chip t" + t + (paused ? " paused" : "") + (x.wait ? " wait" : "") + (ed ? " btn" : ""), label(t, x));
+      const col = (state.colors && state.colors[t]) || (t === "a" ? "#6FA2EE" : "#F2707A"); c.style.background = col; c.style.color = ink(col);   // couleur de l'équipe
+      if(x.wait) c.title = "En attente : le temps commence quand vous touchez pause / départ du chrono";
+      if(!x.wait) c.title = (x.e.min || 2) + " min" + (x.e.reason ? " · " + x.e.reason : "") + (ed ? " — toucher pour corriger le temps" : "");
       if(ed){ c.type = "button"; c.addEventListener("click", ev => { ev.stopPropagation(); openPenLeft(x.e.id); }); } return c; };
     [["a", "penA"], ["b", "penB"]].forEach(r => { const box = $(r[1]); box.textContent = ""; ap[r[0]].forEach(x => box.appendChild(chip(r[0], x))); });
     const pmBox = $("pmPens"); pmBox.textContent = ""; ap.b.forEach(x => pmBox.appendChild(chip("b", x))); ap.a.forEach(x => pmBox.appendChild(chip("a", x)));
@@ -5725,6 +5731,8 @@ document.addEventListener("DOMContentLoaded", function(){
 
   on("btnTimerToggle", "click", () => {
     if(!canEdit() || !hasGame(state)) return;
+    // punitions en attente : leur temps commence maintenant (au moment où on touche pause / départ)
+    { const g0 = gNow(); state.events.forEach(e => { if(e && e.type === "pen" && e.wait){ e.sg = g0; e.spacc = pausedAt(g0); delete e.wait; penSig = ""; } }); }
     if(state.timer.running){ state.timer.sec = remaining(); state.timer.running = false; }
     else {
       if(state.timer.sec <= 0){ openTimerSheet(); return; }     // chrono à zéro : on demande le temps à remettre
@@ -7741,6 +7749,8 @@ document.addEventListener("DOMContentLoaded", function(){
       curPen.period = w.period; curPen.time = w.time;
       if(curPen.isNew){
         state.events.push({ id: curPen.id, type: "pen", team: curPen.team, period: curPen.period, time: curPen.time, player: curPen.player, min: min, reason: reason, t: now(), pacc: pausedAt(gameSec(curPen.period, mmss(curPen.time))) });
+        // le temps de la punition attend qu'on touche pause / départ du chrono
+        if(!state.finished && isStarted(state)) state.events[state.events.length - 1].wait = 1;
       } else {
         const ev = findEvent(curPen.id);
         if(ev){ ev.player = curPen.player; ev.min = min; ev.reason = reason; ev.period = w.period; ev.time = w.time; }
