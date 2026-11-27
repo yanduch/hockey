@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611271308">
+<meta name="build" content="202611271317">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2509,7 +2509,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611271308";
+  var BUILD = "202611271317";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2999,6 +2999,7 @@ document.addEventListener("DOMContentLoaded", function(){
   document.querySelectorAll("#slotBar [data-slot]").forEach(b => b.addEventListener("click", () => setSlot(Number(b.dataset.slot), true)));
   function updateRoleUI(){
     try{ presenceRole(); }catch(e){}
+    try{ if(isOpen("tourBlock")) renderTours(); }catch(e){}
     try{ slotAuto(); }catch(e){}
     document.body.className = (isGerant() ? "role-marqueur role-gerant" : "role-" + currentRole) + (isSuper() ? " is-super" : "") + (isTeamAdmin() ? " team-admin" : "");
     if(isStaff() && !statLogged){ statLogged = true; try{ statOnLogin(); }catch(e){ statLogged = false; } }
@@ -6295,7 +6296,16 @@ document.addEventListener("DOMContentLoaded", function(){
       c.classList.toggle("closed", !open); h3.classList.add("tour-h"); h3.setAttribute("role", "button"); h3.tabIndex = 0;
       const tog = () => { const o = c.classList.toggle("closed"); store.set(sessionStorage, sk, o ? "0" : "1"); };
       h3.addEventListener("click", tog); h3.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); tog(); } });
+      // Administrateur : modifier ce tournoi directement d'ici
+      if(isAdmin()){ const eb = btn("act-2 tour-editbtn", "✏️ Modifier ce tournoi", () => editTourFromHome(id)); eb.style.cssText = "width:100%;margin:.2rem 0 .6rem;"; body.insertBefore(eb, body.firstChild); }
       box.appendChild(c); });
+  }
+  function editTourFromHome(id){
+    if(!isAdmin()) return;
+    $("btnOpenCalendar").click();
+    const t0 = Date.now(), wait = (ok, then) => { if(ok()) then(); else if(Date.now() - t0 < 6000) setTimeout(() => wait(ok, then), 100); else notify("Le tournoi n'a pas pu être ouvert. Passez par Gestion calendrier → Tournois.", "error"); };
+    wait(() => calCat && $("calCatSelect").options.length, () => { $("calTour").click();
+      wait(() => tourMgr[id], () => openTourEdit(id)); });
   }
   // ----- Gestion des tournois (dans Gestion calendrier) : toutes les catégories de l'organisation -----
   let tourMgr = {}, tourRefs = [], tourEditId = null;      // tourEditId = « catégorie/id »
