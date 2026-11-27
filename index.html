@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611270916">
+<meta name="build" content="202611271308">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -511,6 +511,9 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tr-addround{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
 .tr-addround button,.tr-round .tr-addg{min-height:2.1rem;font-size:.82rem}
 .tour-card{margin:.4rem 0 1rem}
+.tr-pteams{display:flex;flex-direction:column;gap:.3rem}
+.tr-prow{display:flex;align-items:center;gap:.5rem}.tr-prow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tr-prow select{min-width:4.5rem;min-height:2.2rem}
 .stand-tabs{display:flex;gap:.4rem;margin:.2rem 0 .6rem}
 .stand-tabs button{flex:1;min-height:2.2rem;border-radius:999px;border:1px solid var(--line, rgba(127,127,127,.35));background:transparent;color:inherit;font-weight:700;font-size:.85rem;padding:0 .6rem}
 .stand-tabs button.on{background:var(--accent, #5b8def);border-color:transparent;color:#fff}
@@ -1214,6 +1217,20 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <input type="text" id="trPlace" class="full-input" maxlength="60" placeholder="Aréna, ville">
     <div class="f-lbl">Nos équipes inscrites</div>
     <div id="trTeams" class="ja-list" style="margin-top:0"></div>
+    <h3 class="tr-h">Poules</h3>
+    <div class="inline-row" style="align-items:center;gap:.5rem;">
+      <label class="f-lbl" for="trNpools" style="margin:0">Nombre de poules</label>
+      <select id="trNpools" class="full-input" style="width:auto;min-width:5rem"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select>
+    </div>
+    <div id="trPoolBox">
+      <p class="ctx" style="margin:.4rem 0;">Pour chaque équipe en place, choisissez sa poule. Les parties de poule seront affichées par poule.</p>
+      <div id="trPoolTeams" class="tr-pteams"></div>
+      <div class="inline-row" style="gap:.4rem;margin-top:.4rem;">
+        <input type="text" id="trPoolAdd" class="full-input" list="trTeamNames" maxlength="30" placeholder="Ajouter une équipe">
+        <button type="button" class="act-2" id="trPoolAddBtn" style="white-space:nowrap">+ Ajouter</button>
+      </div>
+      <button type="button" class="act-2" id="trPoolSync" style="width:100%;margin-top:.4rem;">↻ Reprendre les équipes des parties</button>
+    </div>
     <h3 class="tr-h">Rondes et parties</h3>
     <p class="ctx" style="margin:0 0 .4rem;">Ajoutez les poules, puis l'élimination (quarts, demi-finales, finale). Inscrivez les équipes et les pointages à la main.</p>
     <div id="trRounds"></div>
@@ -2492,7 +2509,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611270916";
+  var BUILD = "202611271308";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6180,6 +6197,7 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function tourTeams(t){ const o = {}; if(t && t.team) o[t.team] = 1; const m = t && t.teams; if(m && typeof m === "object") Object.keys(m).forEach(k => { if(m[k]) o[k] = 1; }); return o; }
   function tourOf(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), teams: tourTeams(t),
+    npools: Math.max(0, Math.min(8, Number(t && t.npools) || 0)), tpools: toArr(t && t.tpools).filter(x => x && x.n).map(x => ({ n: String(x.n), p: String(x.p || "") })),
     rounds: toArr(t && t.rounds).filter(Boolean).map(r => ({ name: String(r.name || ""), pool: !!r.pool, games: toArr(r.games).filter(Boolean).map(g => ({ when: String(g.when || ""), a: String(g.a || ""), b: String(g.b || ""), sa: g.sa === "" || g.sa == null ? "" : Number(g.sa), sb: g.sb === "" || g.sb == null ? "" : Number(g.sb) })) })) }; }
   const tSame = (a, b) => !!a && !!b && (a === b || !!sameTeamName(a, [b]));
   function tourHasTeam(t, key){
@@ -6195,9 +6213,12 @@ document.addEventListener("DOMContentLoaded", function(){
         if(ds >= t.end) break; d.setDate(d.getDate() + 1); } });
     return out;
   }
-  function poolTable(r, meName){
-    const T = {};
-    const row = n => T[n] || (T[n] = { n: n, pj: 0, v: 0, d: 0, nl: 0, bp: 0, bc: 0 });
+  // members (facultatif) : seules ces équipes ont une ligne, même sans partie jouée ; les parties contre une autre poule comptent quand même
+  function poolTable(r, meName, members){
+    const T = {}, mem = members && members.length ? members : null;
+    const canon = n => mem ? (mem.filter(m => tSame(m, n))[0] || null) : n;
+    const row = n => { const k = canon(n); return k ? (T[k] || (T[k] = { n: k, pj: 0, v: 0, d: 0, nl: 0, bp: 0, bc: 0 })) : { pj: 0, v: 0, d: 0, nl: 0, bp: 0, bc: 0 }; };
+    if(mem) mem.forEach(row);
     r.games.forEach(g => { if(!g.a || !g.b) return; const A = row(g.a), B = row(g.b); if(g.sa === "" || g.sb === "") return;
       A.pj++; B.pj++; A.bp += g.sa; A.bc += g.sb; B.bp += g.sb; B.bc += g.sa;
       if(g.sa > g.sb){ A.v++; B.d++; } else if(g.sa < g.sb){ B.v++; A.d++; } else { A.nl++; B.nl++; } });
@@ -6205,6 +6226,21 @@ document.addEventListener("DOMContentLoaded", function(){
     const tb = el("table"), h = el("tr"); ["Équipe", "PJ", "V", "D", "N", "BP", "BC", "PTS"].forEach(c => h.appendChild(el("th", null, c))); tb.appendChild(h);
     L.forEach(x => { const tr = el("tr", meName && tSame(x.n, meName) ? "me" : ""); [x.n, x.pj, x.v, x.d, x.nl, x.bp, x.bc, 2 * x.v + x.nl].forEach(c => tr.appendChild(el("td", null, String(c)))); tb.appendChild(tr); });
     return tb;
+  }
+  // Poules choisies équipe par équipe : on regroupe toutes les parties de poule selon la poule des équipes
+  const POOL_L = "ABCDEFGH";
+  function tourPoolGroups(t){
+    if(t.npools < 2 || !t.tpools.some(x => x.p)) return null;
+    const poolOf = n => (t.tpools.filter(x => x.p && tSame(x.n, n))[0] || {}).p || "";
+    const games = []; t.rounds.filter(r => r.pool).forEach(r => r.games.forEach(g => games.push(g)));
+    games.sort((x, y) => String(x.when || "99").localeCompare(String(y.when || "99")));
+    const out = [];
+    POOL_L.slice(0, t.npools).split("").forEach(L => { const members = t.tpools.filter(x => x.p === L).map(x => x.n);
+      if(!members.length) return;
+      out.push({ name: "Poule " + L, members: members, games: games.filter(g => poolOf(g.a) === L || poolOf(g.b) === L) }); });
+    const other = games.filter(g => !poolOf(g.a) && !poolOf(g.b));
+    if(other.length) out.push({ name: "Autres parties", members: null, games: other });
+    return out;
   }
   function tourGameBox(g, meName){
     const box = el("div", "tour-g"), done = g.sa !== "" && g.sb !== "";
@@ -6219,7 +6255,11 @@ document.addEventListener("DOMContentLoaded", function(){
     card.appendChild(el("h3", null, "🏆 " + t.name));
     const dfmt = ds => { const p = ds.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString("fr-CA", { day: "numeric", month: "long" }); };
     card.appendChild(el("div", "tour-meta", [t.start ? (t.end && t.end !== t.start ? "Du " + dfmt(t.start) + " au " + dfmt(t.end) : dfmt(t.start)) : "", t.place ? "📍 " + t.place : ""].filter(Boolean).join(" · ")));
-    t.rounds.filter(r => r.pool).forEach(r => { const pb = el("div", "tour-pool"); pb.appendChild(el("h4", null, r.name || "Poule")); pb.appendChild(poolTable(r, meName));
+    const byPool = tourPoolGroups(t);
+    if(byPool) byPool.forEach(P => { const pb = el("div", "tour-pool"); pb.appendChild(el("h4", null, P.name));
+        if(P.members) pb.appendChild(poolTable({ games: P.games }, meName, P.members));
+        P.games.forEach(g => pb.appendChild(tourGameBox(g, meName))); card.appendChild(pb); });
+    else t.rounds.filter(r => r.pool).forEach(r => { const pb = el("div", "tour-pool"); pb.appendChild(el("h4", null, r.name || "Poule")); pb.appendChild(poolTable(r, meName));
       r.games.forEach(g => pb.appendChild(tourGameBox(g, meName))); card.appendChild(pb); });
     const el2 = t.rounds.filter(r => !r.pool && r.games.length);
     if(el2.length){
@@ -6343,8 +6383,36 @@ document.addEventListener("DOMContentLoaded", function(){
     const names = {}; Object.keys(calPresets).forEach(k => { const p = calPresets[k]; if(p && p.name && (p.category === cat || t.teams[k])) names[p.name] = 1; });
     Object.keys(names).sort().forEach(n => { const o = document.createElement("option"); o.value = n; dl.appendChild(o); });
     $("trRounds").textContent = ""; t.rounds.forEach(r => addTourRound(r));
+    $("trNpools").value = String(Math.max(1, t.npools || 1)); trPoolList = t.tpools.map(x => ({ n: x.n, p: x.p }));
+    if(!trPoolList.length) trPoolSync(false);
+    trPoolRender();
     swapDlg("tourSheet", "tourEdit");
   }
+  // ---- Poules : équipe → poule ----
+  let trPoolList = [];
+  function trPoolRead(){ $("trPoolTeams").querySelectorAll(".tr-prow").forEach((r, i) => { if(trPoolList[i]) trPoolList[i].p = r.querySelector("select").value; }); }
+  function trPoolRender(){
+    const n = Number($("trNpools").value) || 1, box = $("trPoolTeams"); box.textContent = "";
+    $("trPoolBox").hidden = n < 2;
+    trPoolList.forEach((x, i) => { const row = el("div", "tr-prow"); row.appendChild(el("span", null, x.n));
+      const sel = el("select", "full-input"); sel.style.width = "auto"; sel.setAttribute("aria-label", "Poule de " + x.n);
+      [["", "—"]].concat(POOL_L.slice(0, n).split("").map(L => [L, "Poule " + L])).forEach(o => { const op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op); });
+      sel.value = POOL_L.slice(0, n).indexOf(x.p) >= 0 && x.p ? x.p : ""; x.p = sel.value;
+      sel.addEventListener("change", () => { x.p = sel.value; });
+      row.appendChild(sel); row.appendChild(btn("row-del", "✕", () => { trPoolRead(); trPoolList.splice(i, 1); trPoolRender(); })); box.appendChild(row); });
+    if(!trPoolList.length) box.appendChild(el("small", null, "Aucune équipe : ajoutez-les ou inscrivez d'abord les parties."));
+  }
+  function trPoolSync(render){
+    if(render !== false) trPoolRead();
+    const has = n => trPoolList.some(x => tSame(x.n, n) || x.n.toLowerCase() === n.toLowerCase()), add = n => { n = String(n || "").trim(); if(n && !TOUR_PLACEHOLDER.test(n) && !has(n)) trPoolList.push({ n: n, p: "" }); };
+    $("trTeams").querySelectorAll("input:checked").forEach(c => { if(calPresets[c.value]) add(calPresets[c.value].name); });
+    $("trRounds").querySelectorAll(".tr-round[data-pool='1'] .tr-game").forEach(r => { add(r.querySelector(".tr-b").value); add(r.querySelector(".tr-a").value); });
+    if(render !== false) trPoolRender();
+  }
+  on("trNpools", "change", () => { trPoolRead(); if(Number($("trNpools").value) > 1 && !trPoolList.length) trPoolSync(false); trPoolRender(); });
+  on("trPoolSync", "click", () => trPoolSync());
+  on("trPoolAddBtn", "click", () => { const v = str($("trPoolAdd").value, ""); if(!v) return; trPoolRead();
+    if(!trPoolList.some(x => tSame(x.n, v) || x.n.toLowerCase() === v.toLowerCase())) trPoolList.push({ n: v, p: "" }); $("trPoolAdd").value = ""; trPoolRender(); });
   function addTourRound(r){
     const box = el("div", "tr-round"); box.dataset.pool = r.pool ? "1" : "";
     const head = el("div", "tr-rhead"), nm = el("input"); nm.type = "text"; nm.className = "tr-rname"; nm.maxLength = 30; nm.value = r.name; nm.placeholder = r.pool ? "Poule A" : "Nom de la ronde";
@@ -6402,7 +6470,8 @@ document.addEventListener("DOMContentLoaded", function(){
         .filter(g => g.a || g.b) }));
     const id = tourEditId || (calCat + "/" + uid()), teams = {};
     $("trTeams").querySelectorAll("input:checked").forEach(c => { teams[c.value] = true; });
-    ref(tourPath(id)).set({ name: name, start: start, end: end, place: str($("trPlace").value, ""), teams: teams, rounds: rounds, updatedAt: Date.now() });
+    ref(tourPath(id)).set({ name: name, start: start, end: end, place: str($("trPlace").value, ""), teams: teams, rounds: rounds,
+      npools: Number($("trNpools").value) || 1, tpools: (trPoolRead(), trPoolList.map(x => ({ n: x.n, p: x.p || "" }))), updatedAt: Date.now() });
     // Équipes du tournoi qui ne sont pas encore dans la catégorie : proposer de les ajouter (pour la saison régulière)
     const tcat = id.split("/")[0], unknown = tourUnknownTeams(rounds, tcat);
     if(unknown.length){ swapDlg("tourEdit", "tourSheet"); offerTourTeams(unknown, tcat); }
