@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611271317">
+<meta name="build" content="202611272306">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -1234,6 +1234,8 @@ body:not(.role-marqueur) .marqueur-only{display:none !important}
     <h3 class="tr-h">Rondes et parties</h3>
     <p class="ctx" style="margin:0 0 .4rem;">Ajoutez les poules, puis l'élimination (quarts, demi-finales, finale). Inscrivez les équipes et les pointages à la main.</p>
     <div id="trRounds"></div>
+    <button type="button" class="act-2" id="trIcsBtn" style="width:100%;margin:.4rem 0;">📥 Importer les parties d'un fichier .ics dans ce tournoi</button>
+    <input type="file" id="trIcsFile" accept=".ics,text/calendar" hidden>
     <div class="tr-addround">
       <button type="button" class="act-2" data-tr-add="pool">+ Poule</button>
       <button type="button" class="act-2" data-tr-add="Quarts de finale">+ Quarts</button>
@@ -2509,7 +2511,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611271317";
+  var BUILD = "202611272306";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6356,6 +6358,23 @@ document.addEventListener("DOMContentLoaded", function(){
       }catch(e){ notify("Ce fichier n'a pas pu être lu.", "error"); } };
     rd.readAsText(f);
   });
+  // Dans l'éditeur : remettre / ajouter les parties d'un .ics sans toucher au nom, aux poules ni aux équipes
+  on("trIcsBtn", "click", () => { $("trIcsFile").value = ""; $("trIcsFile").click(); });
+  on("trIcsFile", "change", () => {
+    const f = $("trIcsFile").files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { try{ const t = tourFromIcs(String(rd.result || ""), f.name);
+        if(!t){ notify("Aucune partie trouvée dans ce fichier.", "info"); return; }
+        const cur = [...$("trRounds").querySelectorAll(".tr-game")].filter(g => g.querySelector(".tr-a").value || g.querySelector(".tr-b").value).length;
+        const go = replace => { if(replace) $("trRounds").textContent = ""; t.rounds.forEach(r => addTourRound(r));
+          if(!$("trStart").value || t.start < $("trStart").value) $("trStart").value = t.start;
+          if(!$("trEnd").value || t.end > $("trEnd").value) $("trEnd").value = t.end;
+          trPoolSync(); notify(t._n + " partie" + (t._n > 1 ? "s ajoutées" : " ajoutée") + ". Touchez Enregistrer pour garder.", "ok"); };
+        if(!cur) go(true);
+        else ask("Le tournoi a déjà " + cur + " partie" + (cur > 1 ? "s" : "") + ". Remplacer par celles du fichier ?", { ok: "Remplacer", cancel: "Ajouter" }).then(ok => go(!!ok));
+      }catch(e){ notify("Ce fichier n'a pas pu être lu.", "error"); } };
+    rd.readAsText(f);
+  });
   function tourFromIcs(text, fileName){
     const nEv = (String(text).match(/BEGIN:VEVENT/gi) || []).length;
     const games = icsParse(text, false).filter(g => g.a && g.b).sort((x, y) => (x.date + x.time).localeCompare(y.date + y.time));
@@ -6427,7 +6446,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const box = el("div", "tr-round"); box.dataset.pool = r.pool ? "1" : "";
     const head = el("div", "tr-rhead"), nm = el("input"); nm.type = "text"; nm.className = "tr-rname"; nm.maxLength = 30; nm.value = r.name; nm.placeholder = r.pool ? "Poule A" : "Nom de la ronde";
     head.appendChild(el("span", "ja-tag", r.pool ? "POULE" : "ÉLIM.")); head.appendChild(nm);
-    head.appendChild(btn("row-del", "✕", () => box.remove())); box.appendChild(head);
+    head.appendChild(btn("row-del", "✕", () => { const n = [...box.querySelectorAll(".tr-game")].filter(g => g.querySelector(".tr-a").value || g.querySelector(".tr-b").value).length;
+      if(!n){ box.remove(); return; }
+      ask("Retirer la ronde « " + (nm.value || "sans nom") + " » et ses " + n + " partie" + (n > 1 ? "s" : "") + " ?", { ok: "Retirer", danger: true }).then(ok => { if(ok) box.remove(); }); }));
+    box.appendChild(head);
     const games = el("div", "tr-games"); box.appendChild(games);
     const addG = g => { const row = el("div", "tr-game");
       const mk = (cls, v, ph, num) => { const i = el("input"); i.type = num ? "number" : "text"; i.className = cls; i.value = v === "" || v == null ? "" : v; i.placeholder = ph; if(num){ i.min = 0; i.inputMode = "numeric"; } else { i.setAttribute("list", "trTeamNames"); i.maxLength = 30; } return i; };
