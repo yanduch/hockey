@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611272350">
+<meta name="build" content="202611280006">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2513,7 +2513,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611272350";
+  var BUILD = "202611280006";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -6229,7 +6229,15 @@ document.addEventListener("DOMContentLoaded", function(){
     games.forEach(g => { if(!g.a || !g.b) return; const A = row(g.a), B = row(g.b); if(g.sa === "" || g.sb === "") return;
       A.pj++; B.pj++; A.bp += g.sa; A.bc += g.sb; B.bp += g.sb; B.bc += g.sa;
       if(g.sa > g.sb){ A.v++; B.d++; } else if(g.sa < g.sb){ B.v++; A.d++; } else { A.nl++; B.nl++; } });
-    return Object.keys(T).map(k => T[k]).sort((x, y) => (2 * y.v + y.nl) - (2 * x.v + x.nl) || (y.bp - y.bc) - (x.bp - x.bc) || y.bp - x.bp || x.n.localeCompare(y.n, "fr"));
+    // Égalité de points : 1) parties entre les équipes à égalité (points entre elles), 2) différentiel, 3) buts pour
+    const pts = x => 2 * x.v + x.nl, L = Object.keys(T).map(k => T[k]);
+    const h2h = tied => { const P = {}; tied.forEach(x => { P[x.n] = 0; });
+      games.forEach(g => { if(!g.a || !g.b || g.sa === "" || g.sb === "") return; const A = tied.filter(x => tSame(x.n, g.a))[0], B = tied.filter(x => tSame(x.n, g.b))[0]; if(!A || !B) return;
+        if(g.sa > g.sb) P[A.n] += 2; else if(g.sa < g.sb) P[B.n] += 2; else { P[A.n]++; P[B.n]++; } });
+      return P; };
+    const byPts = {}; L.forEach(x => { (byPts[pts(x)] = byPts[pts(x)] || []).push(x); });
+    const H = {}; Object.keys(byPts).forEach(k => { if(byPts[k].length > 1){ const P = h2h(byPts[k]); byPts[k].forEach(x => { H[x.n] = P[x.n]; }); } });
+    return L.sort((x, y) => pts(y) - pts(x) || (H[y.n] || 0) - (H[x.n] || 0) || (y.bp - y.bc) - (x.bp - x.bc) || y.bp - x.bp || x.n.localeCompare(y.n, "fr"));
   }
   function poolTable(r, meName, members){
     const L = poolRows(r.games, members);
