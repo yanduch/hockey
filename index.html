@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611272317">
+<meta name="build" content="202611272350">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -2513,7 +2513,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611272317";
+  var BUILD = "202611272350";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -2686,7 +2686,7 @@ document.addEventListener("DOMContentLoaded", function(){
   let defaultPeriodSec = 1200;
   let cfgPhases = {};                  // type de parties par défaut, par catégorie : "pre" (pré-saison) ou "reg" (saison)
   const PHASE_LABEL = { pre: "Pré-saison", reg: "Saison", tour: "Tournoi" };
-  const PHASE_LONG = { pre: "Pré-saison", reg: "Saison régulière", tour: "Tournois" };
+  const PHASE_LONG = { pre: "Pré-saison", reg: "Saison régulière", tour: "Tournois", all: "Saison complète" };
   const phaseOfM = m => (m && (m.phase === "reg" || m.phase === "tour")) ? m.phase : "pre";       // une partie sans type (anciennes parties) = pré-saison
   // Types d'événements (entraînements, activités…), modifiables par l'administrateur : …/config/eventTypes
   var EVT_DEFAULT = { practice: { label: "Entraînement", icon: "🏒", order: 1 }, activity: { label: "Activité d'équipe", icon: "🎉", order: 2 } };
@@ -6880,7 +6880,7 @@ document.addEventListener("DOMContentLoaded", function(){
   function renderPhaseUI(){
     const years = {}; years[seasonOf(Date.now())] = 1; historyAll.forEach(h => { years[seasonOf(h.at)] = 1; }); years[curYear()] = 1;
     const items = []; Object.keys(years).map(Number).sort((a, b) => b - a).forEach(y => {
-      items.push({ value: y + "|pre", label: y + "-" + (y + 1) + " Pré-saison" }, { value: y + "|reg", label: y + "-" + (y + 1) + " Saison régulière" }, { value: y + "|tour", label: y + "-" + (y + 1) + " Tournois" });
+      items.push({ value: y + "|pre", label: y + "-" + (y + 1) + " Pré-saison" }, { value: y + "|reg", label: y + "-" + (y + 1) + " Saison régulière" }, { value: y + "|tour", label: y + "-" + (y + 1) + " Tournois" }, { value: y + "|all", label: y + "-" + (y + 1) + " Saison complète (tout)" });
     });
     fillSelect($("phaseSel"), items, viewKey());
     const d = defPhase(), st = cfgRegStart[currentCat] || "";
