@@ -2,7 +2,7 @@
 <html lang="fr" class="booting">
 <head>
 <meta charset="utf-8">
-<meta name="build" content="202611272306">
+<meta name="build" content="202611272317">
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feuille de match en direct</title>
@@ -501,7 +501,8 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tr-rhead input{flex:1 1 auto;min-width:0}
 .tr-game{display:grid;grid-template-columns:4.6rem minmax(0,1fr) 3.2rem;grid-template-areas:"w w x" "lv b sb" "lr a sa";gap:.3rem .35rem;align-items:center;margin-bottom:.5rem;padding:.45rem;border:1px solid var(--line, rgba(127,127,127,.3));border-radius:10px;background:rgba(127,127,127,.06)}
 .tr-game input{min-width:0;padding:.45rem .5rem;font-size:.95rem}
-.tr-game .tr-w{grid-area:w;width:7.5rem}
+.tr-game .tr-top{grid-area:w;display:flex;gap:.3rem;min-width:0}
+.tr-game .tr-no{width:3.4rem;flex:none}.tr-game .tr-d{flex:1;min-width:0}.tr-game .tr-w{width:6.2rem;flex:none}
 .tr-game .tr-b{grid-area:b}.tr-game .tr-a{grid-area:a}
 .tr-game .tr-sb{grid-area:sb;text-align:center}.tr-game .tr-sa{grid-area:sa;text-align:center}
 .tr-game .row-del{grid-area:x;justify-self:end}
@@ -539,6 +540,7 @@ html.standalone .wrap{padding-top:max(.75rem, env(safe-area-inset-top))}
 .tour-g>div.tour-when{font-size:.7rem;opacity:.75;padding:.15rem .45rem;justify-content:flex-start;background:rgba(127,127,127,.12)}
 .tour-g .me{background:rgba(240,179,90,.25)}
 .tour-g b{min-width:1.2rem;text-align:right}
+.tour-g .tour-ph{font-weight:400;opacity:.65;font-size:.7rem}
 .tour-col:not(:last-child) .tour-g::after{content:"";position:absolute;right:-.9rem;top:50%;width:.9rem;border-top:2px solid rgba(127,127,127,.45)}
 .tour-champ{text-align:center;font-weight:800;margin:.2rem 0}
 .tour-cat{font-size:.7rem;color:var(--muted);font-weight:700}
@@ -2511,7 +2513,7 @@ document.addEventListener("DOMContentLoaded", function(){
   "use strict";
 
   /* ============ Version de la page : un téléphone qui garde une ancienne copie se met à jour seul ============ */
-  var BUILD = "202611272306";
+  var BUILD = "202611272317";
   (function(){
     const tag = document.getElementById("buildTag");
     if(tag && /^\d{12}$/.test(BUILD)) tag.textContent = "Version " + BUILD.slice(0, 4) + "-" + BUILD.slice(4, 6) + "-" + BUILD.slice(6, 8) + " " + BUILD.slice(8, 10) + " h " + BUILD.slice(10, 12);
@@ -5569,7 +5571,8 @@ document.addEventListener("DOMContentLoaded", function(){
     const me = boardTeam && presets[boardTeam] ? presets[boardTeam].name : "";
     if(t) t.rounds.forEach((r, ri) => r.games.forEach((g, gi) => { if(!g.a && !g.b) return;
       const done = g.sa !== "" && g.sb !== "", mine = !me || tSame(g.a, me) || tSame(g.b, me);
-      items.push({ value: ri + "/" + gi, label: (g.when ? g.when + " · " : "") + (r.name || (r.pool ? "Poule" : "Ronde")) + " : " + (g.b || "?") + " @ " + (g.a || "?") + (done ? " (" + g.sb + "-" + g.sa + ")" : ""), o: (done ? 2 : 0) + (mine ? 0 : 1), w: g.when || "99", i: items.length }); }));
+      const today = g.d === todayStr();
+      items.push({ value: ri + "/" + gi, label: (g.no ? "#" + g.no + " · " : "") + (g.d && !today ? g.d.slice(5).replace("-", "/") + " " : "") + (g.when ? g.when + " · " : "") + (r.name || (r.pool ? "Poule" : "Ronde")) + " : " + (g.b || "?") + " @ " + (g.a || "?") + (done ? " (" + g.sb + "-" + g.sa + ")" : ""), o: (done ? 4 : 0) + (mine ? 0 : 1) + (g.d && !today ? 2 : 0), w: (g.d || "") + (g.when || "99"), i: items.length }); }));
     items.sort((x, y) => x.o - y.o || String(x.w).localeCompare(String(y.w)) || x.i - y.i);
     fillSelect($("wizTourGame"), items, null, items.length ? "Choisir la partie…" : (t ? "Ajoutez d'abord les parties du tournoi (Gestion calendrier → Tournois)" : "—"));
   }
@@ -6199,9 +6202,10 @@ document.addEventListener("DOMContentLoaded", function(){
         try{ renderTours(); renderTeamCal(); updateTickerDisplay(); if(isOpen("standBlock")) renderStandings(); }catch(e){} }); });
   }
   function tourTeams(t){ const o = {}; if(t && t.team) o[t.team] = 1; const m = t && t.teams; if(m && typeof m === "object") Object.keys(m).forEach(k => { if(m[k]) o[k] = 1; }); return o; }
-  function tourOf(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), teams: tourTeams(t),
+  function tourOf(t, raw){ const T = tourOfRaw(t); return raw ? T : tourResolve(T); }
+  function tourOfRaw(t){ return { name: String(t && t.name || "Tournoi"), start: String(t && t.start || ""), end: String(t && t.end || t && t.start || ""), place: String(t && t.place || ""), teams: tourTeams(t),
     npools: Math.max(0, Math.min(8, Number(t && t.npools) || 0)), tpools: toArr(t && t.tpools).filter(x => x && x.n).map(x => ({ n: String(x.n), p: String(x.p || "") })),
-    rounds: toArr(t && t.rounds).filter(Boolean).map(r => ({ name: String(r.name || ""), pool: !!r.pool, games: toArr(r.games).filter(Boolean).map(g => ({ when: String(g.when || ""), a: String(g.a || ""), b: String(g.b || ""), sa: g.sa === "" || g.sa == null ? "" : Number(g.sa), sb: g.sb === "" || g.sb == null ? "" : Number(g.sb) })) })) }; }
+    rounds: toArr(t && t.rounds).filter(Boolean).map(r => ({ name: String(r.name || ""), pool: !!r.pool, games: toArr(r.games).filter(Boolean).map(g => ({ when: String(g.when || ""), d: /^\d{4}-\d\d-\d\d$/.test(String(g.d || "")) ? String(g.d) : "", no: Number(g.no) > 0 ? Math.floor(Number(g.no)) : 0, a: String(g.a || ""), b: String(g.b || ""), sa: g.sa === "" || g.sa == null ? "" : Number(g.sa), sb: g.sb === "" || g.sb == null ? "" : Number(g.sb) })) })) }; }
   const tSame = (a, b) => !!a && !!b && (a === b || !!sameTeamName(a, [b]));
   function tourHasTeam(t, key){
     const p = presets[key]; if(!p) return false; if(t.teams[key]) return true;
@@ -6217,18 +6221,40 @@ document.addEventListener("DOMContentLoaded", function(){
     return out;
   }
   // members (facultatif) : seules ces équipes ont une ligne, même sans partie jouée ; les parties contre une autre poule comptent quand même
-  function poolTable(r, meName, members){
+  function poolRows(games, members){
     const T = {}, mem = members && members.length ? members : null;
     const canon = n => mem ? (mem.filter(m => tSame(m, n))[0] || null) : n;
     const row = n => { const k = canon(n); return k ? (T[k] || (T[k] = { n: k, pj: 0, v: 0, d: 0, nl: 0, bp: 0, bc: 0 })) : { pj: 0, v: 0, d: 0, nl: 0, bp: 0, bc: 0 }; };
     if(mem) mem.forEach(row);
-    r.games.forEach(g => { if(!g.a || !g.b) return; const A = row(g.a), B = row(g.b); if(g.sa === "" || g.sb === "") return;
+    games.forEach(g => { if(!g.a || !g.b) return; const A = row(g.a), B = row(g.b); if(g.sa === "" || g.sb === "") return;
       A.pj++; B.pj++; A.bp += g.sa; A.bc += g.sb; B.bp += g.sb; B.bc += g.sa;
       if(g.sa > g.sb){ A.v++; B.d++; } else if(g.sa < g.sb){ B.v++; A.d++; } else { A.nl++; B.nl++; } });
-    const L = Object.keys(T).map(k => T[k]).sort((x, y) => (2 * y.v + y.nl) - (2 * x.v + x.nl) || (y.bp - y.bc) - (x.bp - x.bc) || y.bp - x.bp || x.n.localeCompare(y.n, "fr"));
+    return Object.keys(T).map(k => T[k]).sort((x, y) => (2 * y.v + y.nl) - (2 * x.v + x.nl) || (y.bp - y.bc) - (x.bp - x.bc) || y.bp - x.bp || x.n.localeCompare(y.n, "fr"));
+  }
+  function poolTable(r, meName, members){
+    const L = poolRows(r.games, members);
     const tb = el("table"), h = el("tr"); ["Équipe", "PJ", "V", "D", "N", "BP", "BC", "PTS"].forEach(c => h.appendChild(el("th", null, c))); tb.appendChild(h);
     L.forEach(x => { const tr = el("tr", meName && tSame(x.n, meName) ? "me" : ""); [x.n, x.pj, x.v, x.d, x.nl, x.bp, x.bc, 2 * x.v + x.nl].forEach(c => tr.appendChild(el("td", null, String(c)))); tb.appendChild(tr); });
     return tb;
+  }
+  // Remplace « 1er Pool C », « 2e Poule A », « Gagnant 13 », « Perdant 21 » par l'équipe quand c'est connu
+  // (poule terminée, ou partie n° X jouée). La mention d'origine reste dans g.pa / g.pb.
+  const TOUR_RANK_RE = /^\s*(\d)\s*(?:er|re|e|è|ème|eme|ere)?\s*(?:de\s+la\s+|du\s+)?(?:pool|poule)\s*([A-H])\s*$/i;
+  const TOUR_WIN_RE = /^\s*(gagnant|vainqueur|perdant)\s*(?:du\s+)?(?:match|partie)?\s*(?:n[o°º]\.?|#)?\s*(\d+)\s*$/i;
+  function tourGamesSorted(t){ const out = []; t.rounds.forEach(r => r.games.forEach(g => out.push(g))); return out; }
+  function tourResolve(t){
+    const all = tourGamesSorted(t), byNo = {}; all.forEach(g => { if(g.no) byNo[g.no] = g; });
+    const done = g => g.sa !== "" && g.sb !== "";
+    const ranks = {};       // lettre → équipes dans l'ordre, si toutes les parties de la poule sont jouées
+    const groups = tourPoolGroups(t) || t.rounds.filter(r => r.pool).map(r => { const m = /([A-H])\s*$/i.exec(r.name || ""); return m ? { name: "Poule " + m[1].toUpperCase(), members: null, games: r.games } : null; }).filter(Boolean);
+    groups.forEach(G => { const m = /^Poule ([A-H])$/.exec(G.name); if(!m || !G.games.length || !G.games.every(done)) return;
+      ranks[m[1]] = poolRows(G.games.filter(g => !TOUR_RANK_RE.test(g.a) && !TOUR_RANK_RE.test(g.b)), G.members).map(x => x.n); });
+    const res = n => { let m = TOUR_RANK_RE.exec(n); if(m){ const L = ranks[m[2].toUpperCase()]; return L && L[Number(m[1]) - 1] || ""; }
+      m = TOUR_WIN_RE.exec(n); if(m){ const g = byNo[Number(m[2])]; if(!g || !done(g) || g.sa === g.sb) return ""; const win = g.sa > g.sb ? g.a : g.b, lose = g.sa > g.sb ? g.b : g.a;
+        const v = /^perdant/i.test(m[1]) ? lose : win; return TOUR_RANK_RE.test(v) || TOUR_WIN_RE.test(v) ? "" : v; }
+      return ""; };
+    for(let pass = 0; pass < 6; pass++) all.forEach(g => ["a", "b"].forEach(k => { const v = res(g[k]); if(v){ g["p" + k] = g["p" + k] || g[k]; g[k] = v; } }));
+    return t;
   }
   // Poules choisies équipe par équipe : on regroupe toutes les parties de poule selon la poule des équipes
   const POOL_L = "ABCDEFGH";
@@ -6236,7 +6262,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(t.npools < 2 || !t.tpools.some(x => x.p)) return null;
     const poolOf = n => (t.tpools.filter(x => x.p && tSame(x.n, n))[0] || {}).p || "";
     const games = []; t.rounds.filter(r => r.pool).forEach(r => r.games.forEach(g => games.push(g)));
-    games.sort((x, y) => String(x.when || "99").localeCompare(String(y.when || "99")));
+    games.sort((x, y) => (String(x.d || "9") + String(x.when || "99")).localeCompare(String(y.d || "9") + String(y.when || "99")));
     const out = [];
     POOL_L.slice(0, t.npools).split("").forEach(L => { const members = t.tpools.filter(x => x.p === L).map(x => x.n);
       if(!members.length) return;
@@ -6247,10 +6273,12 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   function tourGameBox(g, meName){
     const box = el("div", "tour-g"), done = g.sa !== "" && g.sb !== "";
-    if(g.when) box.appendChild(el("div", "tour-when", "🕒 " + g.when.replace(":", " h ")));
-    [["b", "sb"], ["a", "sa"]].forEach((s, i) => { const nm = g[s[0]] || "À déterminer", sc = g[s[1]], other = s[0] === "b" ? g.sa : g.sb;
+    const dd = g.d ? (() => { const p = g.d.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString("fr-CA", { weekday: "short", day: "numeric", month: "short" }); })() : "";
+    const head = [g.no ? "#" + g.no : "", dd, g.when ? "🕒 " + g.when.replace(":", " h ") : ""].filter(Boolean).join(" · ");
+    if(head) box.appendChild(el("div", "tour-when", head));
+    [["b", "sb"], ["a", "sa"]].forEach((s, i) => { const nm = g[s[0]] || "À déterminer", sc = g[s[1]], other = s[0] === "b" ? g.sa : g.sb, ph = g["p" + s[0]];
       const line = el("div", (done && sc > other ? "w" : "") + (meName && tSame(nm, meName) ? " me" : ""));
-      line.appendChild(el("span", null, nm)); line.appendChild(el("b", null, sc === "" ? "" : String(sc))); box.appendChild(line); });
+      const sp = el("span", null, nm); if(ph){ const sm = el("small", "tour-ph", " (" + ph + ")"); sp.appendChild(sm); } line.appendChild(sp); line.appendChild(el("b", null, sc === "" ? "" : String(sc))); box.appendChild(line); });
     return box;
   }
   function tourCard(id, t, meName){
@@ -6388,7 +6416,7 @@ document.addEventListener("DOMContentLoaded", function(){
       if(TOUR_PLACEHOLDER.test(g.a) || TOUR_PLACEHOLDER.test(g.b)) return "Éliminatoires";
       return ""; };
     const pool = { name: "Poule A", pool: true, games: [] }, elim = {};
-    games.forEach(g => { const r = roundOf(g), gg = { when: g.time || "", a: niceName(g.a), b: niceName(String(g.b).replace(/^.*\s[-:–]\s+/, "")), sa: "", sb: "" };   // « Demi-finale - SSM » → SSM
+    games.forEach(g => { const r = roundOf(g), gg = { when: g.time || "", d: g.date || "", a: niceName(g.a), b: niceName(String(g.b).replace(/^.*\s[-:–]\s+/, "")), sa: "", sb: "" };   // « Demi-finale - SSM » → SSM
       if(r) (elim[r] = elim[r] || []).push(gg); else pool.games.push(gg); });
     const rounds = (pool.games.length ? [pool] : []).concat(["Éliminatoires", "Quart de finale", "Demi-finale", "Finale"].filter(k => elim[k]).map(k => ({ name: k, pool: false, games: elim[k] })));
     const places = {}; games.forEach(g => { if(g.arenaName) places[g.arenaName + (g.city ? ", " + g.city : "")] = 1; });
@@ -6397,7 +6425,7 @@ document.addEventListener("DOMContentLoaded", function(){
     return { name: name, start: games[0].date, end: games[games.length - 1].date, place: Object.keys(places).slice(0, 2).join(" / ").slice(0, 80), teams: teams, rounds: rounds, _n: games.length, _skip: Math.max(0, nEv - games.length) };
   }
   function openTourEdit(id, data){
-    tourEditId = id; const t = tourOf(id ? tourMgr[id] : data || { start: todayStr() }), cat = id ? id.split("/")[0] : calCat;
+    tourEditId = id; const t = tourOf(id ? tourMgr[id] : data || { start: todayStr() }, true), cat = id ? id.split("/")[0] : calCat;
     if(!id && !data){ const tm = calTeamKey(); if(tm) t.teams[tm] = 1; }
     setText("tourEditTitle", (id ? "Modifier le tournoi" : "Nouveau tournoi") + " · " + cat.toUpperCase());
     $("trName").value = id || data ? t.name : ""; $("trStart").value = t.start; $("trEnd").value = t.end; $("trPlace").value = t.place;
@@ -6453,7 +6481,10 @@ document.addEventListener("DOMContentLoaded", function(){
     const games = el("div", "tr-games"); box.appendChild(games);
     const addG = g => { const row = el("div", "tr-game");
       const mk = (cls, v, ph, num) => { const i = el("input"); i.type = num ? "number" : "text"; i.className = cls; i.value = v === "" || v == null ? "" : v; i.placeholder = ph; if(num){ i.min = 0; i.inputMode = "numeric"; } else { i.setAttribute("list", "trTeamNames"); i.maxLength = 30; } return i; };
-      const w = el("input"); w.type = "time"; w.className = "tr-w"; w.value = g.when || ""; w.setAttribute("aria-label", "Heure"); row.appendChild(w);
+      const top = el("div", "tr-top");
+      const no = el("input"); no.type = "number"; no.min = 1; no.className = "tr-no"; no.value = g.no || ""; no.placeholder = "N°"; no.inputMode = "numeric"; no.setAttribute("aria-label", "Numéro de la partie"); top.appendChild(no);
+      const dd = el("input"); dd.type = "date"; dd.className = "tr-d"; dd.value = g.d || ""; dd.setAttribute("aria-label", "Jour"); top.appendChild(dd);
+      const w = el("input"); w.type = "time"; w.className = "tr-w"; w.value = g.when || ""; w.setAttribute("aria-label", "Heure"); top.appendChild(w); row.appendChild(top);
       row.appendChild(el("span", "tr-lv", "Visiteur")); row.appendChild(mk("tr-b", g.b, "Nom de l'équipe")); row.appendChild(mk("tr-s tr-sb", g.sb, "–", 1));
       row.appendChild(el("span", "tr-lr", "Receveur")); row.appendChild(mk("tr-a", g.a, "Nom de l'équipe")); row.appendChild(mk("tr-s tr-sa", g.sa, "–", 1));
       row.appendChild(btn("row-del", "✕", () => row.remove())); games.appendChild(row); };
@@ -6498,7 +6529,7 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!start){ notify("Choisissez la date de début.", "info"); return; }
     const sc = v => v === "" ? "" : Math.max(0, Math.min(99, Number(v) || 0));
     const rounds = [...$("trRounds").querySelectorAll(".tr-round")].map(b => ({ name: str(b.querySelector(".tr-rname").value, ""), pool: b.dataset.pool === "1" || null,
-      games: [...b.querySelectorAll(".tr-game")].map(r => ({ when: (r.querySelector(".tr-w") || {}).value || "", a: str(r.querySelector(".tr-a").value, ""), b: str(r.querySelector(".tr-b").value, ""), sa: sc(r.querySelector(".tr-sa").value), sb: sc(r.querySelector(".tr-sb").value) }))
+      games: [...b.querySelectorAll(".tr-game")].map(r => ({ when: (r.querySelector(".tr-w") || {}).value || "", d: (r.querySelector(".tr-d") || {}).value || "", no: Number((r.querySelector(".tr-no") || {}).value) || 0, a: str(r.querySelector(".tr-a").value, ""), b: str(r.querySelector(".tr-b").value, ""), sa: sc(r.querySelector(".tr-sa").value), sb: sc(r.querySelector(".tr-sb").value) }))
         .filter(g => g.a || g.b) }));
     const id = tourEditId || (calCat + "/" + uid()), teams = {};
     $("trTeams").querySelectorAll("input:checked").forEach(c => { teams[c.value] = true; });
