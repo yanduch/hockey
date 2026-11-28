@@ -106,6 +106,16 @@ CATEGORIES:Game
 STATUS:Active
 END:VEVENT
 BEGIN:VEVENT
+UID:game-1003069
+DTSTART:20261128T233000Z
+DTEND:20261129T004000Z
+SUMMARY:()  VS (U15 C) AIGLES TROIS-RIVIERES-OUEST
+LOCATION:Complexe sportif de Saint-Augustin-de-Desmaures - Glace A, 230 Rte de Fossambault, Saint-Augustin-de-Desmaures, G3A 0R3
+DESCRIPTION:Game\nhttps://page.spordle.com/en/tournoi-m11-m13-m15-banque-scotia-de-saint-augustin-de-desmaures/schedule/1003069
+CATEGORIES:Game
+STATUS:Active
+END:VEVENT
+BEGIN:VEVENT
 UID:game-980342
 DTSTART:20261025T213000Z
 DTEND:20261025T230000Z
